@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euxo pipefail
+
+# 앱은 GHCR 이미지를 docker compose로 띄운다 (WES-Server의 CD가 SSM Run Command로 배포).
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y docker.io docker-compose-v2
+
+# CD의 SSM 스크립트는 root로 돌아 그룹이 필수는 아니지만, 수동 점검 때 ubuntu로도 docker를 쓰게 해둔다.
+usermod -aG docker ubuntu
+
+# t4g.micro(1GiB)는 컨테이너 메모리 한도(1g)와 호스트 몫이 겹친다. 기동/부하 시 OOM 방지용 스왑 2GB.
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+# Ubuntu에는 기본 설치가 안 되어 있음 (AL2023과 다름); SSM에서 DB 비밀번호 읽을 때 필요.
+snap install aws-cli --classic

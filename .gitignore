@@ -1,0 +1,23 @@
+# Terraform state, plans, caches — never commit
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+.terraform/
+crash.log
+crash.*.log
+
+# Variable files may contain secrets; commit only the .example
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Provider credentials / overrides
+.terraformrc
+terraform.rc
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+.DS_Store
