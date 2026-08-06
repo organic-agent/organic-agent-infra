@@ -34,6 +34,16 @@ resource "aws_db_instance" "this" {
   password_wo         = ephemeral.aws_ssm_parameter.db_password.value
   password_wo_version = var.password_wo_version
 
+  # 임베딩 Lambda가 비밀번호 없이 붙기 위한 조건. Lambda는 NAT도 인터페이스 엔드포인트도
+  # 없는 서브넷에 있어서 Parameter Store를 읽을 수 없고, 비밀번호를 환경변수로 주입하면
+  # 이 스택이 지켜 온 "비밀번호는 state에 남기지 않는다"가 깨진다. IAM 인증은 토큰을
+  # 로컬 서명으로 만들기 때문에 둘 다 피한다.
+  #
+  # 이 플래그만으로는 아무도 IAM으로 붙을 수 없다. DB 안에서 `GRANT rds_iam`을 받은
+  # 사용자를 한 번 만들어 줘야 하고, 그건 Terraform이 못 하는 일이다 —
+  # docs/runbook.md의 "임베딩 파이프라인" 절 참고.
+  iam_database_authentication_enabled = true
+
   db_subnet_group_name   = aws_db_subnet_group.this.name
   vpc_security_group_ids = [var.security_group_id]
   publicly_accessible    = false

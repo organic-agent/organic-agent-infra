@@ -100,3 +100,39 @@ variable "db_subnet_cidrs" {
   type        = list(string)
   default     = ["10.0.10.0/24", "10.0.11.0/24"]
 }
+
+# --- 임베딩 파이프라인 ---
+
+variable "embedder_db_username" {
+  description = <<-EOT
+    임베딩 Lambda가 IAM 인증으로 붙을 DB 사용자. 마스터 계정이 아니다 — 마스터는 rds_iam을
+    받을 수 없고, 이 잡에 필요한 권한은 photos 테이블의 SELECT/UPDATE뿐이다.
+    DB 안에 사용자를 만드는 것은 Terraform 밖의 수동 작업이다 (docs/runbook.md).
+  EOT
+  type        = string
+  default     = "embedder"
+}
+
+variable "embedder_image_tag" {
+  description = "ECR에 올라간 임베더 이미지 태그. 이 태그가 이미 있어야 Lambda가 만들어진다 (docs/deploy-order.md)."
+  type        = string
+  default     = "latest"
+}
+
+variable "embedder_memory_mb" {
+  description = "임베딩 Lambda 메모리(= CPU 할당량). 순수 CPU 추론이라 낮추면 몇 배 느려지고 총비용은 그대로다."
+  type        = number
+  default     = 3008
+}
+
+variable "embedder_batch_size" {
+  description = "모델에 한 번에 넣는 사진 수"
+  type        = number
+  default     = 8
+}
+
+variable "embedding_dimension" {
+  description = "임베딩 폭. 앱의 vector(n) 컬럼·Photo.EMBEDDING_DIMENSION과 셋이 같아야 한다. 768은 DINOv2-base."
+  type        = number
+  default     = 768
+}
