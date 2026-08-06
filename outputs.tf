@@ -17,6 +17,11 @@ output "ec2_public_ip" {
   value       = module.compute.public_ip
 }
 
+output "ec2_instance_id" {
+  description = "SSM 세션·포트포워딩의 --target 값 (임베더 로컬 실행 시 RDS 터널을 이 인스턴스로 뚫는다)"
+  value       = module.compute.instance_id
+}
+
 output "ssh_command" {
   description = "비상용 직접 SSH (ssh_allowed_cidr 지정 후에만 동작). 평소엔 SSM 경유 — docs/runbook.md '서버 접속' 참조"
   value       = "ssh -i ~/.ssh/wes-aws-key ubuntu@${module.compute.public_ip}"
@@ -40,4 +45,19 @@ output "db_jdbc_url" {
 output "db_password_ssm_parameter" {
   description = "읽는 법: aws ssm get-parameter --name <this> --with-decryption --query Parameter.Value --output text"
   value       = local.db_password_parameter_name
+}
+
+output "photo_bucket" {
+  description = "원본 사진 버킷 (이미 /wes/prod/app.storage.bucket에 기록됨)"
+  value       = module.storage.bucket_name
+}
+
+output "embedder_repository_url" {
+  description = "임베더 이미지를 푸시할 ECR 리포지토리 (docker push 대상)"
+  value       = module.embedding.repository_url
+}
+
+output "embedder_function_name" {
+  description = "임베딩 Lambda 이름. 수동 실행: aws lambda invoke --function-name <this> ..."
+  value       = module.embedding.function_name
 }

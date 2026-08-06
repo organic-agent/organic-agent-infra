@@ -113,3 +113,37 @@ resource "aws_vpc_security_group_ingress_rule" "rds_from_ec2" {
   to_port                      = var.db_port
   ip_protocol                  = "tcp"
 }
+
+# --- 임베딩 Lambda ---
+
+# ENI가 DB 서브넷에 생긴다. Lambda에는 아무도 접속하지 않으므로 인그레스가 없고,
+# 이그레스가 S3 읽기(게이트웨이 엔드포인트 경유)와 PostgreSQL 쓰기를 나른다.
+resource "aws_security_group" "embedder" {
+  name_prefix = "${var.name_prefix}-embedder-"
+  description = "Embedding Lambda: no inbound, S3 and RDS outbound"
+  vpc_id      = var.vpc_id
+
+  tags = {
+    Name = "${var.name_prefix}-embedder"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "embedder_all" {
+  security_group_id = aws_security_group.embedder.id
+  description       = "All outbound (S3 gateway endpoint, RDS)"
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "rds_from_embedder" {
+  security_group_id            = aws_security_group.rds.id
+  description                  = "PostgreSQL from the embedding Lambda"
+  referenced_security_group_id = aws_security_group.embedder.id
+  from_port                    = var.db_port
+  to_port                      = var.db_port
+  ip_protocol                  = "tcp"
+}
