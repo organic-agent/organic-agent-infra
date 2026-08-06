@@ -61,3 +61,13 @@ output "embedder_function_name" {
   description = "임베딩 Lambda 이름. 수동 실행: aws lambda invoke --function-name <this> ..."
   value       = module.embedding.function_name
 }
+
+output "embedder_role_arn" {
+  description = "임베딩 Lambda 실행 롤 ARN (SCP 차단 판별 — docs/runbook.md 'SCP 차단' 참조)"
+  value       = module.embedding.role_arn
+}
+
+output "db_resource_id" {
+  description = "RDS 리소스 ID(db-XXXX). rds-db:connect 정책 ARN이 인스턴스 이름이 아니라 이 값을 쓴다"
+  value       = module.database.resource_id
+}

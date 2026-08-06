@@ -229,19 +229,25 @@ OAuth 클라이언트 ID/시크릿도 `/wes/prod/` 아래 SecureString 파라미
 **재실행이 안전하다.** 대상 조건이 `embedding IS NULL`이라 중간에 죽어도 다시 부르면
 남은 것만 이어서 한다.
 
-### 접속에 비밀번호가 없다 — 그래서 수동 작업이 하나 있다
+### DB 접속 — 원래 설계와 지금 상태가 다르다
 
-Lambda는 NAT도 인터페이스 엔드포인트도 없는 DB 서브넷에 있어서 Parameter Store를 읽을 수
-없고, 비밀번호를 환경변수로 주입하면 이 스택이 지켜 온 "비밀번호는 state에 남기지 않는다"가
-깨진다. 그래서 **RDS IAM 인증**을 쓴다 — 토큰 생성은 네트워크를 타지 않는 로컬 서명이다.
+원래 설계는 **RDS IAM 인증**이었다. Lambda는 NAT도 인터페이스 엔드포인트도 없는 DB
+서브넷에 있어서 Parameter Store를 읽을 수 없고, 비밀번호를 환경변수로 주입하면 이 스택이
+지켜 온 "비밀번호는 state에 남기지 않는다"가 깨진다. 토큰 생성은 네트워크를 타지 않는 로컬
+서명이라 둘 다 피할 수 있었다.
 
-Terraform이 해주는 것은 두 가지뿐이다:
+**지금은 쓰지 못한다.** 조직 SCP가 이 계정 전체에서 `rds-db:connect`를 거부한다. 계정
+`233927217926`은 조직의 멤버 계정이라 여기서는 풀 수 없다(SCP는 관리 계정에는 적용되지
+않는다 — 관리자인데도 막힌다는 것이 곧 멤버 계정이라는 증거다). 그래서 접속은 임시로
+비밀번호를 쓴다. 판별법과 원복 절차는 아래 [SCP 차단](#scp-차단-임시-우회로) 참고.
 
-- RDS 인스턴스의 `iam_database_authentication_enabled = true`
-- Lambda 롤의 `rds-db:connect` (대상 ARN에 RDS 리소스 ID와 사용자 이름이 박힌다)
+수동 작업은 **두 가지**다. 둘 다 Terraform이 할 수 없는 일이고, 하나라도 빠지면 임베딩이
+죽는다.
 
-**DB 안의 사용자는 Terraform이 만들지 못한다.** SQL이라서다. 없으면 임베딩 실행이
-`PAM authentication failed`로 죽는다. DB를 새로 만들 때마다 한 번씩:
+#### 1. DB 사용자 — DB를 새로 만들 때마다
+
+SQL이라 Terraform이 만들지 못한다. 없으면 `password authentication failed`로 죽는다
+(로그 DETAIL에 `Role "embedder" does not exist`가 함께 찍힌다).
 
 ```bash
 # photos 테이블은 앱이 처음 뜰 때 Flyway가 만든다. 그 뒤에 실행할 것.
@@ -253,14 +259,92 @@ PGPASSWORD="$DB_PASSWORD" psql -h <rds_address> -U wes_admin -d wes_db
 ```
 
 ```sql
-CREATE USER embedder;
-GRANT rds_iam TO embedder;
+-- 마스터와 다른 값을 쓴다. /wes/prod/embedder.db.password 에 등록한 값과 같아야 한다.
+CREATE USER embedder WITH PASSWORD '<embedder 전용 비밀번호>';
+
 -- 잡이 건드리는 것은 이 테이블뿐이다. 넓게 주지 않는다.
 GRANT SELECT, UPDATE ON photos TO embedder;
+
+-- SCP 우회로를 쓰는 동안에는 rds_iam을 주지 않는다 (아래 설명). 이미 준 상태라면:
+REVOKE rds_iam FROM embedder;
 ```
+
+> **`rds_iam`과 비밀번호 인증은 동시에 쓸 수 없다.** pg_hba는 선착순 매칭인데, RDS가 넣어
+> 두는 규칙 순서가 이렇다:
+>
+> | line | type | user | method |
+> |---|---|---|---|
+> | 13 | hostssl | `+rds_iam` | pam |
+> | 14 | host | `+rds_iam` | reject |
+> | 15 | hostssl | all | md5 |
+>
+> `rds_iam` 멤버는 13번에서 잡혀 15번까지 가지 못한다. 그래서 **우회로를 쓰는 동안에는
+> `REVOKE rds_iam FROM embedder;`가 필요하다.** SCP가 풀리면 다시 GRANT 한다.
+>
+> 직접 확인: `select line_number, type, user_name, auth_method from pg_hba_file_rules order by line_number;`
 
 > 마스터 계정(`wes_admin`)에 `rds_iam`을 주는 것으로 대신할 수 없다. RDS가 마스터 사용자에
 > 대해서는 그 역할 부여를 거부한다.
+
+#### 2. 비밀번호 주입 — 함수를 새로 만들 때마다
+
+`DB_PASSWORD`는 Terraform이 넣지 않는다. 넣으면 state에 평문으로 남는다. apply 밖에서
+한 번 주입하고, `modules/embedding`의 `ignore_changes`가 이후 apply에서 그 키를 지켜 준다.
+
+`update-function-configuration --environment`는 **환경변수 맵 전체를 덮어쓴다.** 값 하나만
+넘기면 `DB_HOST` 이하가 전부 사라지므로, 반드시 기존 맵을 읽어 병합해야 한다:
+
+```bash
+FN=wes-embedder
+REGION=ap-northeast-2
+
+PW=$(aws ssm get-parameter --region "$REGION" \
+  --name /wes/prod/embedder.db.password \
+  --with-decryption --query Parameter.Value --output text)
+
+MERGED=$(aws lambda get-function-configuration --region "$REGION" --function-name "$FN" \
+  --query 'Environment.Variables' --output json | jq --arg pw "$PW" '. + {DB_PASSWORD: $pw}')
+
+aws lambda update-function-configuration --region "$REGION" --function-name "$FN" \
+  --environment "$(jq -n --argjson v "$MERGED" '{Variables: $v}')"
+```
+
+확인 (값 자체는 찍지 않는다):
+
+```bash
+aws lambda get-function-configuration --region ap-northeast-2 --function-name wes-embedder \
+  --query 'Environment.Variables | keys' --output json
+```
+
+> apply 뒤에는 이 키가 살아남았는지 한 번 확인할 것. `ignore_changes`가 지켜 주지만,
+> 함수가 **재생성**되면(태그·이름 변경 등) 새 함수에는 없으므로 다시 주입해야 한다.
+
+### SCP 차단 (임시 우회로)
+
+`PAM authentication failed`인데 DB 사용자와 `GRANT rds_iam`이 멀쩡하다면 SCP를 의심한다.
+RDS 에러 로그에는 `pam_authenticate failed: Permission denied`로 찍힌다.
+
+판별은 IAM 정책 시뮬레이터로 한다. **`MatchedStatements`가 비어 있는데 `explicitDeny`**이면
+이 계정 안의 어떤 정책도 거부하지 않았다는 뜻이고, 거부는 조직 SCP에서 온 것이다:
+
+```bash
+aws iam simulate-principal-policy \
+  --policy-source-arn "$(terraform output -raw embedder_role_arn)" \
+  --action-names rds-db:connect \
+  --resource-arns "arn:aws:rds-db:ap-northeast-2:233927217926:dbuser:$(terraform output -raw db_resource_id)/embedder" \
+  --query 'EvaluationResults[].{D:EvalDecision,Org:OrganizationsDecisionDetail.AllowedByOrganizations}'
+```
+
+`Org: false`면 SCP다. 대조군으로 `s3:GetObject`를 같이 돌려 보면 `true`가 나온다.
+
+**원복 (관리 계정에서 SCP를 푼 뒤):**
+
+1. 위 시뮬레이션이 `allowed`로 바뀌는지 확인
+2. `psql`에서 `GRANT rds_iam TO embedder;` (우회로를 쓰며 REVOKE 했다면)
+3. `embedder/db.py`의 `connect()`를 `generate_db_auth_token` 방식으로 되돌리고 이미지 재배포
+4. Lambda 환경변수에서 `DB_PASSWORD` 제거, `modules/embedding`의 `ignore_changes`에서 해당 줄 제거
+5. **마스터 비밀번호 교체** — state 버킷은 버저닝이 켜져 있어 우회로를 쓰는 동안의 값이
+   과거 버전에 남는다. 절차는 [사전 준비](#사전-준비-최초-1회) 하단
 
 ### 이미지 빌드·배포
 
@@ -302,7 +386,10 @@ aws lambda invoke --region ap-northeast-2 \
 
 | 증상 | 원인 |
 |---|---|
-| `PAM authentication failed for user "embedder"` | DB 사용자를 안 만들었거나 `GRANT rds_iam`이 빠졌다 (위 참고) |
+| `password authentication failed for user "embedder"` | DB 사용자가 없다. RDS 에러 로그 DETAIL에 `Role "embedder" does not exist`가 함께 찍힌다 |
+| `PAM authentication failed` + DB 사용자·GRANT 정상 | 조직 SCP가 `rds-db:connect`를 막고 있다 → [SCP 차단](#scp-차단-임시-우회로) |
+| `PAM authentication failed` + 비밀번호로 붙는 중 | `embedder`가 아직 `rds_iam` 멤버다. pg_hba가 PAM 경로로 보내 비밀번호를 아예 안 본다 — `REVOKE rds_iam FROM embedder;` |
+| 접속 성공하다가 apply 후 갑자기 실패 | apply가 `DB_PASSWORD` 환경변수를 지웠다. 함수가 재생성되면 `ignore_changes`도 못 지킨다 — 다시 주입 |
 | S3 GET에서 타임아웃 (자격증명 오류처럼 보이지 않는다) | DB 서브넷의 S3 게이트웨이 엔드포인트가 없다 |
 | 호출은 되는데 핸들러 로그가 없다 | VPC 함수의 ENI를 못 만들었다 — 롤에 `AWSLambdaVPCAccessExecutionRole` 확인 |
 | `InvalidParameterValueException: image manifest ... not supported` | buildx가 manifest list를 만들었다 — `--provenance=false --sbom=false` 빠짐 |
