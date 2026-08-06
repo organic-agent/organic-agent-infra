@@ -36,6 +36,7 @@ dig NS easyselect.kr +short   # awsdns 4개면 위임 완료
 | 파라미터 (`/wes/prod/` 아래) | 타입 | 비고 |
 |---|---|---|
 | `spring.datasource.password` | SecureString | RDS 마스터 비밀번호 — apply **전에** 있어야 함 |
+| `embedder.db.password` | SecureString | 임베더용 DB 사용자 비밀번호. 앱은 읽지 않는다 — SCP 우회로 전용([7] 참고) |
 | `jwt.secret` | SecureString | |
 | `spring.security.oauth2.client.registration.{kakao,google,naver}.*` | SecureString | client-id/secret, redirect-uri, scope 등 |
 | `cors.allowed-origins` | String | 쉼표 구분 문자열 (프론트 오리진 목록) |
@@ -114,19 +115,27 @@ terraform output -raw github_deploy_role_arn
 앱이 처음 뜰 때 **Flyway가 스키마를 만든다**(`CREATE EXTENSION vector` 포함). 그전에는
 `photos` 테이블이 없으므로 다음 단계를 할 수 없다.
 
-## [7] 임베딩용 DB 사용자 — DB를 새로 만들 때마다
+## [7] 임베더 DB 접속 — Terraform 밖의 수동 작업 2개
 
-Lambda는 비밀번호 없이 **RDS IAM 인증**으로 붙는다. Terraform이 `rds-db:connect` 권한과
-인스턴스의 IAM 인증 활성화까지는 해주지만, **DB 안의 사용자는 만들지 못한다** — SQL이라서다.
-그 사용자가 없으면 임베딩 실행이 `PAM authentication failed`로 죽는다.
+둘 다 apply가 해주지 못한다. 하나라도 빠지면 임베딩이 접속 단계에서 죽고, 사진은 한 장도
+처리되지 않는다. 상세 절차(psql 접속, 진단법 포함):
+[runbook.md > 임베딩 파이프라인](runbook.md#임베딩-파이프라인)
 
-상세 절차(psql 접속 포함): [runbook.md > 임베딩 파이프라인](runbook.md#임베딩-파이프라인)
+**7-1. DB 사용자** — DB를 새로 만들 때마다. SQL이라 Terraform이 만들지 못한다.
 
 ```sql
-CREATE USER embedder;
-GRANT rds_iam TO embedder;
+CREATE USER embedder WITH PASSWORD '<embedder.db.password 와 같은 값>';
 GRANT SELECT, UPDATE ON photos TO embedder;
 ```
+
+**7-2. 비밀번호 주입** — 함수를 새로 만들 때마다. Terraform이 넣으면 state에 평문으로
+남으므로 apply 밖에서 넣고, `ignore_changes`가 이후 apply에서 그 키를 지킨다.
+`--environment`는 맵 전체를 덮어쓰므로 **기존 값을 읽어 병합**해야 한다 — 명령은 런북에 있다.
+
+> **원래 설계는 비밀번호가 아니라 RDS IAM 인증이었다.** 조직 SCP가 이 계정에서
+> `rds-db:connect`를 거부해 임시로 되돌린 상태다. 그래서 `GRANT rds_iam`도 지금은 하지
+> 않는다 — 주면 pg_hba가 PAM 경로로 보내 비밀번호 인증이 아예 막힌다.
+> 판별법과 원복 절차: [runbook.md > SCP 차단](runbook.md#scp-차단-임시-우회로)
 
 ## [8] 검증
 
