@@ -95,9 +95,16 @@ data "aws_iam_policy_document" "this" {
     resources = ["${var.photo_bucket_arn}/previews/*"]
   }
 
-  # 비밀번호 대신 이것. 함수는 이 권한으로 15분짜리 접속 토큰을 로컬에서 서명해 만든다.
+  # 원래 설계는 이 권한으로 15분짜리 접속 토큰을 만들어 비밀번호를 아예 없애는 것이었다.
   # ARN이 인스턴스 이름이 아니라 RDS 리소스 ID(db-XXXX)를 쓰는 점에 주의 — 인스턴스를
   # 다시 만들면 값이 바뀌므로 하드코딩하면 안 된다.
+  #
+  # **지금은 동작하지 않는다.** 조직 SCP가 계정 전체에서 rds-db:connect를 거부한다.
+  # 이 계정은 멤버 계정이라 여기서는 풀 수 없고, DB 쪽(embedder 사용자, GRANT rds_iam)은
+  # 이미 갖춰져 있다. 그래서 접속은 임시로 비밀번호를 쓴다 — 아래 environment 블록 참고.
+  #
+  # 문장을 지우지 않고 남겨 둔다. 관리 계정에서 SCP를 풀면 이 문장과 db.py의 토큰 생성만
+  # 되살리면 되고, 그게 되돌아가야 할 지점이다. 막혀 있는 동안 이 권한은 아무것도 주지 않는다.
   statement {
     sid       = "ConnectAsEmbedder"
     actions   = ["rds-db:connect"]
@@ -145,8 +152,12 @@ resource "aws_lambda_function" "this" {
 
   environment {
     variables = {
-      # 비밀번호가 없다. 접속은 RDS IAM 인증이고 토큰은 함수가 직접 만든다
-      # (embedder/db.py). 그래서 이 블록에도, Terraform state에도 비밀이 없다.
+      # DB_PASSWORD는 여기 없다. Terraform이 넣으면 state에 평문으로 남기 때문에,
+      # apply 밖에서 한 번 주입하고 아래 lifecycle이 그 키를 지켜 준다
+      # (docs/runbook.md의 "임베딩 파이프라인 > 비밀번호 주입" 참고).
+      #
+      # 원래는 이것조차 필요 없었다 — RDS IAM 인증으로 비밀번호 자체가 없는 설계였다.
+      # SCP가 rds-db:connect를 막아 임시로 되돌린 상태다. 위 IAM 정책 주석 참고.
       DB_HOST = var.db_host
       DB_PORT = tostring(var.db_port)
       DB_NAME = var.db_name
@@ -167,10 +178,20 @@ resource "aws_lambda_function" "this" {
   ]
 
   lifecycle {
-    # 새 이미지는 같은 태그로 밀고 update-function-code로 반영한다. 그러면 Terraform이
-    # 기록해 둔 다이제스트가 곧바로 낡는다. 이게 없으면 이후 모든 plan이 함수를 마지막
-    # apply 시점의 이미지로 되돌리려 든다.
-    ignore_changes = [image_uri]
+    ignore_changes = [
+      # 새 이미지는 같은 태그로 밀고 update-function-code로 반영한다. 그러면 Terraform이
+      # 기록해 둔 다이제스트가 곧바로 낡는다. 이게 없으면 이후 모든 plan이 함수를 마지막
+      # apply 시점의 이미지로 되돌리려 든다.
+      image_uri,
+
+      # 위 environment 블록에 DB_PASSWORD가 없으므로, 이게 없으면 apply 때마다 손으로
+      # 넣은 키를 지운다. 키 하나만 무시하므로 DB_HOST 같은 나머지 값은 정상적으로 반영된다.
+      #
+      # 이래도 refresh는 AWS에서 값을 읽어 state에 기록한다. 즉 비밀번호는 state 파일에
+      # 남는다 — Terraform이 넣지 않을 뿐이다. state 버킷은 버저닝이 켜져 있어 한 번 들어간
+      # 값은 과거 버전에도 남으니, SCP가 풀려 이 우회로를 걷을 때 비밀번호도 함께 교체한다.
+      environment[0].variables["DB_PASSWORD"],
+    ]
   }
 }
 

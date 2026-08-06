@@ -12,3 +12,8 @@ output "function_arn" {
   description = "임베딩 Lambda ARN"
   value       = aws_lambda_function.this.arn
 }
+
+output "role_arn" {
+  description = "임베딩 Lambda 실행 롤 ARN (rds-db:connect가 SCP에 막혔는지 시뮬레이션할 때 쓴다)"
+  value       = aws_iam_role.this.arn
+}
