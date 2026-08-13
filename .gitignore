@@ -21,3 +21,6 @@ override.tf.json
 *_override.tf.json
 
 .DS_Store
+
+# draw.io autosave backups
+.$*.bkp
