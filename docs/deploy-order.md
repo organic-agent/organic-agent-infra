@@ -14,10 +14,12 @@
 [8] 검증                         — 헬스체크·타깃 그룹·OAuth·업로드
 ```
 
-1~2는 한 번 해두면 destroy 후 재배포 때 건너뛴다. 3~5는 스택을 다시 세울 때마다,
-6·8은 배포할 때마다 반복된다. 7은 DB를 새로 만들 때만 다시 한다.
+1-2는 한 번 해두면 destroy 후 재배포 때 건너뛴다. 3-5는 스택을 다시 세울 때마다,
+6과 8은 배포할 때마다 반복된다. 7은 DB를 새로 만들 때만 다시 한다.
 
-## [1] dns 스택 — 최초 1회
+---
+
+## # [1] dns 스택 (최초 1회)
 
 존은 앱 스택과 분리되어 destroy 후에도 남는다. 이미 위임돼 있으면 생략.
 
@@ -26,11 +28,13 @@ terraform -chdir=dns apply
 dig NS easyselect.kr +short   # awsdns 4개면 위임 완료
 ```
 
-상세: [runbook.md > 배포 1단계](runbook.md#1단계--dns-스택으로-존-생성-등록기관에서-ns-변경)
+상세 : [runbook.md > 배포 1단계](runbook.md#-1단계-dns-스택-apply-ns-위임)
 
-## [2] SSM 수동 파라미터 — 최초 1회
+---
 
-앱은 부팅 시 `/wes/prod/` 아래를 통째로 읽는다. **아래가 없으면 앱이 부팅에 실패한다**
+## # [2] SSM 수동 파라미터 (최초 1회)
+
+앱은 부팅 시 `/wes/prod/` 아래를 통째로 읽으므로, **아래가 없으면 앱이 부팅에 실패한다**
 (빠지면 `Could not resolve placeholder ...` 에러로 컨테이너가 재시작 루프를 돈다):
 
 | 파라미터 (`/wes/prod/` 아래) | 타입 | 비고 |
@@ -46,16 +50,16 @@ dig NS easyselect.kr +short   # awsdns 4개면 위임 완료
 테라폼이 apply 때 자동 생성하므로 등록하지 않는다.
 파라미터는 destroy와 무관하게 남으므로 최초 1회만 등록하면 된다.
 
-> `cors.allowed-origins`는 apply의 **입력**이기도 하다. 루트 스택이 이 값을 읽어 S3 버킷의
-> CORS 허용 오리진으로 그대로 쓴다(브라우저가 S3에 직접 PUT/GET 하므로 프리플라이트에
-> 답하는 것도 S3다). 없으면 apply가 파라미터를 찾지 못해 멈춘다.
+> `cors.allowed-origins`는 apply의 **입력**이기도 하다. 브라우저가 S3에 직접 PUT/GET 해서 프리플라이트에 답하는 것도 S3이므로, 루트 스택이 이 값을 읽어 S3 버킷의 CORS 허용 오리진으로 그대로 쓴다. 없으면 apply가 파라미터를 찾지 못해 멈춘다.
 
-상세: [runbook.md > 사전 준비](runbook.md#사전-준비-최초-1회), [설정 주입](runbook.md#설정-주입-ssm-파라미터)
+상세 : [runbook.md > 사전 준비](runbook.md#-사전-준비-최초-1회), [설정 주입](runbook.md#-설정-주입-ssm-파라미터)
 
-## [3] 임베더 이미지 — 스택 세울 때마다
+---
 
-**Lambda는 이미지가 없는 ECR을 상대로 만들어지지 않는다.** 리포지토리만 먼저 만들고,
-이미지를 밀고, 그 다음에 전체 apply 한다.
+## # [3] 임베더 이미지 (스택 세울 때마다)
+
+**Lambda는 이미지가 없는 ECR을 상대로 만들어지지 않으므로**, 리포지토리만 먼저 만들고
+이미지를 민 뒤에 전체 apply 한다.
 
 ```bash
 terraform apply -target=module.embedding.aws_ecr_repository.this
@@ -70,22 +74,26 @@ docker buildx build --platform linux/amd64 --provenance=false --sbom=false \
 ```
 
 세 플래그가 전부 필요한 이유(아키텍처, manifest list)는 서버 저장소의
-`wes/embedder/README.md`에 있다. 이미지가 3~5GB라 첫 빌드·푸시는 수십 분 걸린다.
+`wes/embedder/README.md`에 있다. 이미지가 3-5GB라 첫 빌드·푸시는 수십 분 걸린다.
 
 > 태그의 중괄호를 빼면 안 된다. zsh는 `"$REPO:latest"`의 `:l`을 소문자 변환 모디파이어로
-> 해석해서 `wes-embedderatest` 같은 이름을 만든다. 빌드를 다 마친 뒤 푸시 단계에서
-> `repository does not exist`로 떨어진다.
+> 해석해서 `wes-embedderatest` 같은 이름을 만들고, 빌드를 다 마친 뒤 푸시 단계에서
+> `repository does not exist`로 실패한다.
 
-## [4] 앱 스택 apply — 스택 세울 때마다
+---
+
+## # [4] 앱 스택 apply (스택 세울 때마다)
 
 ```bash
-terraform apply   # ACM 검증 포함 5~15분
+terraform apply   # ACM 검증 포함 5-15분
 ```
 
 EC2 user_data가 Docker·스왑을 설치하고, S3 사진 버킷과 임베딩 Lambda,
 GitHub Actions용 OIDC 배포 롤도 함께 생성된다.
 
-## [5] 배포 롤 시크릿 등록 — 스택 세울 때마다
+---
+
+## # [5] 배포 롤 시크릿 (스택 세울 때마다)
 
 ```bash
 terraform output -raw github_deploy_role_arn
@@ -94,11 +102,13 @@ terraform output -raw github_deploy_role_arn
 이 값을 서버 저장소 **Settings → Secrets and variables → Actions**의
 `AWS_DEPLOY_ROLE_ARN` 시크릿에 등록(있으면 Update).
 
-> **주의:** 롤 이름에 랜덤 접미사가 붙어 **destroy → apply를 거치면 ARN이 바뀐다.**
+> **주의 :** 롤 이름에 랜덤 접미사가 붙어 **destroy → apply를 거치면 ARN이 바뀌므로**,
 > 스택을 다시 세웠다면 시크릿도 갱신해야 한다. 안 하면 CD가
 > `Not authorized to perform sts:AssumeRoleWithWebIdentity`로 실패한다.
 
-## [6] 앱 배포 — CD 자동
+---
+
+## # [6] 앱 배포 (CD 자동)
 
 서버 저장소(WES-Server)에서 **main에 머지**하면 CD가 자동으로:
 
@@ -109,17 +119,19 @@ terraform output -raw github_deploy_role_arn
 
 같은 이미지 재배포는 Actions 탭 → `[PROD] Build and Deploy` → Run workflow (**main 브랜치 선택** — 다른 브랜치는 롤 신뢰 조건에 걸려 실패한다).
 
-순서 주의: 스택이 없는 상태에서 머지하면 배포 잡이 "실행 중인 wes-app 인스턴스가
-없습니다"로 실패한다(빌드·푸시는 성공). 재실행은 [3]~[5] 후 workflow_dispatch로.
+순서 주의 : 스택이 없는 상태에서 머지하면 배포 잡이 "실행 중인 wes-app 인스턴스가
+없습니다"로 실패한다(빌드·푸시는 성공). 재실행은 [3]-[5] 후 workflow_dispatch로.
 
 앱이 처음 뜰 때 **Flyway가 스키마를 만든다**(`CREATE EXTENSION vector` 포함). 그전에는
 `photos` 테이블이 없으므로 다음 단계를 할 수 없다.
 
-## [7] 임베더 DB 접속 — Terraform 밖의 수동 작업 2개
+---
 
-둘 다 apply가 해주지 못한다. 하나라도 빠지면 임베딩이 접속 단계에서 죽고, 사진은 한 장도
-처리되지 않는다. 상세 절차(psql 접속, 진단법 포함):
-[runbook.md > 임베딩 파이프라인](runbook.md#임베딩-파이프라인)
+## # [7] 임베더 DB 접속 (수동 작업 2개)
+
+둘 다 apply가 해주지 못하는 일이고, 하나라도 빠지면 임베딩이 접속 단계에서 실패해 사진이
+한 장도 처리되지 않는다. 상세 절차(psql 접속, 진단법 포함) :
+[runbook.md > 임베딩 파이프라인](runbook.md#-임베딩-파이프라인)
 
 **7-1. DB 사용자** — DB를 새로 만들 때마다. SQL이라 Terraform이 만들지 못한다.
 
@@ -135,18 +147,22 @@ GRANT SELECT, UPDATE ON photos TO embedder;
 > **원래 설계는 비밀번호가 아니라 RDS IAM 인증이었다.** 조직 SCP가 이 계정에서
 > `rds-db:connect`를 거부해 임시로 되돌린 상태다. 그래서 `GRANT rds_iam`도 지금은 하지
 > 않는다 — 주면 pg_hba가 PAM 경로로 보내 비밀번호 인증이 아예 막힌다.
-> 판별법과 원복 절차: [runbook.md > SCP 차단](runbook.md#scp-차단-임시-우회로)
+> 판별법과 원복 절차 : [runbook.md > SCP 차단](runbook.md#-scp-차단-임시-우회로)
 
-## [8] 검증
+---
+
+## # [8] 검증
 
 ```bash
 curl -s https://api.easyselect.kr/actuator/health   # {"status":"UP"}
 ```
 
-타깃 그룹은 기동 후 `healthy` 전환까지 2~3분 걸린다(30초 간격 × 5회).
-전체 체크리스트: [runbook.md > 검증 체크리스트](runbook.md#검증-체크리스트)
+타깃 그룹은 기동 후 `healthy` 전환까지 2-3분 걸린다(30초 간격 × 5회).
+전체 체크리스트 : [runbook.md > 검증 체크리스트](runbook.md#-검증-체크리스트)
 
-## 폐기 시 남는 것
+---
+
+## # 폐기 시 남는 것
 
 `terraform destroy` 후에도 다음은 남는다 — 재배포 시 재사용되므로 지우지 말 것
 (프로젝트를 완전히 접을 때만 정리):
