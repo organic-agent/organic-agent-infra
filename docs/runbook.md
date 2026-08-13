@@ -1,24 +1,28 @@
 # WES 인프라 런북
 
-OAuth(Kakao/Google/Naver) 로그인 테스트를 위한 최소 사양 환경.
-API 도메인: `api.easyselect.kr`
+OAuth(Kakao/Google/Naver) 로그인과 사진 갤러리(업로드·임베딩) 테스트를 위한 최소 사양 환경.
+API 도메인 : `api.easyselect.kr`
 
 > **운영 설정 아님** — 백업/스냅샷/삭제 보호가 전부 꺼져 있고, 앱 스택은 `terraform destroy`로 언제든 폐기 가능하다.
 
-## 빠른 참조
+---
+
+## # 빠른 참조
 
 | 하고 싶은 것 | 명령 / 위치 |
 |---|---|
 | 제로부터 전체 배포 | [deploy-order.md](deploy-order.md) (순서 요약) |
-| 서버 쉘 접속 | `ssh wes` (설정은 [서버 접속](#서버-접속-ssm--22번-포트-불필요)) |
-| 앱 배포 | 서버 저장소 main 머지 시 CD 자동 (재배포는 Actions 수동 실행) → [앱 배포](#앱-배포-cd-자동) |
-| 인프라 배포 | `terraform apply` (루트에서) → [배포](#배포-ns-위임-때문에-2단계) |
-| 임베더 이미지 빌드·배포 | [임베딩 파이프라인](#임베딩-파이프라인) |
-| 임베딩이 안 돌 때 | [임베딩 파이프라인 > 문제 해결](#문제-해결) |
-| 전부 정리 | `terraform destroy` (존은 남음) → [폐기](#폐기) |
-| DB 비밀번호 변경 | [사전 준비](#사전-준비-최초-1회) 하단 참조 |
+| 서버 쉘 접속 | `ssh wes` (설정은 [서버 접속](#-서버-접속-ssm)) |
+| 앱 배포 | 서버 저장소 main 머지 시 CD 자동 (재배포는 Actions 수동 실행) → [앱 배포](#-앱-배포-cd-자동) |
+| 인프라 배포 | `terraform apply` (루트에서) → [배포](#-배포-2단계) |
+| 임베더 이미지 빌드·배포 | [임베딩 파이프라인](#-임베딩-파이프라인) |
+| 임베딩이 안 돌 때 | [임베딩 파이프라인 > 문제 해결](#-문제-해결) |
+| 전부 정리 | `terraform destroy` (존은 남음) → [폐기](#-폐기) |
+| DB 비밀번호 변경 | [사전 준비](#-사전-준비-최초-1회) 하단 참조 |
 
-## 아키텍처
+---
+
+## # 아키텍처
 
 ```
 Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
@@ -30,26 +34,27 @@ Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
 브라우저 ──서명 URL──→ S3 (wes-photos-*, 전면 비공개)
                           ↑ GET
 앱 ──lambda:Invoke(EVENT)──→ 임베딩 Lambda (DB 서브넷, S3 게이트웨이 엔드포인트)
-                          └─ IAM 인증으로 RDS에 UPDATE photos SET embedding
+                          └─ RDS에 UPDATE photos SET embedding
+                             (지금은 비밀번호 인증 — SCP가 IAM 인증을 막아 임시 전환, 아래 SCP 차단 참고)
 ```
 
-### 스택 구조
+### # 스택 구조
 
 | 스택 | 경로 | 담당 | destroy 시 |
 |---|---|---|---|
-| 앱 스택 | 저장소 루트 | VPC / ALB / EC2 / RDS | 전부 삭제 (테스트 데이터 포함) |
+| 앱 스택 | 저장소 루트 | VPC / ALB / EC2 / RDS / S3 / Lambda | 전부 삭제 (테스트 데이터 포함) |
 | 존 스택 | `dns/` | Route53 호스팅 존 + NS 위임 | 앱 스택과 무관하게 유지 |
 
-- state는 **S3 원격 백엔드** (`wes-tf-state-233927217926`, 암호화+버전닝+S3 네이티브 잠금). AWS 자격증명만 있으면 누구든 plan/apply 가능 — 동시 apply는 잠금이 막아준다.
-- 설정값은 전부 `variables.tf` 기본값으로 커밋돼 있다 — tfvars 파일 불필요. 값을 바꿀 땐 기본값을 수정해 커밋한다.
+- state는 **S3 원격 백엔드**(`wes-tf-state-233927217926`, 암호화+버전닝+S3 네이티브 잠금)라서 AWS 자격증명만 있으면 누구든 plan/apply 할 수 있다 — 동시 apply는 잠금이 막는다.
+- 설정값은 전부 `variables.tf` 기본값으로 커밋돼 있어 tfvars 파일이 필요 없다. 값을 바꿀 땐 기본값을 수정해 커밋한다.
 
-### 네트워크 / 접속
+### # 네트워크와 접속
 
-- 서버 접속은 **SSM 경유가 기본** — 보안그룹에 22번 포트 인바운드 규칙이 없다(`ssh_allowed_cidr` 기본값 `null` → 규칙 미생성). 키페어(`wes-aws-key`)는 비상용으로 등록만 해둔다.
+- 보안그룹에 22번 포트 인바운드 규칙이 없으므로(`ssh_allowed_cidr` 기본값 `null` → 규칙 미생성) 서버 접속은 **SSM 경유가 기본**이다. 키페어(`wes-aws-key`)는 비상용으로 등록만 해둔다.
 - NAT 게이트웨이 없음. EC2가 퍼블릭 IP로 OAuth 토큰 교환 아웃바운드를 직접 처리한다.
 - EC2 퍼블릭 IP는 stop/start 시 바뀐다(EIP 없음). SSH 주소만 영향받고 redirect URI는 도메인 경유라 무관하다.
 
-### 설정 주입 (SSM 파라미터)
+### # 설정 주입 (SSM 파라미터)
 
 팀 컨벤션 `/wes/<환경>/<스프링 프로퍼티>`를 따른다. 이 환경은 `/wes/prod/`.
 
@@ -64,16 +69,16 @@ Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
 
 앱은 부팅 시 Spring Cloud AWS로 `/wes/prod/` 아래 파라미터를 직접 읽는다. EC2 인스턴스 프로파일에 이 경로 읽기 권한이 있으므로 앱용 자격증명/env var 주입이 필요 없고, 나중에 OAuth 클라이언트 시크릿 등을 `/wes/prod/`에 추가하면 앱이 바로 읽을 수 있다.
 
-### 비용
+### # 비용
 
-월 ~$45–50 (ALB ~$17.5, RDS ~$21, EC2+EBS ~$8.5) + 존 $0.50.
-**테스트 안 할 때는 앱 스택 destroy 권장.**
+월 $45-50 수준 (ALB $17.5, RDS $21, EC2+EBS $8.5) + 존 $0.50.
+테스트하지 않는 기간에는 앱 스택을 destroy 한다.
 
-임베딩 파이프라인이 붙어도 고정비는 거의 늘지 않는다. S3 게이트웨이 엔드포인트는 무료고,
-Lambda는 부를 때만 과금된다(3GB × 실행 시간). 실질적으로 늘어나는 것은 S3에 쌓이는 원본과
-ECR에 있는 임베더 이미지 3~5GB(월 ~$0.5)다.
+임베딩 파이프라인이 붙어도 고정비는 거의 늘지 않는다. S3 게이트웨이 엔드포인트는 무료고 Lambda는 호출할 때만 과금되므로(3GB × 실행 시간), 실제로 늘어나는 것은 S3에 쌓이는 원본과 ECR의 임베더 이미지 3-5GB(월 $0.5 수준)다.
 
-## 사전 준비 (최초 1회)
+---
+
+## # 사전 준비 (최초 1회)
 
 DB 마스터 비밀번호를 SSM에 등록한다 (RDS 금지 문자 `/ @ " 공백` 제외, 8자 이상):
 
@@ -86,12 +91,13 @@ aws ssm put-parameter --name /wes/prod/spring.datasource.password --type SecureS
 
 > **비밀번호를 바꿀 때는** `put-parameter --overwrite` 후 `variables.tf`의 `db_password_version` 기본값을 1 올려 **커밋**하고 apply해야 RDS에 반영된다. (커밋해야 다른 협업자의 plan과 어긋나지 않는다.)
 
-## 배포 (NS 위임 때문에 2단계)
+---
 
-ACM 인증서의 DNS 검증은 easyselect.kr의 네임서버가 Route53 존으로 위임된 뒤에만 완료된다.
-**위임 전에 앱 스택을 apply하면** `aws_acm_certificate_validation`에서 대기하다 타임아웃(75분)난다.
+## # 배포 (2단계)
 
-### 1단계 — dns 스택으로 존 생성, 등록기관에서 NS 변경
+ACM 인증서의 DNS 검증은 easyselect.kr의 네임서버가 Route53 존으로 위임된 뒤에만 완료되므로, **위임 전에 앱 스택을 apply하면** `aws_acm_certificate_validation`에서 대기하다 타임아웃(75분)된다.
+
+### # 1단계 (dns 스택 apply, NS 위임)
 
 ```bash
 terraform -chdir=dns init
@@ -101,21 +107,25 @@ terraform -chdir=dns output name_servers
 
 출력된 NS 4개(`ns-xxx.awsdns-xx...`)를 easyselect.kr 등록기관(가비아/후이즈 등)의 **네임서버 설정**에 입력한다.
 
-전파 확인 (몇 분~몇 시간):
+전파 확인 (몇 분에서 몇 시간):
 
 ```bash
 dig NS easyselect.kr +short   # awsdns 4개가 보이면 위임 완료
 ```
 
-### 2단계 — 앱 스택 apply (저장소 루트에서)
+### # 2단계 (앱 스택 apply)
+
+저장소 루트에서:
 
 ```bash
 terraform init
-terraform apply   # ~36개 리소스, ACM 검증 포함 5~15분
+terraform apply   # 약 60개 리소스, ACM 검증 포함 5-15분
 terraform output
 ```
 
-## OAuth 콘솔 등록
+---
+
+## # OAuth 콘솔 등록
 
 `terraform output oauth_redirect_uris` 값을 각 콘솔에 등록:
 
@@ -127,12 +137,16 @@ terraform output
 
 (Spring Security 기본 패턴 `/login/oauth2/code/{registrationId}` 기준. 백엔드가 커스텀 경로를 쓰면 그에 맞게 수정.)
 
-## 서버 접속 (SSM — 22번 포트 불필요)
+---
+
+## # 서버 접속 (SSM)
 
 보안그룹에 SSH 인바운드 규칙이 없고, 접근 제어는 IAM으로 한다.
 AWS 자격증명이 있는 팀원은 아래 설정만 하면 각자 접속 가능.
 
-### 쉘만 필요할 때 — 키·플러그인 설정 불필요
+### # 쉘만 필요할 때
+
+키·플러그인 설정이 필요 없다:
 
 ```bash
 aws ssm start-session --region ap-northeast-2 \
@@ -141,7 +155,9 @@ aws ssm start-session --region ap-northeast-2 \
     --query 'Reservations[0].Instances[0].InstanceId' --output text)
 ```
 
-### scp/ssh 쓰려면 — 최초 1회, 팀원 각자 로컬 설정
+### # scp와 ssh 설정 (최초 1회)
+
+팀원 각자 로컬에서 설정한다.
 
 1. Session Manager 플러그인 설치:
 
@@ -176,7 +192,9 @@ aws ssm start-session --region ap-northeast-2 \
 
 > 인스턴스를 재생성하면 호스트 키가 바뀐다. 경고가 뜨면 `ssh-keygen -R wes` 후 재접속.
 
-### 비상용 직접 SSH (SSM 장애 등)
+### # 비상용 직접 SSH
+
+SSM 장애 등으로 직접 접속이 필요할 때만:
 
 ```bash
 terraform apply -var="ssh_allowed_cidr=$(curl -s ifconfig.me)/32"   # 내 IP만 22번 오픈
@@ -184,13 +202,15 @@ ssh -i ~/.ssh/wes-aws-key ubuntu@$(terraform output -raw ec2_public_ip)
 terraform apply                                                     # 작업 후 규칙 제거
 ```
 
-## 앱 배포 (CD 자동)
+---
+
+## # 앱 배포 (CD 자동)
 
 서버 저장소(WES-Server)의 CD가 main 머지 시 GHCR에 arm64 이미지를 올리고,
 **GitHub OIDC → `wes-deploy-*` 롤 → SSM Run Command**로 EC2에서 `docker compose pull && up`을 실행한다.
 SSH 키·호스트 IP·22번 포트가 전혀 필요 없다. 같은 이미지 재배포는 Actions의 `workflow_dispatch` 수동 실행.
 
-### 최초 1회 — 서버 저장소에 배포 롤 연결
+### # 최초 1회 — 서버 저장소에 배포 롤 연결
 
 ```bash
 terraform output -raw github_deploy_role_arn
@@ -206,10 +226,11 @@ terraform output -raw github_deploy_role_arn
 앱이 Spring Cloud AWS로 `/wes/prod/` 파라미터를 직접 읽으므로 DB env var 주입은 필요 없다.
 OAuth 클라이언트 ID/시크릿도 `/wes/prod/` 아래 SecureString 파라미터로 등록하면 앱이 같은 방식으로 읽는다 — 인프라/저장소에 커밋하지 않는다.
 
-## 임베딩 파이프라인
+---
 
-작가가 갤러리에 원본을 올리면 각 사진의 임베딩 벡터가 `photos.embedding`(pgvector
-`vector(768)`)에 적재된다. 잡 코드는 서버 저장소의 `wes/embedder/`에 있다.
+## # 임베딩 파이프라인
+
+작가가 갤러리에 원본을 올리면 각 사진의 임베딩 벡터가 `photos.embedding`(pgvector `vector(768)`)에 적재된다. 잡 코드는 서버 저장소의 `wes/embedder/`에 있다.
 
 ```
 프론트 ──서명 PUT──→ S3          (앱은 목적지만 정해주고 바이트는 거치지 않는다)
@@ -221,33 +242,21 @@ OAuth 클라이언트 ID/시크릿도 `/wes/prod/` 아래 SecureString 파라미
 진행 상황: GET /photos/summary 의 embedded 수
 ```
 
-**갤러리 단위로 한 번 부른다.** S3 이벤트로 장당 트리거를 걸면 수천 장 업로드가 Lambda
-수천 개를 동시에 띄우고, 각자 커넥션을 열어 db.t4g.micro를 고갈시킨다.
+- **갤러리 단위로 한 번 부른다.** S3 이벤트로 장당 트리거를 걸면 수천 장 업로드가 Lambda 수천 개를 동시에 띄우고, 각자 커넥션을 열어 db.t4g.micro를 고갈시킨다.
+- **응답을 기다리지 않는다(EVENT).** 갤러리 하나가 Lambda 상한인 15분까지 걸릴 수 있다.
+- **재실행이 안전하다.** 대상 조건이 `embedding IS NULL`이라 중간에 중단돼도 다시 부르면 남은 것만 이어서 한다.
 
-**응답을 기다리지 않는다(EVENT).** 갤러리 하나가 Lambda 상한인 15분까지 걸릴 수 있다.
+### # DB 접속 (설계와 현재 상태)
 
-**재실행이 안전하다.** 대상 조건이 `embedding IS NULL`이라 중간에 죽어도 다시 부르면
-남은 것만 이어서 한다.
+원래 설계는 **RDS IAM 인증**이었다. Lambda는 NAT도 인터페이스 엔드포인트도 없는 DB 서브넷에 있어서 Parameter Store를 읽을 수 없고, 비밀번호를 환경변수로 주입하면 이 스택이 지켜 온 "비밀번호는 state에 남기지 않는다"가 깨진다. 토큰 생성은 네트워크를 타지 않는 로컬 서명이라 둘 다 피할 수 있었다.
 
-### DB 접속 — 원래 설계와 지금 상태가 다르다
+**지금은 쓰지 못한다.** 조직 SCP가 이 계정 전체에서 `rds-db:connect`를 거부한다. 계정 `233927217926`은 조직의 멤버 계정이라 여기서는 풀 수 없다 ( SCP는 관리 계정에는 적용되지 않으므로, 관리자인데도 막힌다는 것이 곧 멤버 계정이라는 증거다 ). 그래서 접속은 임시로 비밀번호를 쓴다. 판별법과 원복 절차는 아래 [SCP 차단](#-scp-차단-임시-우회로) 참고.
 
-원래 설계는 **RDS IAM 인증**이었다. Lambda는 NAT도 인터페이스 엔드포인트도 없는 DB
-서브넷에 있어서 Parameter Store를 읽을 수 없고, 비밀번호를 환경변수로 주입하면 이 스택이
-지켜 온 "비밀번호는 state에 남기지 않는다"가 깨진다. 토큰 생성은 네트워크를 타지 않는 로컬
-서명이라 둘 다 피할 수 있었다.
+수동 작업은 **두 가지**다. 둘 다 Terraform이 할 수 없는 일이고, 하나라도 빠지면 임베딩이 접속 단계에서 실패한다.
 
-**지금은 쓰지 못한다.** 조직 SCP가 이 계정 전체에서 `rds-db:connect`를 거부한다. 계정
-`233927217926`은 조직의 멤버 계정이라 여기서는 풀 수 없다(SCP는 관리 계정에는 적용되지
-않는다 — 관리자인데도 막힌다는 것이 곧 멤버 계정이라는 증거다). 그래서 접속은 임시로
-비밀번호를 쓴다. 판별법과 원복 절차는 아래 [SCP 차단](#scp-차단-임시-우회로) 참고.
+#### # 1. DB 사용자 (DB를 새로 만들 때마다)
 
-수동 작업은 **두 가지**다. 둘 다 Terraform이 할 수 없는 일이고, 하나라도 빠지면 임베딩이
-죽는다.
-
-#### 1. DB 사용자 — DB를 새로 만들 때마다
-
-SQL이라 Terraform이 만들지 못한다. 없으면 `password authentication failed`로 죽는다
-(로그 DETAIL에 `Role "embedder" does not exist`가 함께 찍힌다).
+SQL이라 Terraform이 만들지 못한다. 없으면 `password authentication failed`로 실패한다 ( 로그 DETAIL에 `Role "embedder" does not exist`가 함께 찍힌다 ).
 
 ```bash
 # photos 테이블은 앱이 처음 뜰 때 Flyway가 만든다. 그 뒤에 실행할 것.
@@ -257,6 +266,8 @@ DB_PASSWORD=$(aws ssm get-parameter --name /wes/prod/spring.datasource.password 
   --with-decryption --query Parameter.Value --output text --region ap-northeast-2)
 PGPASSWORD="$DB_PASSWORD" psql -h <rds_address> -U wes_admin -d wes_db
 ```
+
+`<rds_address>`는 `terraform output -raw rds_endpoint`에서 `:5432`를 뗀 값이다.
 
 ```sql
 -- 마스터와 다른 값을 쓴다. /wes/prod/embedder.db.password 에 등록한 값과 같아야 한다.
@@ -278,7 +289,7 @@ REVOKE rds_iam FROM embedder;
 > | 14 | host | `+rds_iam` | reject |
 > | 15 | hostssl | all | md5 |
 >
-> `rds_iam` 멤버는 13번에서 잡혀 15번까지 가지 못한다. 그래서 **우회로를 쓰는 동안에는
+> `rds_iam` 멤버는 13번에서 잡혀 15번까지 가지 못하므로 **우회로를 쓰는 동안에는
 > `REVOKE rds_iam FROM embedder;`가 필요하다.** SCP가 풀리면 다시 GRANT 한다.
 >
 > 직접 확인: `select line_number, type, user_name, auth_method from pg_hba_file_rules order by line_number;`
@@ -286,13 +297,11 @@ REVOKE rds_iam FROM embedder;
 > 마스터 계정(`wes_admin`)에 `rds_iam`을 주는 것으로 대신할 수 없다. RDS가 마스터 사용자에
 > 대해서는 그 역할 부여를 거부한다.
 
-#### 2. 비밀번호 주입 — 함수를 새로 만들 때마다
+#### # 2. 비밀번호 주입 (함수를 새로 만들 때마다)
 
-`DB_PASSWORD`는 Terraform이 넣지 않는다. 넣으면 state에 평문으로 남는다. apply 밖에서
-한 번 주입하고, `modules/embedding`의 `ignore_changes`가 이후 apply에서 그 키를 지켜 준다.
+`DB_PASSWORD`는 Terraform이 넣으면 state에 평문으로 남으므로 apply 밖에서 한 번 주입하고, `modules/embedding`의 `ignore_changes`가 이후 apply에서 그 키를 지켜 준다.
 
-`update-function-configuration --environment`는 **환경변수 맵 전체를 덮어쓴다.** 값 하나만
-넘기면 `DB_HOST` 이하가 전부 사라지므로, 반드시 기존 맵을 읽어 병합해야 한다:
+`update-function-configuration --environment`는 **환경변수 맵 전체를 덮어쓴다.** 값 하나만 넘기면 `DB_HOST` 이하가 전부 사라지므로, 반드시 기존 맵을 읽어 병합해야 한다:
 
 ```bash
 FN=wes-embedder
@@ -319,13 +328,12 @@ aws lambda get-function-configuration --region ap-northeast-2 --function-name we
 > apply 뒤에는 이 키가 살아남았는지 한 번 확인할 것. `ignore_changes`가 지켜 주지만,
 > 함수가 **재생성**되면(태그·이름 변경 등) 새 함수에는 없으므로 다시 주입해야 한다.
 
-### SCP 차단 (임시 우회로)
+### # SCP 차단 (임시 우회로)
 
 `PAM authentication failed`인데 DB 사용자와 `GRANT rds_iam`이 멀쩡하다면 SCP를 의심한다.
 RDS 에러 로그에는 `pam_authenticate failed: Permission denied`로 찍힌다.
 
-판별은 IAM 정책 시뮬레이터로 한다. **`MatchedStatements`가 비어 있는데 `explicitDeny`**이면
-이 계정 안의 어떤 정책도 거부하지 않았다는 뜻이고, 거부는 조직 SCP에서 온 것이다:
+판별은 IAM 정책 시뮬레이터로 한다. **`MatchedStatements`가 비어 있는데 `explicitDeny`**이면 이 계정 안의 어떤 정책도 거부하지 않았다는 뜻이므로, 거부는 조직 SCP에서 온 것이다:
 
 ```bash
 aws iam simulate-principal-policy \
@@ -343,13 +351,12 @@ aws iam simulate-principal-policy \
 2. `psql`에서 `GRANT rds_iam TO embedder;` (우회로를 쓰며 REVOKE 했다면)
 3. `embedder/db.py`의 `connect()`를 `generate_db_auth_token` 방식으로 되돌리고 이미지 재배포
 4. Lambda 환경변수에서 `DB_PASSWORD` 제거, `modules/embedding`의 `ignore_changes`에서 해당 줄 제거
-5. **마스터 비밀번호 교체** — state 버킷은 버저닝이 켜져 있어 우회로를 쓰는 동안의 값이
-   과거 버전에 남는다. 절차는 [사전 준비](#사전-준비-최초-1회) 하단
+5. **마스터 비밀번호 교체** — state 버킷은 버저닝이 켜져 있어 우회로를 쓰는 동안의 값이 과거 버전에 남는다. 절차는 [사전 준비](#-사전-준비-최초-1회) 하단
 
-### 이미지 빌드·배포
+### # 이미지 빌드와 배포
 
 첫 apply 순서(리포지토리 → 푸시 → 전체 apply)는
-[deploy-order.md의 [3]](deploy-order.md#3-임베더-이미지--스택-세울-때마다)에 있다.
+[deploy-order.md의 [3]](deploy-order.md#-3-임베더-이미지-스택-세울-때마다)에 있다.
 코드만 바뀐 뒤의 재배포는 apply 없이:
 
 ```bash
@@ -371,7 +378,7 @@ aws lambda update-function-code --region ap-northeast-2 \
 
 함수의 `image_uri`는 `ignore_changes`라 이렇게 밀어 넣어도 다음 plan이 되돌리지 않는다.
 
-### 수동 실행
+### # 수동 실행
 
 ```bash
 aws lambda invoke --region ap-northeast-2 \
@@ -380,14 +387,14 @@ aws lambda invoke --region ap-northeast-2 \
   --payload '{"galleryId":1,"force":false}' /dev/stdout
 ```
 
-로그: `aws logs tail /aws/lambda/wes-embedder --follow`
+로그 : `aws logs tail /aws/lambda/wes-embedder --follow`
 
-### 문제 해결
+### # 문제 해결
 
 | 증상 | 원인 |
 |---|---|
 | `password authentication failed for user "embedder"` | DB 사용자가 없다. RDS 에러 로그 DETAIL에 `Role "embedder" does not exist`가 함께 찍힌다 |
-| `PAM authentication failed` + DB 사용자·GRANT 정상 | 조직 SCP가 `rds-db:connect`를 막고 있다 → [SCP 차단](#scp-차단-임시-우회로) |
+| `PAM authentication failed` + DB 사용자·GRANT 정상 | 조직 SCP가 `rds-db:connect`를 막고 있다 → [SCP 차단](#-scp-차단-임시-우회로) |
 | `PAM authentication failed` + 비밀번호로 붙는 중 | `embedder`가 아직 `rds_iam` 멤버다. pg_hba가 PAM 경로로 보내 비밀번호를 아예 안 본다 — `REVOKE rds_iam FROM embedder;` |
 | 접속 성공하다가 apply 후 갑자기 실패 | apply가 `DB_PASSWORD` 환경변수를 지웠다. 함수가 재생성되면 `ignore_changes`도 못 지킨다 — 다시 주입 |
 | S3 GET에서 타임아웃 (자격증명 오류처럼 보이지 않는다) | DB 서브넷의 S3 게이트웨이 엔드포인트가 없다 |
@@ -397,7 +404,9 @@ aws lambda invoke --region ap-northeast-2 \
 | 앱이 `PHOTO_502_1`로 답한다 | 호출 자체가 거절됐다 — 인스턴스 롤의 `lambda:InvokeFunction` 확인 |
 | 업로드가 브라우저 프리플라이트에서 죽는다 | S3 버킷 CORS의 오리진 — `cors.allowed-origins` 파라미터를 고치고 apply |
 
-## 검증 체크리스트
+---
+
+## # 검증 체크리스트
 
 | # | 확인 | 기대 결과 |
 |---|---|---|
@@ -409,7 +418,7 @@ aws lambda invoke --region ap-northeast-2 \
 | 6 | 앱 배포 후 EC2 콘솔/CLI | 타깃 그룹 `healthy` |
 | 7 | 브라우저 | Kakao/Google/Naver 로그인 라운드트립 |
 | 8 | 갤러리에 사진 업로드 → `GET /photos/summary` | `uploaded` 수가 올라간다 (S3 CORS·서명 URL 확인) |
-| 9 | `POST /embeddings/run` 후 잠시 뒤 같은 집계 | `embedded` 수가 올라간다 (Lambda·IAM 인증·S3 엔드포인트 확인) |
+| 9 | `POST /embeddings/run` 후 잠시 뒤 같은 집계 | `embedded` 수가 올라간다 (Lambda 호출·DB 접속·S3 엔드포인트 확인) |
 
 5번 DB 연결 확인 (EC2에서):
 
@@ -420,13 +429,15 @@ DB_PASSWORD=$(aws ssm get-parameter --name /wes/prod/spring.datasource.password 
 PGPASSWORD="$DB_PASSWORD" psql -h <rds_address> -U wes_admin -d wes_db -c 'select 1;'
 ```
 
-## 폐기
+---
+
+## # 폐기
 
 ```bash
 terraform destroy   # 앱 스택 (루트에서)
 ```
 
-- 스냅샷 없이 전부 삭제된다(테스트 데이터 포함).
+- 스냅샷 없이 전부 삭제된다(테스트 데이터 포함). 사진 버킷은 `force_destroy`라 원본까지 함께 지워진다.
 - 호스팅 존은 dns 스택 소유라 **그대로 남는다** — NS 재위임 없이 나중에 apply만 다시 하면 된다 (존 유지 비용 월 $0.50).
 - 존까지 완전히 없애려면(프로젝트 종료 시에만):
 

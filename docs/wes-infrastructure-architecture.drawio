@@ -1,0 +1,251 @@
+<mxfile host="Electron" agent="Claude">
+  <diagram id="wes-infra-aws" name="WES Infrastructure — 한눈에 보기">
+    <mxGraphModel dx="1184" dy="881" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2140" pageHeight="1120" background="#FFFFFF" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="aws-cloud" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud;strokeColor=#232F3E;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=13;fontStyle=0;container=0;pointerEvents=0;collapsible=0;recursiveResize=0;" value="AWS Cloud · ap-northeast-2 (Seoul)" vertex="1">
+          <mxGeometry height="960" width="1420" x="300" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="vpc" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc2;strokeColor=#8C4FFF;fillColor=none;verticalAlign=top;align=right;spacingRight=10;fontColor=#8C4FFF;dashed=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;container=0;pointerEvents=0;collapsible=0;recursiveResize=0;" value="VPC · 10.0.0.0/16" vertex="1">
+          <mxGeometry height="330" width="940" x="560" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="public-subnet" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F6E8;strokeColor=#7AA116;dashed=0;pointerEvents=0;" value="" vertex="1">
+          <mxGeometry height="234" width="430" x="650" y="396" as="geometry" />
+        </mxCell>
+        <mxCell id="db-subnet" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6F6F7;strokeColor=#00A4A6;dashed=0;pointerEvents=0;" value="" vertex="1">
+          <mxGeometry height="234" width="310" x="1130" y="396" as="geometry" />
+        </mxCell>
+        <mxCell id="diagram-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#232F3E;fontSize=26;fontStyle=1;" value="WES 인프라" vertex="1">
+          <mxGeometry height="36" width="150" x="40" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="diagram-subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#545B64;fontSize=12;" value="api.easyselect.kr · Spring Boot 단일 인스턴스 + RDS + 사진 S3·임베딩 Lambda · Terraform 스택 2개(app + dns) · 세부값은 variables.tf 기준" vertex="1">
+          <mxGeometry height="22" width="724" x="40" y="56" as="geometry" />
+        </mxCell>
+        <mxCell id="public-subnet-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#248814;fontSize=11;fontStyle=1;" value="Public subnet ×2" vertex="1">
+          <mxGeometry height="20" width="160" x="650" y="364" as="geometry" />
+        </mxCell>
+        <mxCell id="db-subnet-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#147EBA;fontSize=11;fontStyle=1;" value="DB subnet ×2 — 인터넷 라우트 없음" vertex="1">
+          <mxGeometry height="20" width="240" x="1130" y="364" as="geometry" />
+        </mxCell>
+        <mxCell id="vpc-cidr-caption" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#879196;fontSize=9.5;fontStyle=2;" value="CIDR — public 10.0.0.0/24(2a) · 10.0.1.0/24(2c) / db 10.0.10.0/24 · 10.0.11.0/24" vertex="1">
+          <mxGeometry height="18" width="500" x="580" y="634" as="geometry" />
+        </mxCell>
+        <mxCell id="label-route53" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=bottom;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Route 53&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;easyselect.kr 존 · 글로벌&lt;br&gt;별도 dns/ 스택 소유&lt;/font&gt;" vertex="1">
+          <mxGeometry height="48" width="170" x="529" y="148" as="geometry" />
+        </mxCell>
+        <mxCell id="label-acm" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=bottom;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;ACM 인증서&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;api.easyselect.kr&lt;br&gt;DNS 검증&lt;/font&gt;" vertex="1">
+          <mxGeometry height="48" width="160" x="764" y="148" as="geometry" />
+        </mxCell>
+        <mxCell id="label-parameter-store" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=bottom;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Parameter Store (SSM)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;/wes/prod/* — 앱 설정·비밀번호&lt;/font&gt;" vertex="1">
+          <mxGeometry height="48" width="220" x="944" y="148" as="geometry" />
+        </mxCell>
+        <mxCell id="note-parameter-store" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;fontColor=#879196;fontSize=9;" value="url·username·버킷명·함수명 → Terraform이 기록&lt;br&gt;password·CORS 오리진 → 수동 등록&lt;br&gt;(password는 state에 남지 않음)" vertex="1">
+          <mxGeometry height="52" width="270" x="1104" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy-header" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#D97706;fontSize=12.5;fontStyle=1;" value="배포 — 커밋 한 번이 운영에 반영되는 길 (SSH 없음)" vertex="1">
+          <mxGeometry height="20" width="274" x="320" y="756" as="geometry" />
+        </mxCell>
+        <mxCell id="iac-header" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#545B64;fontSize=12.5;fontStyle=1;" value="프로비저닝 · 원격 상태" vertex="1">
+          <mxGeometry height="20" width="120" x="320" y="928" as="geometry" />
+        </mxCell>
+        <mxCell id="client" parent="1" style="shape=mxgraph.aws4.user;fillColor=#879196;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="70" y="476" as="geometry" />
+        </mxCell>
+        <mxCell id="route53" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.route_53;fillColor=#8C4FFF;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="580" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="acm" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.certificate_manager_3;fillColor=#DD344C;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="810" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="parameter-store" parent="1" style="shape=mxgraph.aws4.parameter_store;fillColor=#E7157B;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1020" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="igw" parent="1" style="shape=mxgraph.aws4.internet_gateway;fillColor=#8C4FFF;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="526" y="476" as="geometry" />
+        </mxCell>
+        <mxCell id="alb" parent="1" style="shape=mxgraph.aws4.application_load_balancer;fillColor=#8C4FFF;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="700" y="476" as="geometry" />
+        </mxCell>
+        <mxCell id="ec2" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;fillColor=#ED7100;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="960" y="476" as="geometry" />
+        </mxCell>
+        <mxCell id="rds" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.postgresql_instance;fillColor=#527FFF;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1180" y="476" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;fillColor=#ED7100;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1330" y="476" as="geometry" />
+        </mxCell>
+        <mxCell id="s3-photos" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fillColor=#7AA116;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1580" y="476" as="geometry" />
+        </mxCell>
+        <mxCell id="github-actions" parent="1" style="dashed=0;outlineConnect=0;html=1;align=center;shape=mxgraph.weblogos.github;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="70" y="800" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy-role" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.identity_and_access_management;fillColor=#DD344C;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="560" y="800" as="geometry" />
+        </mxCell>
+        <mxCell id="run-command" parent="1" style="shape=mxgraph.aws4.run_command;fillColor=#E7157B;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="860" y="800" as="geometry" />
+        </mxCell>
+        <mxCell id="terraform" parent="1" style="shape=mxgraph.aws4.external_toolkit;fillColor=#879196;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="70" y="950" as="geometry" />
+        </mxCell>
+        <mxCell id="state-backend" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fillColor=#7AA116;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1280" y="950" as="geometry" />
+        </mxCell>
+        <mxCell id="label-client" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;사용자 / 클라이언트&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;앱 · OAuth 브라우저&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="150" x="29" y="548" as="geometry" />
+        </mxCell>
+        <mxCell id="label-igw" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10;" value="Internet Gateway" vertex="1">
+          <mxGeometry height="20" width="140" x="490" y="548" as="geometry" />
+        </mxCell>
+        <mxCell id="label-alb" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Application Load Balancer&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;:80 → :443 리다이렉트&lt;br&gt;헬스체크 /actuator/health&lt;br&gt;두 AZ 퍼블릭 서브넷에 걸침&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="190" x="639" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="label-ec2" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;EC2 · wes-app&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;t4g.micro (arm64) · 1대&lt;br&gt;Docker로 Spring Boot 구동&lt;/font&gt;" vertex="1">
+          <mxGeometry height="56" width="170" x="909" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="label-rds" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;RDS PostgreSQL&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Single-AZ · 비공개&lt;br&gt;IAM DB 인증 켬&lt;/font&gt;" vertex="1">
+          <mxGeometry height="56" width="150" x="1139" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="label-lambda" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Lambda · wes-embedder&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;DINOv2 컨테이너 (ECR)&lt;br&gt;15분 상한 · 갤러리 단위&lt;/font&gt;" vertex="1">
+          <mxGeometry height="56" width="140" x="1294" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="label-s3-photos" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;S3 · 사진 원본&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;wes-photos-* · 완전 비공개&lt;br&gt;앱은 서명 URL 발급·삭제만&lt;/font&gt;" vertex="1">
+          <mxGeometry height="56" width="160" x="1534" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="label-github" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;GitHub Actions (CD)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;WES-Server 저장소 · main 브랜치&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="180" x="14" y="872" as="geometry" />
+        </mxCell>
+        <mxCell id="label-iam" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;IAM 배포 롤&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;GitHub OIDC 신뢰&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="160" x="514" y="872" as="geometry" />
+        </mxCell>
+        <mxCell id="label-run-command" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;SSM Run Command&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;AWS-RunShellScript&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="180" x="804" y="872" as="geometry" />
+        </mxCell>
+        <mxCell id="label-terraform" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Terraform CLI&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;운영자 로컬 · 이 그림의&lt;br&gt;AWS 리소스 전부를 생성&lt;/font&gt;" vertex="1">
+          <mxGeometry height="52" width="170" x="19" y="1022" as="geometry" />
+        </mxCell>
+        <mxCell id="label-s3" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;S3 원격 state&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;wes-tf-state-* · app/·dns/ 키&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="200" x="1214" y="1022" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-client-igw" edge="1" parent="1" source="client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=9;fontColor=#075985;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="igw" value="② HTTPS :443">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-13" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-igw-alb" edge="1" parent="1" source="igw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=9;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="alb" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-alb-ec2" edge="1" parent="1" source="alb" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=9;fontColor=#075985;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="ec2" value="&lt;b&gt;③ HTTP :8080&lt;/b&gt;&lt;br&gt;ALB SG만 허용">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-20" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-ec2-rds" edge="1" parent="1" source="ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=9;fontColor=#075985;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="rds" value="&lt;b&gt;④ PostgreSQL :5432&lt;/b&gt;&lt;br&gt;EC2·Lambda SG만 허용">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-20" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-client-s3" edge="1" parent="1" source="client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=9;fontColor=#075985;fontSize=10;fontStyle=1;labelBackgroundColor=#FFFFFF;entryX=0.5;entryY=0;" target="s3-photos" value="⑤ 사진 업로드·조회 — 서명 URL로 브라우저가 S3에 직접 PUT/GET (앱 경유 없음)">
+          <mxGeometry relative="1" x="0.0003" y="11" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="160.04" y="490.04" />
+              <mxPoint x="160.04" y="100.04" />
+              <mxPoint x="1614.04" y="100.04" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-ec2-lambda" edge="1" parent="1" source="ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#075985;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.7;exitY=0;entryX=0.5;entryY=0;" target="lambda" value="⑥ 임베딩 실행 — 비동기 invoke">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-11" as="offset" />
+            <Array as="points">
+              <mxPoint x="1008" y="452" />
+              <mxPoint x="1364" y="452" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-lambda-s3" edge="1" parent="1" source="lambda" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#075985;fontSize=9.5;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="s3-photos" value="⑦ 원본 GET · previews/ PUT">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="26" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="SMNcJ2VcS20CQlLQ6j4o-2" connectable="0" parent="edge-lambda-s3" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#075985;fontSize=9;" value="S3 게이트웨이 엔드포인트" vertex="1">
+          <mxGeometry relative="1" x="0.2574" y="3" as="geometry">
+            <mxPoint x="-22" y="3" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-lambda-rds" edge="1" parent="1" source="lambda" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#075985;fontSize=9;labelBackgroundColor=#FFFFFF;" target="rds" value="⑧ :5432&lt;br&gt;벡터 UPDATE">
+          <mxGeometry relative="1" x="0.0038" y="-16" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1290.03" y="510" />
+              <mxPoint x="1290.03" y="510" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-client-dns" edge="1" parent="1" source="client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=6 4;strokeColor=#8C4FFF;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#6D28D9;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;entryX=0;entryY=0.5;" target="route53" value="&lt;b&gt;① DNS 조회&lt;/b&gt; — api.easyselect.kr">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-12" as="offset" />
+            <Array as="points">
+              <mxPoint x="104" y="234" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-route53-alb" edge="1" parent="1" source="route53" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=6 4;strokeColor=#8C4FFF;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#6D28D9;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0;entryY=0.15;" target="alb" value="A 별칭 레코드">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-46" as="offset" />
+            <Array as="points">
+              <mxPoint x="614" y="486" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-acm-alb" edge="1" parent="1" source="acm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=6 4;strokeColor=#8C4FFF;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#6D28D9;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.75;entryY=0;" target="alb" value="TLS 인증서">
+          <mxGeometry relative="1" x="0.01" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="844" y="440" />
+              <mxPoint x="751" y="440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-ps-ec2" edge="1" parent="1" source="parameter-store" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=6 4;strokeColor=#E7157B;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#A30D59;fontSize=10;labelBackgroundColor=#FFFFFF;entryX=0.5;entryY=0;" target="ec2" value="부팅 시 설정 조회&lt;br&gt;/wes/prod/*">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="994" y="239.97" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-github-iam" edge="1" parent="1" source="github-actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=6 4;strokeColor=#D97706;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#92400E;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="deploy-role" value="OIDC로 임시 자격증명 획득&lt;br&gt;(장기 액세스 키 없음)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-20" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-iam-runcmd" edge="1" parent="1" source="deploy-role" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=6 4;strokeColor=#D97706;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#92400E;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="run-command" value="ssm:SendCommand&lt;br&gt;(Name=wes-app 대상만)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-20" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-runcmd-ec2" edge="1" parent="1" source="run-command" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=6 4;strokeColor=#D97706;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#92400E;fontSize=10;labelBackgroundColor=#FFFFFF;entryX=1;entryY=0.8;" target="ec2" value="배포 스크립트 실행 — 에이전트 폴링&lt;br&gt;(인바운드 포트 불필요)">
+          <mxGeometry relative="1" x="-0.7059" y="24" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1105" y="834" />
+              <mxPoint x="1105" y="530.39" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-terraform-s3" edge="1" parent="1" source="terraform" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=3 3;strokeColor=#545B64;strokeWidth=2;startArrow=block;startFill=1;endArrow=block;endFill=1;endSize=8;fontColor=#414750;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="state-backend" value="plan / apply — state 읽기·쓰기 (암호화 · S3 네이티브 락)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-13" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D5DBDB;align=left;verticalAlign=top;spacing=14;fontColor=#545B64;fontSize=10.5;" value="&lt;font color=&quot;#147EBA&quot;&gt;&lt;b&gt;━━▶&lt;/b&gt;&lt;/font&gt; 서비스 요청 경로&lt;br&gt;&lt;font color=&quot;#8C4FFF&quot;&gt;┅┅▶&lt;/font&gt; DNS · TLS 인증서&lt;br&gt;&lt;font color=&quot;#E7157B&quot;&gt;┅┅▶&lt;/font&gt; 앱 설정 (Parameter Store)&lt;br&gt;&lt;font color=&quot;#D97706&quot;&gt;┅┅▶&lt;/font&gt; 배포 (GitHub → SSM)&lt;br&gt;&lt;font color=&quot;#545B64&quot;&gt;┅┅▶&lt;/font&gt; Terraform state&lt;br&gt;①→⑧ = 요청 처리 순서 (색 무관)" vertex="1">
+          <mxGeometry height="118" width="200" x="1480" y="940" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
