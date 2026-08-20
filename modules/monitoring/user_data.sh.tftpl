@@ -1,0 +1,173 @@
+#!/bin/bash
+set -euxo pipefail
+
+# Loki + Grafana + Caddy를 docker compose로 띄운다. 설정 파일은 전부 여기서 생성하고,
+# 기동은 /opt/wes-monitoring/start.sh가 맡는다 (Grafana 비밀번호 파라미터가 없어 실패했을 때
+# 파라미터만 등록하고 start.sh를 다시 돌리면 된다 — docs/runbook.md '모니터링' 참고).
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y docker.io docker-compose-v2
+usermod -aG docker ubuntu
+
+# t4g.micro(1GiB)에 Grafana·Loki·Caddy가 같이 산다. 기동·압축(compactor) 때 OOM 방지용 스왑 2GB.
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+# Ubuntu에는 기본 설치가 안 되어 있음; SSM에서 Grafana 비밀번호 읽을 때 필요.
+snap install aws-cli --classic
+
+BASE=/opt/wes-monitoring
+mkdir -p "$BASE"/loki/data "$BASE"/grafana/data "$BASE"/grafana/provisioning/datasources "$BASE"/caddy/data "$BASE"/caddy/config
+
+# 컨테이너가 비루트로 돈다: Loki는 uid 10001, Grafana는 uid 472. 호스트 볼륨 소유자를 맞춰 주지 않으면 기동 직후 permission denied로 죽는다.
+chown -R 10001:10001 "$BASE"/loki/data
+chown -R 472:472 "$BASE"/grafana/data
+
+# --- Loki: single-binary, filesystem TSDB, retention ---
+cat > "$BASE"/loki-config.yml <<'LOKI'
+# 인증은 네트워크로 대신한다(3100은 앱 SG에서만 열림). 켜면 모든 요청에 tenant 헤더가 필요해진다.
+auth_enabled: false
+
+server:
+  http_listen_port: ${loki_port}
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  retention_period: ${loki_retention}
+  reject_old_samples: true
+  reject_old_samples_max_age: ${loki_retention}
+  # 앱이 재시작 직후 밀린 로그를 한꺼번에 보내도 거절하지 않게 여유를 둔다.
+  ingestion_rate_mb: 8
+  ingestion_burst_size_mb: 16
+
+# retention_enabled가 없으면 retention_period는 장식이다 — 실제 삭제는 compactor가 한다.
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+  compaction_interval: 10m
+  retention_delete_delay: 2h
+
+analytics:
+  reporting_enabled: false
+LOKI
+
+# --- Grafana: Loki 데이터소스 프로비저닝 ---
+cat > "$BASE"/grafana/provisioning/datasources/loki.yml <<'DS'
+apiVersion: 1
+datasources:
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:${loki_port}
+    isDefault: true
+    editable: false
+DS
+
+# --- Caddy: TLS 종단 + Grafana 리버스 프록시 ---
+# 도메인만 적으면 Let's Encrypt 발급·갱신과 80→443 리다이렉트를 Caddy가 알아서 한다.
+# Route53 레코드가 같은 apply에서 생기므로 첫 발급은 DNS가 보일 때까지 몇 번 재시도한다(정상).
+cat > "$BASE"/Caddyfile <<'CADDY'
+${fqdn} {
+	encode gzip
+	reverse_proxy grafana:3000
+}
+CADDY
+
+# --- compose ---
+cat > "$BASE"/docker-compose.yml <<'COMPOSE'
+services:
+  loki:
+    image: ${loki_image}
+    container_name: loki
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "${loki_port}:${loki_port}"
+    volumes:
+      - ./loki-config.yml:/etc/loki/config.yml:ro
+      - ./loki/data:/loki
+    restart: unless-stopped
+
+  grafana:
+    image: ${grafana_image}
+    container_name: grafana
+    environment:
+      GF_SERVER_ROOT_URL: https://${fqdn}
+      GF_SECURITY_ADMIN_USER: admin
+      # start.sh가 SSM에서 읽어 .env에 넣는다. Grafana는 이 값을 DB가 비어 있는 최초 기동에만 쓴다.
+      GF_SECURITY_ADMIN_PASSWORD: $${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./grafana/data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  caddy:
+    image: ${caddy_image}
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/data:/data     # 발급받은 인증서. 지우면 재발급 → Let's Encrypt 주간 한도 소모
+      - ./caddy/config:/config
+    depends_on:
+      - grafana
+    restart: unless-stopped
+COMPOSE
+
+# --- 기동 스크립트 (재실행 안전) ---
+cat > "$BASE"/start.sh <<'START'
+#!/bin/bash
+# Grafana admin 비밀번호를 SSM에서 읽어 .env로 넘기고 compose를 올린다.
+# 파라미터가 없으면 여기서 멈춘다 — 등록 후 `sudo /opt/wes-monitoring/start.sh`로 다시 실행.
+set -euo pipefail
+cd /opt/wes-monitoring
+
+PW=$(aws ssm get-parameter --region ${aws_region} \
+  --name ${grafana_password_param} \
+  --with-decryption --query Parameter.Value --output text)
+
+umask 077
+printf 'GRAFANA_ADMIN_PASSWORD=%s\n' "$PW" > .env
+
+docker compose pull --quiet
+docker compose up -d --remove-orphans
+START
+chmod 700 "$BASE"/start.sh
+
+"$BASE"/start.sh

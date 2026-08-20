@@ -71,3 +71,23 @@ output "db_resource_id" {
   description = "RDS 리소스 ID(db-XXXX). rds-db:connect 정책 ARN이 인스턴스 이름이 아니라 이 값을 쓴다"
   value       = module.database.resource_id
 }
+
+output "monitoring_url" {
+  description = "Grafana 주소 (admin / SSM /wes/monitoring/grafana.admin-password)"
+  value       = "https://${module.monitoring.fqdn}"
+}
+
+output "monitoring_instance_id" {
+  description = "모니터링 EC2 인스턴스 ID (SSM 세션 --target)"
+  value       = module.monitoring.instance_id
+}
+
+output "monitoring_public_ip" {
+  description = "모니터링 서버 EIP (고정)"
+  value       = module.monitoring.public_ip
+}
+
+output "loki_push_url" {
+  description = "앱이 로그를 보내는 Loki 주소 (이미 /wes/prod/app.logging.loki-url에 기록됨)"
+  value       = module.monitoring.loki_push_url
+}

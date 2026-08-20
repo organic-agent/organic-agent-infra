@@ -24,3 +24,9 @@ variable "ssh_allowed_cidr" {
   type        = string
   default     = null
 }
+
+variable "loki_port" {
+  description = "Loki가 로그 push를 받는 포트 (앱 서버 SG에서만 허용)"
+  type        = number
+  default     = 3100
+}

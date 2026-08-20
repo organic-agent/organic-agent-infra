@@ -147,3 +147,69 @@ resource "aws_vpc_security_group_ingress_rule" "rds_from_embedder" {
   to_port                      = var.db_port
   ip_protocol                  = "tcp"
 }
+
+# --- 모니터링 (Loki + Grafana + Caddy) ---
+
+# ALB 뒤가 아니라 EIP로 직결된다. 80/443은 Caddy가 받고(Let's Encrypt HTTP-01 챌린지에 80이 필요),
+# Loki 수신 포트는 앱 서버 SG에서만 연다. SG 참조 규칙은 VPC 안 프라이빗 경로에서만 매칭되므로
+# 앱은 퍼블릭 도메인이 아니라 프라이빗 IP로 로그를 보내야 한다 (modules/monitoring의 SSM 파라미터).
+resource "aws_security_group" "monitoring" {
+  name_prefix = "${var.name_prefix}-monitoring-"
+  description = "Monitoring server: public HTTP/HTTPS (Caddy), Loki push from app server"
+  vpc_id      = var.vpc_id
+
+  tags = {
+    Name = "${var.name_prefix}-monitoring"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "monitoring_http" {
+  security_group_id = aws_security_group.monitoring.id
+  description       = "HTTP (ACME challenge, redirected to HTTPS)"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 80
+  to_port           = 80
+  ip_protocol       = "tcp"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "monitoring_https" {
+  security_group_id = aws_security_group.monitoring.id
+  description       = "HTTPS (Grafana via Caddy)"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "monitoring_loki_from_ec2" {
+  security_group_id            = aws_security_group.monitoring.id
+  description                  = "Loki push from app server"
+  referenced_security_group_id = aws_security_group.ec2.id
+  from_port                    = var.loki_port
+  to_port                      = var.loki_port
+  ip_protocol                  = "tcp"
+}
+
+# 앱 서버와 같은 원칙: 평소엔 SSM, 비상시에만 CIDR 지정.
+resource "aws_vpc_security_group_ingress_rule" "monitoring_ssh" {
+  count = var.ssh_allowed_cidr != null ? 1 : 0
+
+  security_group_id = aws_security_group.monitoring.id
+  description       = "SSH from operator"
+  cidr_ipv4         = var.ssh_allowed_cidr
+  from_port         = 22
+  to_port           = 22
+  ip_protocol       = "tcp"
+}
+
+# egress 전체 오픈: apt/snap, 도커 이미지 풀, Let's Encrypt, SSM 용도.
+resource "aws_vpc_security_group_egress_rule" "monitoring_all" {
+  security_group_id = aws_security_group.monitoring.id
+  description       = "All outbound"
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+}

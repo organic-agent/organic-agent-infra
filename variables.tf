@@ -136,3 +136,29 @@ variable "embedding_dimension" {
   type        = number
   default     = 768
 }
+
+# --- 모니터링 (Loki + Grafana) ---
+
+variable "monitoring_subdomain" {
+  description = "Grafana 접속용 서브도메인 (EIP 직결, ALB 미경유)"
+  type        = string
+  default     = "monitoring"
+}
+
+variable "monitoring_instance_type" {
+  description = "모니터링 EC2 타입 (arm64). t4g.nano(512MiB)는 Grafana+Loki가 OOM 나기 쉬워 micro를 기본으로 둔다"
+  type        = string
+  default     = "t4g.micro"
+}
+
+variable "monitoring_parameter_prefix" {
+  description = "모니터링 서버 전용 SSM 프리픽스. Grafana admin 비밀번호(`grafana.admin-password`, SecureString)를 수동 등록한다 — 앱 프리픽스 밖이라 앱이 읽지 못한다"
+  type        = string
+  default     = "/wes/monitoring"
+}
+
+variable "loki_retention" {
+  description = "Loki 로그 보관 기간. 20GB 루트 볼륨 안에서 돌게 7일로 둔다"
+  type        = string
+  default     = "168h"
+}

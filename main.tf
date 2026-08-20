@@ -122,3 +122,23 @@ module "ingress" {
   app_port          = var.app_port
   health_check_path = var.health_check_path
 }
+
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  name_prefix       = local.name_prefix
+  subnet_id         = module.network.public_subnet_ids[0]
+  security_group_id = module.security.monitoring_security_group_id
+  instance_type     = var.monitoring_instance_type
+  key_name          = module.compute.key_name
+
+  zone_id   = data.aws_route53_zone.this.zone_id
+  zone_name = var.zone_name
+  subdomain = var.monitoring_subdomain
+
+  # Loki push URL은 앱 프리픽스에 쓰고, Grafana 비밀번호는 별도 프리픽스에서 읽는다.
+  # 앱이 /wes/prod/를 통째로 읽기 때문에 Grafana 비밀번호를 거기 두면 앱 컨테이너에 노출된다.
+  app_parameter_prefix        = var.parameter_prefix
+  monitoring_parameter_prefix = var.monitoring_parameter_prefix
+  loki_retention              = var.loki_retention
+}

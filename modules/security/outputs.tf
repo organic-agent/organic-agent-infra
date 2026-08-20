@@ -17,3 +17,8 @@ output "embedder_security_group_id" {
   description = "임베딩 Lambda의 ENI에 붙일 보안 그룹 ID"
   value       = aws_security_group.embedder.id
 }
+
+output "monitoring_security_group_id" {
+  description = "모니터링 서버(Loki/Grafana/Caddy)용 보안 그룹 ID"
+  value       = aws_security_group.monitoring.id
+}
