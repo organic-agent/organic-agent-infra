@@ -162,3 +162,11 @@ variable "loki_retention" {
   type        = string
   default     = "168h"
 }
+
+# --- 인프라 CI/CD ---
+
+variable "infra_repository" {
+  description = "이 저장소 (owner/repo) — Terraform plan/apply 롤의 OIDC 신뢰 조건에 사용"
+  type        = string
+  default     = "organic-agent/organic-agent-infra"
+}

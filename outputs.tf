@@ -29,7 +29,7 @@ output "ssh_command" {
 
 output "github_deploy_role_arn" {
   description = "서버 저장소의 AWS_DEPLOY_ROLE_ARN 시크릿에 넣을 값 (CD가 OIDC로 assume)"
-  value       = aws_iam_role.github_deploy.arn
+  value       = module.github_actions.deploy_role_arn
 }
 
 output "rds_endpoint" {
@@ -90,4 +90,14 @@ output "monitoring_public_ip" {
 output "loki_push_url" {
   description = "앱이 로그를 보내는 Loki 주소 (이미 /wes/prod/app.logging.loki-url에 기록됨)"
   value       = module.monitoring.loki_push_url
+}
+
+output "github_tf_plan_role_arn" {
+  description = "이 저장소의 AWS_PLAN_ROLE_ARN 시크릿에 넣을 값 (PR의 terraform plan이 assume)"
+  value       = module.github_actions.tf_plan_role_arn
+}
+
+output "github_tf_apply_role_arn" {
+  description = "이 저장소의 AWS_APPLY_ROLE_ARN 시크릿에 넣을 값 (main의 terraform apply가 assume)"
+  value       = module.github_actions.tf_apply_role_arn
 }

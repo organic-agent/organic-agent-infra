@@ -1,0 +1,97 @@
+# main에 머지되면 바뀐 스택을 apply 한다. PR에서 plan 댓글을 확인하고 머지하는 것이 승인 절차다.
+# apply 롤(wes-tf-apply-*)은 main 브랜치 토큰만 assume 할 수 있다 (modules/github-actions).
+# destroy는 여기 없다 — 항상 로컬에서 수동으로 (docs/runbook.md '폐기').
+
+name: Terraform Apply
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      stack:
+        description: "강제로 apply 할 스택 (경로 변경 감지 무시)"
+        type: choice
+        options: [app, dns]
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_VERSION: "1.15.8"
+  AWS_REGION: ap-northeast-2
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ github.event_name == 'workflow_dispatch' && inputs.stack == 'app' || steps.filter.outputs.app == 'true' }}
+      dns: ${{ github.event_name == 'workflow_dispatch' && inputs.stack == 'dns' || steps.filter.outputs.dns == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'push'
+        with:
+          filters: |
+            app:
+              - '*.tf'
+              - '.terraform.lock.hcl'
+              - 'modules/**'
+            dns:
+              - 'dns/**'
+
+  # dns가 먼저다: 앱 스택이 data로 존을 읽는다. 둘 다 바뀐 드문 경우 순서를 지킨다.
+  apply-dns:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.dns == 'true'
+    runs-on: ubuntu-latest
+    concurrency: terraform-dns
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - working-directory: dns
+        run: terraform init -input=false
+      - working-directory: dns
+        run: terraform apply -input=false -auto-approve -no-color
+
+  apply-app:
+    needs: [detect-changes, apply-dns]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.app == 'true' &&
+      (needs.apply-dns.result == 'success' || needs.apply-dns.result == 'skipped')
+    runs-on: ubuntu-latest
+    concurrency: terraform-app
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - run: terraform init -input=false
+      - run: terraform apply -input=false -auto-approve -no-color
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Terraform outputs (app)"
+            echo '```'
+            terraform output -no-color 2>/dev/null | grep -v -i 'password\|secret' || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

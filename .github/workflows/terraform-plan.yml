@@ -1,0 +1,152 @@
+# PR마다 바뀐 스택에 대해 fmt/validate/plan을 돌리고 요약을 PR 댓글로 단다.
+# 읽기 전용 롤(wes-tf-plan-*)로 돌며, 전체 plan은 아티팩트로만 남긴다(파라미터 값 등이 섞일 수 있다).
+
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  TF_VERSION: "1.15.8"
+  AWS_REGION: ap-northeast-2
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      dns: ${{ steps.filter.outputs.dns }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - '*.tf'
+              - '.terraform.lock.hcl'
+              - 'modules/**'
+            dns:
+              - 'dns/**'
+
+  plan:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.app == 'true' || needs.detect-changes.outputs.dns == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - stack: app
+            dir: .
+            changed: ${{ needs.detect-changes.outputs.app }}
+          - stack: dns
+            dir: dns
+            changed: ${{ needs.detect-changes.outputs.dns }}
+    steps:
+      - name: Skip unchanged stack
+        if: matrix.changed != 'true'
+        run: echo "no changes in ${{ matrix.stack }}"
+
+      - uses: actions/checkout@v4
+        if: matrix.changed == 'true'
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: matrix.changed == 'true'
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        if: matrix.changed == 'true'
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform fmt
+        if: matrix.changed == 'true'
+        working-directory: ${{ matrix.dir }}
+        run: terraform fmt -check -recursive -diff
+
+      - name: Terraform init
+        if: matrix.changed == 'true'
+        working-directory: ${{ matrix.dir }}
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        if: matrix.changed == 'true'
+        working-directory: ${{ matrix.dir }}
+        run: terraform validate -no-color
+
+      # -lock=false: plan 롤은 읽기 전용이라 S3 잠금 파일을 못 만든다. plan은 state를 쓰지 않으므로 안전하다.
+      - name: Terraform plan
+        if: matrix.changed == 'true'
+        id: plan
+        working-directory: ${{ matrix.dir }}
+        run: |
+          set +e
+          terraform plan -input=false -no-color -lock=false -detailed-exitcode 2>&1 | tee plan_output.txt
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "exitcode=$code" >> "$GITHUB_OUTPUT"
+          # detailed-exitcode: 0 변경 없음, 1 오류, 2 변경 있음
+          [ "$code" != "1" ]
+
+      - name: Upload plan artifact
+        if: always() && matrix.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ matrix.stack }}
+          path: ${{ matrix.dir }}/plan_output.txt
+          retention-days: 14
+
+      - name: Post plan summary to PR
+        if: always() && matrix.changed == 'true'
+        uses: actions/github-script@v7
+        env:
+          STACK: ${{ matrix.stack }}
+          PLAN_FILE: ${{ matrix.dir }}/plan_output.txt
+          EXIT_CODE: ${{ steps.plan.outputs.exitcode }}
+        with:
+          script: |
+            const fs = require('fs');
+            const { STACK, PLAN_FILE, EXIT_CODE } = process.env;
+            const marker = `<!-- terraform-plan:${STACK} -->`;
+            const output = fs.existsSync(PLAN_FILE) ? fs.readFileSync(PLAN_FILE, 'utf8') : '';
+            const lines = output.split('\n');
+
+            // Plan: N to add 요약줄 + 교체/삭제 대상 리소스 목록만 뽑는다.
+            const summary = lines.find(l => /^Plan:/.test(l))
+              || lines.find(l => /No changes/.test(l))
+              || (output ? '⚠️ plan 실패 — 워크플로우 로그 확인' : '⚠️ plan 실행 전 단계(fmt/init/validate)에서 실패');
+            const risky = lines
+              .filter(l => /^\s+# .* (must be replaced|will be destroyed)/.test(l))
+              .map(l => `- \`${l.trim().replace(/^# /, '')}\``);
+
+            const status = EXIT_CODE === '0' ? '✅' : EXIT_CODE === '2' ? '🟡' : '❌';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              marker,
+              `## ${status} Terraform Plan: \`${STACK}\``,
+              '',
+              summary,
+              ...(risky.length ? ['', '**교체·삭제 대상**', ...risky] : []),
+              '',
+              `> 전체 plan은 [워크플로우 아티팩트](${runUrl})에서 확인 (값이 섞일 수 있어 댓글엔 싣지 않는다).`,
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo, issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            }
