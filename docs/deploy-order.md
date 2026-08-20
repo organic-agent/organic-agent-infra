@@ -7,7 +7,7 @@
 [1] dns 스택 (최초 1회)          — Route53 존 + NS 위임
 [2] SSM 수동 파라미터 등록        — DB 비밀번호, OAuth, cors 등
 [3] ECR만 먼저 apply → 이미지 푸시 — 임베더 컨테이너 (Lambda보다 먼저 있어야 한다)
-[4] 앱 스택 terraform apply      — VPC/ALB/EC2/RDS + S3 + Lambda + 배포 롤
+[4] 앱 스택 terraform apply      — VPC/ALB/EC2/RDS + S3 + Lambda + 배포 롤 + 모니터링 EC2
 [5] AWS_DEPLOY_ROLE_ARN 시크릿   — 서버 저장소에 롤 ARN 등록
 [6] 서버 저장소 main 머지         — CD가 빌드→GHCR→SSM 배포 (Flyway가 스키마 생성)
 [7] 임베딩용 DB 사용자 생성        — photos 테이블이 생긴 뒤 1회
@@ -46,9 +46,21 @@ dig NS easyselect.kr +short   # awsdns 4개면 위임 완료
 | `cors.allowed-origins` | String | 쉼표 구분 문자열 (프론트 오리진 목록) |
 | `springdoc.server-url` | String | `https://api.easyselect.kr` |
 
-`spring.datasource.url`·`username`, `app.storage.bucket`, `app.embedding.function-name`은
-테라폼이 apply 때 자동 생성하므로 등록하지 않는다.
+`spring.datasource.url`·`username`, `app.storage.bucket`, `app.embedding.function-name`,
+`app.logging.loki-url`은 테라폼이 apply 때 자동 생성하므로 등록하지 않는다.
 파라미터는 destroy와 무관하게 남으므로 최초 1회만 등록하면 된다.
+
+**모니터링 서버용 — `/wes/prod/` 가 아니라 `/wes/monitoring/` 아래.** 앱이 `/wes/prod/`를
+통째로 읽기 때문에 Grafana 비밀번호를 거기 두면 앱 컨테이너에 노출된다:
+
+| 파라미터 (`/wes/monitoring/` 아래) | 타입 | 비고 |
+|---|---|---|
+| `grafana.admin-password` | SecureString | Grafana `admin` 초기 비밀번호. 없으면 모니터링 EC2의 user_data가 기동 단계에서 멈춘다 |
+
+```bash
+aws ssm put-parameter --name /wes/monitoring/grafana.admin-password --type SecureString \
+  --value "$(openssl rand -base64 24)" --region ap-northeast-2
+```
 
 > `cors.allowed-origins`는 apply의 **입력**이기도 하다. 브라우저가 S3에 직접 PUT/GET 해서 프리플라이트에 답하는 것도 S3이므로, 루트 스택이 이 값을 읽어 S3 버킷의 CORS 허용 오리진으로 그대로 쓴다. 없으면 apply가 파라미터를 찾지 못해 멈춘다.
 
@@ -91,6 +103,12 @@ terraform apply   # ACM 검증 포함 5-15분
 EC2 user_data가 Docker·스왑을 설치하고, S3 사진 버킷과 임베딩 Lambda,
 GitHub Actions용 OIDC 배포 롤도 함께 생성된다.
 
+모니터링 EC2(`wes-monitoring`)도 같이 뜬다. user_data가 Loki·Grafana·Caddy를 compose로
+올리고, Caddy가 `monitoring.easyselect.kr`의 Let's Encrypt 인증서를 받는다 — A 레코드가
+같은 apply에서 생기므로 **apply 완료 후 1-3분**은 인증서 오류가 정상이다.
+[2]의 Grafana 비밀번호를 빼먹었으면 등록 후 서버에서 `sudo /opt/wes-monitoring/start.sh`만 다시 돌린다
+([runbook.md > 모니터링](runbook.md#-모니터링-loki--grafana)).
+
 ---
 
 ## # [5] 배포 롤 시크릿 (스택 세울 때마다)
@@ -102,8 +120,17 @@ terraform output -raw github_deploy_role_arn
 이 값을 서버 저장소 **Settings → Secrets and variables → Actions**의
 `AWS_DEPLOY_ROLE_ARN` 시크릿에 등록(있으면 Update).
 
+**이 저장소(인프라)의 CI/CD 롤도 같이** 등록한다. 이후 PR의 plan과 main 머지의 apply가 이 롤로 돈다:
+
+```bash
+gh secret set AWS_PLAN_ROLE_ARN  --body "$(terraform output -raw github_tf_plan_role_arn)"
+gh secret set AWS_APPLY_ROLE_ARN --body "$(terraform output -raw github_tf_apply_role_arn)"
+```
+
+상세 : [runbook.md > 인프라 CI/CD](runbook.md#-인프라-cicd-plan--apply)
+
 > **주의 :** 롤 이름에 랜덤 접미사가 붙어 **destroy → apply를 거치면 ARN이 바뀌므로**,
-> 스택을 다시 세웠다면 시크릿도 갱신해야 한다. 안 하면 CD가
+> 스택을 다시 세웠다면 시크릿 셋 다 갱신해야 한다. 안 하면 CD가
 > `Not authorized to perform sts:AssumeRoleWithWebIdentity`로 실패한다.
 
 ---
@@ -158,6 +185,14 @@ curl -s https://api.easyselect.kr/actuator/health   # {"status":"UP"}
 ```
 
 타깃 그룹은 기동 후 `healthy` 전환까지 2-3분 걸린다(30초 간격 × 5회).
+
+```bash
+curl -sI https://monitoring.easyselect.kr | head -1    # HTTP/2 302 (Grafana 로그인으로 리다이렉트)
+```
+
+브라우저로 `https://monitoring.easyselect.kr`에 `admin` / `/wes/monitoring/grafana.admin-password` 값으로
+로그인 → Explore → Loki 데이터소스에 `{app="wes"}` 류의 쿼리가 앱 로그를 보여주면 끝
+(앱 쪽 appender가 붙은 뒤에야 로그가 들어온다 — 서버 저장소 이슈).
 전체 체크리스트 : [runbook.md > 검증 체크리스트](runbook.md#-검증-체크리스트)
 
 ---
@@ -170,10 +205,13 @@ curl -s https://api.easyselect.kr/actuator/health   # {"status":"UP"}
 | 남는 것 | 위치 |
 |---|---|
 | Route53 존 | dns 스택 (월 $0.50) |
-| `/wes/prod/*` 수동 파라미터 | SSM Parameter Store |
+| `/wes/prod/*`·`/wes/monitoring/*` 수동 파라미터 | SSM Parameter Store |
 | 컨테이너 이미지 | GHCR |
 | `AWS_DEPLOY_ROLE_ARN` 시크릿 | 서버 저장소 (재apply 시 값 갱신 필요 — [5] 참고) |
+| `AWS_PLAN_ROLE_ARN`·`AWS_APPLY_ROLE_ARN` 시크릿 | 이 저장소 (재apply 시 값 갱신 필요 — [5] 참고) |
 
 반대로 **함께 사라지는 것** 중 하나는 조심해야 한다: 사진 버킷과 그 안의 원본이다.
 버킷은 이 스택이 소유하고, ECR 리포지토리도 `force_delete`라 임베더 이미지까지 지워진다.
 destroy 후 다시 세우려면 [3]의 빌드·푸시를 처음부터 다시 해야 한다(수십 분).
+모니터링 EC2의 로그(Loki 데이터)와 EIP도 함께 사라진다 — EIP가 바뀌어도 A 레코드는
+테라폼이 다시 쓰고, 인증서는 Caddy가 새로 받는다.
