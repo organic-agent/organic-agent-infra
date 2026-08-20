@@ -1,7 +1,7 @@
 # WES 인프라 런북
 
 OAuth(Kakao/Google/Naver) 로그인과 사진 갤러리(업로드·임베딩) 테스트를 위한 최소 사양 환경.
-API 도메인 : `api.easyselect.kr`
+API 도메인 : `api.easyselect.kr` · 로그 조회 : `monitoring.easyselect.kr`
 
 > **운영 설정 아님** — 백업/스냅샷/삭제 보호가 전부 꺼져 있고, 앱 스택은 `terraform destroy`로 언제든 폐기 가능하다.
 
@@ -14,9 +14,11 @@ API 도메인 : `api.easyselect.kr`
 | 제로부터 전체 배포 | [deploy-order.md](deploy-order.md) (순서 요약) |
 | 서버 쉘 접속 | `ssh wes` (설정은 [서버 접속](#-서버-접속-ssm)) |
 | 앱 배포 | 서버 저장소 main 머지 시 CD 자동 (재배포는 Actions 수동 실행) → [앱 배포](#-앱-배포-cd-자동) |
-| 인프라 배포 | `terraform apply` (루트에서) → [배포](#-배포-2단계) |
+| 인프라 배포 | PR → plan 댓글 확인 → main 머지 시 CD가 apply → [인프라 CI/CD](#-인프라-cicd-plan--apply). 최초 1회는 로컬 `terraform apply` → [배포](#-배포-2단계) |
 | 임베더 이미지 빌드·배포 | [임베딩 파이프라인](#-임베딩-파이프라인) |
 | 임베딩이 안 돌 때 | [임베딩 파이프라인 > 문제 해결](#-문제-해결) |
+| 앱 로그 보기 | `https://monitoring.easyselect.kr` (Grafana → Explore) → [모니터링](#-모니터링-loki--grafana) |
+| 로그가 안 들어올 때 | [모니터링 > 문제 해결](#-문제-해결-1) |
 | 전부 정리 | `terraform destroy` (존은 남음) → [폐기](#-폐기) |
 | DB 비밀번호 변경 | [사전 준비](#-사전-준비-최초-1회) 하단 참조 |
 
@@ -36,13 +38,19 @@ Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
 앱 ──lambda:Invoke(EVENT)──→ 임베딩 Lambda (DB 서브넷, S3 게이트웨이 엔드포인트)
                           └─ RDS에 UPDATE photos SET embedding
                              (지금은 비밀번호 인증 — SCP가 IAM 인증을 막아 임시 전환, 아래 SCP 차단 참고)
+
+앱 ──logback Loki appender (프라이빗 IP :3100)──→ 모니터링 EC2 t4g.micro (퍼블릭 서브넷, EIP)
+                                                  ├─ Loki   (filesystem, 7일 보관)
+                                                  ├─ Grafana (Loki 데이터소스 프로비저닝)
+                                                  └─ Caddy  (Let's Encrypt TLS)
+운영자 ──→ monitoring.easyselect.kr ──→ EIP 직결 (ALB 미경유) ──→ Caddy :443 ──→ Grafana
 ```
 
 ### # 스택 구조
 
 | 스택 | 경로 | 담당 | destroy 시 |
 |---|---|---|---|
-| 앱 스택 | 저장소 루트 | VPC / ALB / EC2 / RDS / S3 / Lambda | 전부 삭제 (테스트 데이터 포함) |
+| 앱 스택 | 저장소 루트 | VPC / ALB / EC2 / RDS / S3 / Lambda / 모니터링 EC2 | 전부 삭제 (테스트 데이터·로그 포함) |
 | 존 스택 | `dns/` | Route53 호스팅 존 + NS 위임 | 앱 스택과 무관하게 유지 |
 
 - state는 **S3 원격 백엔드**(`wes-tf-state-233927217926`, 암호화+버전닝+S3 네이티브 잠금)라서 AWS 자격증명만 있으면 누구든 plan/apply 할 수 있다 — 동시 apply는 잠금이 막는다.
@@ -53,6 +61,7 @@ Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
 - 보안그룹에 22번 포트 인바운드 규칙이 없으므로(`ssh_allowed_cidr` 기본값 `null` → 규칙 미생성) 서버 접속은 **SSM 경유가 기본**이다. 키페어(`wes-aws-key`)는 비상용으로 등록만 해둔다.
 - NAT 게이트웨이 없음. EC2가 퍼블릭 IP로 OAuth 토큰 교환 아웃바운드를 직접 처리한다.
 - EC2 퍼블릭 IP는 stop/start 시 바뀐다(EIP 없음). SSH 주소만 영향받고 redirect URI는 도메인 경유라 무관하다.
+- 모니터링 EC2만 **EIP**를 쓴다. Let's Encrypt가 A 레코드로 찾아오는 대상이라 IP가 바뀌면 인증서 재발급과 DNS 전파를 기다려야 하기 때문이다. 80/443은 공개, **3100(Loki)은 앱 EC2 SG에서만** 열려 있고, SSH는 앱 서버와 같은 `ssh_allowed_cidr` 규칙을 따른다.
 
 ### # 설정 주입 (SSM 파라미터)
 
@@ -65,14 +74,24 @@ Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
 | `spring.datasource.password` | **수동 등록** (SecureString) | 테라폼은 ephemeral + write-only(`password_wo`)로 전달만 — **state에 비밀번호가 남지 않는다** |
 | `app.storage.bucket` | 테라폼 (apply 시 자동) | 원본 사진 버킷 이름 |
 | `app.embedding.function-name` | 테라폼 (apply 시 자동) | 임베딩 Lambda 이름 |
+| `app.logging.loki-url` | 테라폼 (apply 시 자동) | Loki push URL(`http://<모니터링 프라이빗 IP>:3100/loki/api/v1/push`). 인스턴스가 재생성되면 값이 바뀌므로 앱 재시작 필요 |
 | `cors.allowed-origins` | **수동 등록** (String) | apply의 **입력**이기도 하다 — 테라폼이 이 값을 읽어 S3 버킷 CORS에 그대로 쓴다 |
+
+모니터링 서버는 **별도 프리픽스 `/wes/monitoring/`** 를 읽는다. 앱이 `/wes/prod/`를 통째로 읽으므로 Grafana 비밀번호를 거기 두면 앱 컨테이너에 노출되고, 반대로 모니터링 인스턴스 롤은 `/wes/prod/`를 읽을 수 없게 해 두었다(이 서버가 뚫려도 DB·OAuth 시크릿은 새지 않는다).
+
+| 파라미터 (`/wes/monitoring/` 아래) | 생성 주체 | 비고 |
+|---|---|---|
+| `grafana.admin-password` | **수동 등록** (SecureString) | Grafana `admin` 초기 비밀번호. **최초 기동에만** 반영된다 — 이후 변경은 Grafana UI |
 
 앱은 부팅 시 Spring Cloud AWS로 `/wes/prod/` 아래 파라미터를 직접 읽는다. EC2 인스턴스 프로파일에 이 경로 읽기 권한이 있으므로 앱용 자격증명/env var 주입이 필요 없고, 나중에 OAuth 클라이언트 시크릿 등을 `/wes/prod/`에 추가하면 앱이 바로 읽을 수 있다.
 
 ### # 비용
 
-월 $45-50 수준 (ALB $17.5, RDS $21, EC2+EBS $8.5) + 존 $0.50.
+월 $55-60 수준 (ALB $17.5, RDS $21, EC2+EBS $8.5, 모니터링 EC2+EBS+EIP $12) + 존 $0.50.
 테스트하지 않는 기간에는 앱 스택을 destroy 한다.
+
+모니터링 비용을 더 줄이려면 `monitoring_instance_type`을 `t4g.nano`로 내릴 수 있지만(−$3),
+512MiB에 Grafana+Loki를 같이 올리면 compactor가 돌 때 OOM이 잦다. 스왑이 받아주긴 해도 조회가 느려진다.
 
 임베딩 파이프라인이 붙어도 고정비는 거의 늘지 않는다. S3 게이트웨이 엔드포인트는 무료고 Lambda는 호출할 때만 과금되므로(3GB × 실행 시간), 실제로 늘어나는 것은 S3에 쌓이는 원본과 ECR의 임베더 이미지 3-5GB(월 $0.5 수준)다.
 
@@ -87,7 +106,14 @@ aws ssm put-parameter --name /wes/prod/spring.datasource.password --type SecureS
   --value "$(openssl rand -hex 24)" --region ap-northeast-2
 ```
 
-이미 등록돼 있으면 생략.
+Grafana admin 초기 비밀번호도 등록한다 (앱 프리픽스 밖, 이유는 [설정 주입](#-설정-주입-ssm-파라미터)):
+
+```bash
+aws ssm put-parameter --name /wes/monitoring/grafana.admin-password --type SecureString \
+  --value "$(openssl rand -base64 24)" --region ap-northeast-2
+```
+
+둘 다 이미 등록돼 있으면 생략.
 
 > **비밀번호를 바꿀 때는** `put-parameter --overwrite` 후 `variables.tf`의 `db_password_version` 기본값을 1 올려 **커밋**하고 apply해야 RDS에 반영된다. (커밋해야 다른 협업자의 plan과 어긋나지 않는다.)
 
@@ -122,6 +148,43 @@ terraform init
 terraform apply   # 약 60개 리소스, ACM 검증 포함 5-15분
 terraform output
 ```
+
+---
+
+## # 인프라 CI/CD (plan / apply)
+
+| 이벤트 | 워크플로우 | 롤 | 하는 일 |
+|---|---|---|---|
+| PR → main | `terraform-plan.yml` | `wes-tf-plan-*` (ReadOnlyAccess + SecureString 복호화) | 바뀐 스택(app / dns)에 `fmt -check`·`validate`·`plan`. 요약(`Plan: N to add…` + 교체·삭제 대상)을 PR 댓글로, 전체 plan은 아티팩트로 |
+| main 푸시 | `terraform-apply.yml` | `wes-tf-apply-*` (PowerUserAccess + `wes-*` IAM 쓰기) | 바뀐 스택에 `apply -auto-approve`. dns가 바뀌었으면 dns → app 순서 |
+| 수동 (`workflow_dispatch`) | `terraform-apply.yml` | 〃 | 스택을 골라 강제 apply (경로 감지 무시) — drift 복구용 |
+
+**승인은 PR 머지다.** 댓글의 plan 요약에 교체·삭제가 있으면 머지 전에 아티팩트로 전체 plan을 읽는다.
+둘 다 `modules/github-actions`의 롤을 OIDC로 assume 하며 장기 키가 없다. plan 롤은 state 잠금 파일도 못 쓰므로 `-lock=false`로 돈다(plan은 state를 쓰지 않아 안전).
+`destroy`는 워크플로우에 없다 — 항상 로컬에서 수동.
+
+### # 최초 1회 — 롤 ARN을 시크릿에
+
+롤은 이 스택이 만들므로 **첫 apply는 로컬**이어야 한다. 그 뒤:
+
+```bash
+gh secret set AWS_PLAN_ROLE_ARN  --body "$(terraform output -raw github_tf_plan_role_arn)"
+gh secret set AWS_APPLY_ROLE_ARN --body "$(terraform output -raw github_tf_apply_role_arn)"
+```
+
+`modules/github-actions`(롤 자체)를 고칠 때도 같은 이유로 로컬 apply다 — CD가 자기 롤의 권한을 바꾸지 못하게 IAM 쓰기를 `wes-*`로 묶어 두긴 했지만, 롤 정의가 깨지면 CD가 스스로를 못 고친다.
+
+apply 잡은 `production` 환경에 묶여 있다. GitHub **Settings → Environments → production**에 Required reviewers를 걸면 머지 뒤 한 번 더 사람이 눌러야 apply가 돈다(지금은 비어 있어 바로 돈다).
+
+### # 문제 해결
+
+| 증상 | 원인 |
+|---|---|
+| `Not authorized to perform sts:AssumeRoleWithWebIdentity` | 시크릿의 ARN이 낡았다(destroy → apply로 롤 재생성) → 위 명령으로 갱신. plan은 `pull_request`, apply는 `ref:refs/heads/main` 토큰만 받는다 — 다른 브랜치의 dispatch는 거절 |
+| plan에서 `AccessDeniedException ... kms:Decrypt` | plan 롤의 `plan-extra` 정책 확인 — database 모듈의 ephemeral SecureString 읽기 |
+| apply에서 `iam:... AccessDenied` | 새 IAM 리소스 이름이 `wes-`로 시작하지 않거나, 목록에 없는 iam 액션 — `modules/github-actions`의 `IamWritePrefixedOnly` 갱신(로컬 apply) |
+| apply가 `Error acquiring the state lock` | 다른 apply(로컬 포함)가 도는 중. 끝나길 기다렸다가 Actions에서 Re-run |
+| PR에 plan 댓글이 안 달린다 | `.tf`·`modules/**`·`dns/**` 밖만 바뀐 PR(문서 등)은 plan을 건너뛴다 — 정상 |
 
 ---
 
@@ -181,6 +244,12 @@ aws ssm start-session --region ap-northeast-2 \
      IdentityFile ~/.ssh/wes-aws-key
      ProxyCommand sh -c "aws ssm start-session --region ap-northeast-2 --target $(aws ec2 describe-instances --region ap-northeast-2 --filters 'Name=tag:Name,Values=wes-app' 'Name=instance-state-name,Values=running' --query 'Reservations[0].Instances[0].InstanceId' --output text) --document-name AWS-StartSSHSession --parameters 'portNumber=%p'"
 
+   # 모니터링 서버 — 같은 키, Name 태그만 다르다
+   Host wes-monitoring
+     User ubuntu
+     IdentityFile ~/.ssh/wes-aws-key
+     ProxyCommand sh -c "aws ssm start-session --region ap-northeast-2 --target $(aws ec2 describe-instances --region ap-northeast-2 --filters 'Name=tag:Name,Values=wes-monitoring' 'Name=instance-state-name,Values=running' --query 'Reservations[0].Instances[0].InstanceId' --output text) --document-name AWS-StartSSHSession --parameters 'portNumber=%p'"
+
    # 인스턴스 ID 직접 지정: ssh i-xxxxxxxx
    Host i-* mi-*
      User ubuntu
@@ -188,7 +257,7 @@ aws ssm start-session --region ap-northeast-2 \
      ProxyCommand aws ssm start-session --region ap-northeast-2 --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p'
    ```
 
-이후 `ssh wes`, `scp app.jar wes:~/`, `rsync` 전부 평소처럼 동작한다.
+이후 `ssh wes`, `ssh wes-monitoring`, `scp app.jar wes:~/`, `rsync` 전부 평소처럼 동작한다.
 
 > 인스턴스를 재생성하면 호스트 키가 바뀐다. 경고가 뜨면 `ssh-keygen -R wes` 후 재접속.
 
@@ -406,6 +475,65 @@ aws lambda invoke --region ap-northeast-2 \
 
 ---
 
+## # 모니터링 (Loki + Grafana)
+
+앱 컨테이너의 로그를 Loki에 모아 Grafana에서 조회한다. 장애 때 앱 EC2에 들어가 `docker logs`를 뒤지지 않기 위한 것이다. 구성은 `modules/monitoring`, 컨테이너 정의는 `modules/monitoring/user_data.sh.tftpl`에 있다.
+
+| 항목 | 값 |
+|---|---|
+| 접속 | `https://monitoring.easyselect.kr` — `admin` / `/wes/monitoring/grafana.admin-password` |
+| 로그 전송 | 앱 → `http://<프라이빗 IP>:3100/loki/api/v1/push` (`/wes/prod/app.logging.loki-url`) |
+| 보관 | 7일 (`loki_retention`, compactor가 삭제) |
+| 데이터 위치 | 서버 `/opt/wes-monitoring/{loki,grafana,caddy}/` — 컨테이너를 갈아도 남는다 |
+| 이미지 | `modules/monitoring/variables.tf`의 `*_image` 기본값에 고정 |
+
+**왜 ALB 뒤가 아닌가.** 앱 ALB와 운명을 같이하지 않게 하고, 호스트 라우팅·타깃 그룹·ACM 추가를 들이지 않기 위해 EIP에 직결하고 TLS는 Caddy가 Let's Encrypt로 받는다.
+
+**왜 프라이빗 IP로 보내는가.** 3100은 앱 EC2 SG 참조 규칙으로만 열려 있고, SG 참조는 VPC 안 프라이빗 경로에서만 매칭된다. 퍼블릭 도메인으로 보내면 IGW를 돌아 들어와 막힌다.
+
+### # 점검
+
+```bash
+ssh wes-monitoring
+cd /opt/wes-monitoring
+docker compose ps                      # loki / grafana / caddy 셋 다 Up
+docker compose logs --tail 50 caddy    # 인증서 발급 로그 (certificate obtained successfully)
+curl -s localhost:3100/ready           # ready
+```
+
+### # 비밀번호 변경
+
+SSM 값은 **최초 기동에만** 쓰인다. 이미 뜬 Grafana는 UI(프로필 → Change password)나 아래로 바꾼다:
+
+```bash
+docker compose exec grafana grafana cli admin reset-admin-password '<새 비밀번호>'
+```
+
+SSM 파라미터도 같이 `--overwrite` 해 두어야 인스턴스 재생성 때 같은 값으로 뜬다.
+
+### # 재기동·설정 반영
+
+`user_data`는 첫 부팅에만 돈다. 템플릿을 고치면 `user_data_replace_on_change`로 **인스턴스가 교체**되고, 보관 중인 로그는 사라진다(7일치라 감수한다). 컨테이너만 다시 올리려면:
+
+```bash
+sudo /opt/wes-monitoring/start.sh    # SSM에서 비밀번호 다시 읽고 compose pull && up
+```
+
+인스턴스가 교체되면 프라이빗 IP가 바뀌어 `app.logging.loki-url`도 바뀐다. **앱을 재시작**해야 새 주소로 보낸다.
+
+### # 문제 해결
+
+| 증상 | 원인 |
+|---|---|
+| `monitoring.easyselect.kr` 인증서 오류 (apply 직후) | Caddy가 DNS 전파를 기다리며 재시도 중. 1-3분 뒤 재확인. 계속되면 `docker compose logs caddy` |
+| 컨테이너가 하나도 없다 | user_data가 Grafana 비밀번호를 못 읽고 멈췄다 — `/wes/monitoring/grafana.admin-password` 등록 후 `sudo /opt/wes-monitoring/start.sh`. `cloud-init` 로그 : `/var/log/cloud-init-output.log` |
+| `admin` 로그인 실패 | Grafana DB가 이미 만들어진 뒤 SSM 값을 바꿨다 — 위 비밀번호 변경 절차로 맞춘다 |
+| 로그가 한 줄도 안 들어온다 | (1) 앱 appender 미설정(서버 저장소) (2) 앱이 `app.logging.loki-url`을 읽기 전에 떴다 → 앱 재시작 (3) 앱 EC2에서 `curl -s <loki-url 호스트>:3100/ready`가 타임아웃이면 SG — 앱이 퍼블릭 주소로 보내고 있지 않은지 확인 |
+| 오래된 로그가 안 지워진다 | compactor는 `retention_delete_delay`(2h) 뒤에 지운다. 7일 + 2시간까지는 정상 |
+| Grafana가 느리거나 OOM | `free -m`으로 스왑 사용량 확인. 계속되면 `monitoring_instance_type`을 `t4g.small`로 |
+
+---
+
 ## # 검증 체크리스트
 
 | # | 확인 | 기대 결과 |
@@ -419,6 +547,9 @@ aws lambda invoke --region ap-northeast-2 \
 | 7 | 브라우저 | Kakao/Google/Naver 로그인 라운드트립 |
 | 8 | 갤러리에 사진 업로드 → `GET /photos/summary` | `uploaded` 수가 올라간다 (S3 CORS·서명 URL 확인) |
 | 9 | `POST /embeddings/run` 후 잠시 뒤 같은 집계 | `embedded` 수가 올라간다 (Lambda 호출·DB 접속·S3 엔드포인트 확인) |
+| 10 | `dig monitoring.easyselect.kr +short` | `terraform output -raw monitoring_public_ip`와 같은 IP 1개 |
+| 11 | `curl -sI https://monitoring.easyselect.kr` | 인증서 유효, `302`(Grafana 로그인) |
+| 12 | Grafana → Explore → Loki | 앱 배포 후 로그가 조회된다 (appender는 서버 저장소 쪽 작업) |
 
 5번 DB 연결 확인 (EC2에서):
 
@@ -437,7 +568,7 @@ PGPASSWORD="$DB_PASSWORD" psql -h <rds_address> -U wes_admin -d wes_db -c 'selec
 terraform destroy   # 앱 스택 (루트에서)
 ```
 
-- 스냅샷 없이 전부 삭제된다(테스트 데이터 포함). 사진 버킷은 `force_destroy`라 원본까지 함께 지워진다.
+- 스냅샷 없이 전부 삭제된다(테스트 데이터 포함). 사진 버킷은 `force_destroy`라 원본까지 함께 지워진다. 모니터링 EC2의 로그와 EIP도 함께 사라진다.
 - 호스팅 존은 dns 스택 소유라 **그대로 남는다** — NS 재위임 없이 나중에 apply만 다시 하면 된다 (존 유지 비용 월 $0.50).
 - 존까지 완전히 없애려면(프로젝트 종료 시에만):
 

@@ -122,3 +122,51 @@ module "ingress" {
   app_port          = var.app_port
   health_check_path = var.health_check_path
 }
+
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  name_prefix       = local.name_prefix
+  subnet_id         = module.network.public_subnet_ids[0]
+  security_group_id = module.security.monitoring_security_group_id
+  instance_type     = var.monitoring_instance_type
+  key_name          = module.compute.key_name
+
+  zone_id   = data.aws_route53_zone.this.zone_id
+  zone_name = var.zone_name
+  subdomain = var.monitoring_subdomain
+
+  # Loki push URL은 앱 프리픽스에 쓰고, Grafana 비밀번호는 별도 프리픽스에서 읽는다.
+  # 앱이 /wes/prod/를 통째로 읽기 때문에 Grafana 비밀번호를 거기 두면 앱 컨테이너에 노출된다.
+  app_parameter_prefix        = var.parameter_prefix
+  monitoring_parameter_prefix = var.monitoring_parameter_prefix
+  loki_retention              = var.loki_retention
+}
+
+# GitHub Actions용 OIDC 롤 (서버 CD + 이 저장소의 plan/apply). 장기 키 없음.
+module "github_actions" {
+  source = "./modules/github-actions"
+
+  name_prefix       = local.name_prefix
+  aws_region        = var.aws_region
+  server_repository = var.github_repository
+  infra_repository  = var.infra_repository
+  app_instance_name = "${local.name_prefix}-app"
+}
+
+# deploy.tf에 루트 리소스로 있던 것을 모듈로 옮겼다. 주소만 바뀌고 재생성되지 않는다 —
+# 배포 롤 ARN은 서버 저장소 시크릿에 박혀 있어서 재생성되면 CD가 깨진다.
+moved {
+  from = aws_iam_openid_connect_provider.github
+  to   = module.github_actions.aws_iam_openid_connect_provider.github
+}
+
+moved {
+  from = aws_iam_role.github_deploy
+  to   = module.github_actions.aws_iam_role.deploy
+}
+
+moved {
+  from = aws_iam_role_policy.github_deploy
+  to   = module.github_actions.aws_iam_role_policy.deploy
+}

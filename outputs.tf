@@ -29,7 +29,7 @@ output "ssh_command" {
 
 output "github_deploy_role_arn" {
   description = "서버 저장소의 AWS_DEPLOY_ROLE_ARN 시크릿에 넣을 값 (CD가 OIDC로 assume)"
-  value       = aws_iam_role.github_deploy.arn
+  value       = module.github_actions.deploy_role_arn
 }
 
 output "rds_endpoint" {
@@ -70,4 +70,34 @@ output "embedder_role_arn" {
 output "db_resource_id" {
   description = "RDS 리소스 ID(db-XXXX). rds-db:connect 정책 ARN이 인스턴스 이름이 아니라 이 값을 쓴다"
   value       = module.database.resource_id
+}
+
+output "monitoring_url" {
+  description = "Grafana 주소 (admin / SSM /wes/monitoring/grafana.admin-password)"
+  value       = "https://${module.monitoring.fqdn}"
+}
+
+output "monitoring_instance_id" {
+  description = "모니터링 EC2 인스턴스 ID (SSM 세션 --target)"
+  value       = module.monitoring.instance_id
+}
+
+output "monitoring_public_ip" {
+  description = "모니터링 서버 EIP (고정)"
+  value       = module.monitoring.public_ip
+}
+
+output "loki_push_url" {
+  description = "앱이 로그를 보내는 Loki 주소 (이미 /wes/prod/app.logging.loki-url에 기록됨)"
+  value       = module.monitoring.loki_push_url
+}
+
+output "github_tf_plan_role_arn" {
+  description = "이 저장소의 AWS_PLAN_ROLE_ARN 시크릿에 넣을 값 (PR의 terraform plan이 assume)"
+  value       = module.github_actions.tf_plan_role_arn
+}
+
+output "github_tf_apply_role_arn" {
+  description = "이 저장소의 AWS_APPLY_ROLE_ARN 시크릿에 넣을 값 (main의 terraform apply가 assume)"
+  value       = module.github_actions.tf_apply_role_arn
 }

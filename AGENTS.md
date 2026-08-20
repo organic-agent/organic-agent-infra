@@ -6,7 +6,7 @@ This repository runs a single long-lived environment, edited and committed in pl
 
 - Repository root is the app stack (`main.tf`, `variables.tf`, `outputs.tf`, `providers.tf`, `versions.tf`) — VPC, ALB/ACM, EC2, RDS.
 - `dns/` is a separate mini-stack owning the Route53 hosted zone, kept apart so destroying the app stack never deletes the zone (a zone re-create would assign new NS servers and force re-delegation at the registrar).
-- `modules/` for reusable infrastructure components (`network`, `security`, `compute`, `database`, `ingress`, `storage`, `embedding`).
+- `modules/` for reusable infrastructure components (`network`, `security`, `compute`, `database`, `ingress`, `storage`, `embedding`, `monitoring`, `github-actions`).
 - `docs/` for runbooks and recovery procedures.
 
 If multiple environments are ever needed again, reintroduce `environments/<name>/` compositions over the same modules.
@@ -23,7 +23,7 @@ terraform validate       # static validation
 terraform plan           # preview changes
 ```
 
-Run `apply` and `destroy` manually and deliberately — never wire them into scripts or automation.
+`plan` runs automatically on every PR (`.github/workflows/terraform-plan.yml`, read-only role) and `apply` runs on merge to `main` (`terraform-apply.yml`). Review the plan comment on the PR before merging — merging *is* the approval. Only `modules/github-actions` changes (the CI roles themselves) and the first bootstrap need a local `apply`. Never automate `destroy`; run it manually and deliberately.
 
 ## Coding Style & Naming Conventions
 
