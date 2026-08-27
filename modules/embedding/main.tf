@@ -140,6 +140,10 @@ resource "aws_lambda_function" "this" {
 
   timeout = 900 # 최댓값. 콜드 스타트가 수 GB짜리 이미지를 먼저 내려받는다.
 
+  # dispatcher가 10초마다 여러 EVENT를 수락해도 소형 RDS와 Lambda 비용이 한꺼번에
+  # 치솟지 않게 한다. worker는 이미지 계산 중 DB 연결을 닫고, 최종 CAS에만 다시 붙는다.
+  reserved_concurrent_executions = var.reserved_concurrent_executions
+
   # Lambda에서 메모리는 CPU 다이얼이기도 하고, 이 잡은 순수 CPU 추론이다. 1GB로 낮추면
   # 같은 배치가 몇 배 느려진다. 과금이 밀리초 단위라 크고 짧은 실행과 작고 느린 실행의
   # 비용이 대체로 같으므로, 낮게 잡아서 얻는 것이 없다.
@@ -204,6 +208,43 @@ resource "aws_lambda_function_event_invoke_config" "this" {
 
   maximum_retry_attempts       = 0
   maximum_event_age_in_seconds = var.async_event_max_age_seconds
+}
+
+# 알림 전달 채널은 별도 운영 설정이지만, backlog가 event age 상한에 가까워지거나 실제로
+# 버려진 경우를 CloudWatch 상태로 즉시 남겨 무음 손실을 피한다.
+resource "aws_cloudwatch_metric_alarm" "async_event_age" {
+  alarm_name          = "${var.name_prefix}-embedder-async-event-age"
+  alarm_description   = "wes-embedder async backlog age exceeded 10 minutes"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  metric_name         = "AsyncEventAge"
+  namespace           = "AWS/Lambda"
+  period              = 60
+  statistic           = "Maximum"
+  threshold           = 600000
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.this.function_name
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "async_events_dropped" {
+  alarm_name          = "${var.name_prefix}-embedder-async-events-dropped"
+  alarm_description   = "wes-embedder dropped at least one asynchronous event"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "AsyncEventsDropped"
+  namespace           = "AWS/Lambda"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 0
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.this.function_name
+  }
 }
 
 # 앱이 실행을 시작할 수 있게 한다. 인스턴스 프로파일이 앱의 유일한 신원이므로,

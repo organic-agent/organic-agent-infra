@@ -111,3 +111,17 @@ variable "async_event_max_age_seconds" {
     error_message = "async_event_max_age_seconds는 900초 함수 상한 이상, Lambda 허용 상한 21600초 이하여야 합니다."
   }
 }
+
+variable "reserved_concurrent_executions" {
+  description = "DB와 비용을 보호하기 위한 embedder 함수 동시 실행 상한"
+  type        = number
+  default     = 4
+
+  validation {
+    condition = (
+      var.reserved_concurrent_executions >= 1 &&
+      var.reserved_concurrent_executions <= 10
+    )
+    error_message = "reserved_concurrent_executions는 1~10 사이여야 합니다."
+  }
+}
