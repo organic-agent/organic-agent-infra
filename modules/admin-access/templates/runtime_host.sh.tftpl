@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+export DEBIAN_FRONTEND=noninteractive
+
 for attempt in $(seq 1 60); do
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     break
@@ -11,6 +13,14 @@ for attempt in $(seq 1 60); do
   fi
   sleep 5
 done
+
+# user_data 변경은 Tailscale identity 보존을 위해 기존 인스턴스에 반영하지 않는다.
+# 따라서 SSM Association으로도 Compose v2를 보정해 서버 CD의 실행 계약을 맞춘다.
+if ! docker compose version >/dev/null 2>&1; then
+  apt-get -o DPkg::Lock::Timeout=600 update
+  apt-get -o DPkg::Lock::Timeout=600 install -y docker-compose-v2
+fi
+docker compose version >/dev/null
 
 ensure_network() {
   name="$1"

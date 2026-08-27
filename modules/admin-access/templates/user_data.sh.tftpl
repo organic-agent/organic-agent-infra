@@ -4,7 +4,7 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y ca-certificates curl docker.io iptables util-linux
+apt-get install -y ca-certificates curl docker.io docker-compose-v2 iptables util-linux
 
 # Tailscale 공식 stable 저장소(ubuntu noble).
 curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg \
