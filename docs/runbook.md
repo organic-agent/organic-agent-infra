@@ -175,12 +175,16 @@ gh secret set AWS_APPLY_ROLE_ARN --body "$(terraform output -raw github_tf_apply
 `modules/github-actions`(롤 자체)를 고칠 때도 같은 이유로 로컬 apply다 — CD가 자기 롤의 권한을 바꾸지 못하게 IAM 쓰기를 `wes-*`로 묶어 두긴 했지만, 롤 정의가 깨지면 CD가 스스로를 못 고친다.
 
 apply 잡은 `production` 환경에 묶여 있다. GitHub **Settings → Environments → production**에 Required reviewers를 걸면 머지 뒤 한 번 더 사람이 눌러야 apply가 돈다(지금은 비어 있어 바로 돈다).
+따라서 apply 역할의 exact `sub`는 `repo:organic-agent/organic-agent-infra:environment:production`이다.
+이 저장소와 Server는 이름 기반 기본 `sub`를 쓰지만, IAM은 `repository_owner_id=299031009`,
+각 `repository_id`, `ref=refs/heads/main`, apply의 `environment=production`까지 함께 검사한다.
+저장소 이름이 재사용돼도 ID가 다른 주체는 assume할 수 없다.
 
 ### # 문제 해결
 
 | 증상 | 원인 |
 |---|---|
-| `Not authorized to perform sts:AssumeRoleWithWebIdentity` | 시크릿의 ARN이 낡았다(destroy → apply로 롤 재생성) → 위 명령으로 갱신. plan은 `pull_request`, apply는 `ref:refs/heads/main` 토큰만 받는다 — 다른 브랜치의 dispatch는 거절 |
+| `Not authorized to perform sts:AssumeRoleWithWebIdentity` | 시크릿의 ARN이 낡았거나 token context가 다르다. plan은 `pull_request`, apply는 `environment:production` sub와 `ref:refs/heads/main`을 모두 요구한다 — 다른 브랜치 dispatch는 거절 |
 | plan에서 `AccessDeniedException ... kms:Decrypt` | plan 롤의 `plan-extra` 정책 확인 — database 모듈의 ephemeral SecureString 읽기 |
 | apply에서 `iam:... AccessDenied` | 새 IAM 리소스 이름이 `wes-`로 시작하지 않거나, 목록에 없는 iam 액션 — `modules/github-actions`의 `IamWritePrefixedOnly` 갱신(로컬 apply) |
 | apply가 `Error acquiring the state lock` | 다른 apply(로컬 포함)가 도는 중. 끝나길 기다렸다가 Actions에서 Re-run |
@@ -283,12 +287,17 @@ SSH 키·호스트 IP·22번 포트가 전혀 필요 없다. 같은 이미지 �
 
 ```bash
 terraform output -raw github_deploy_role_arn
+terraform output -raw github_admin_api_deploy_role_arn
+terraform output -raw github_worker_deploy_role_arn
 ```
 
-이 값을 서버 저장소의 Actions 시크릿 `AWS_DEPLOY_ROLE_ARN`에 등록한다. (비밀은 아니지만 저장소 밖 값이라 시크릿으로 관리)
+세 값을 서버 저장소의 Actions 시크릿 `AWS_DEPLOY_ROLE_ARN`,
+`AWS_ADMIN_API_DEPLOY_ROLE_ARN`, `AWS_WORKER_DEPLOY_ROLE_ARN`에 각각 등록한다.
+(비밀은 아니지만 저장소 밖 값이라 시크릿으로 관리)
 
 > 롤의 신뢰 조건은 `organic-agent/organic-agent-server`의 **main 브랜치**로 제한돼 있다.
-> 저장소를 옮기면 `variables.tf`의 `github_repository` 기본값을 수정해 apply.
+> 이름뿐 아니라 immutable repository/owner ID도 정확히 검사한다. 저장소를 이전하면 이름과 ID를
+> 함께 검토하고 의도적인 IAM/GitHub OIDC 전환 순서로 적용한다.
 
 수동 점검이 필요하면 `ssh wes` 후 `docker ps`, `docker logs wes-app`, 컨테이너 교체는 `/opt/wes-prod`에서 `docker compose` 명령으로 한다.
 
@@ -314,6 +323,8 @@ OAuth 클라이언트 ID/시크릿도 `/wes/prod/` 아래 SecureString 파라미
 - **갤러리 단위로 한 번 부른다.** S3 이벤트로 장당 트리거를 걸면 수천 장 업로드가 Lambda 수천 개를 동시에 띄우고, 각자 커넥션을 열어 db.t4g.micro를 고갈시킨다.
 - **응답을 기다리지 않는다(EVENT).** 갤러리 하나가 Lambda 상한인 15분까지 걸릴 수 있다.
 - **재실행이 안전하다.** 대상 조건이 `embedding IS NULL`이라 중간에 중단돼도 다시 부르면 남은 것만 이어서 한다.
+- **재시도 주체는 DB outbox 하나다.** Lambda 서비스 재시도는 0회이며, 이벤트 수명은 20분
+  (15분 runtime 상한 + 최대 5분 queue 지연)이다. 오래 적체된 이벤트를 뒤늦게 중복 실행하지 않는다.
 
 ### # DB 접속 (설계와 현재 상태)
 
@@ -446,6 +457,8 @@ aws lambda update-function-code --region ap-northeast-2 \
 > 해석해서 엉뚱한 리포지토리 이름을 만든다 (deploy-order.md의 [3] 참고).
 
 함수의 `image_uri`는 `ignore_changes`라 이렇게 밀어 넣어도 다음 plan이 되돌리지 않는다.
+운영 CD에서는 `AWS_WORKER_DEPLOY_ROLE_ARN` 역할만 이 ECR repository와 Lambda를 갱신한다.
+공개/관리자 EC2 배포 역할에는 ECR·Lambda 쓰기 권한이 없다.
 
 ### # 수동 실행
 

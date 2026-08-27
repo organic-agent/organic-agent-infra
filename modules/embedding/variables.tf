@@ -97,3 +97,17 @@ variable "embedding_dimension" {
   type        = number
   default     = 768
 }
+
+variable "async_event_max_age_seconds" {
+  description = "비동기 invoke 이벤트의 최대 대기 수명. 900초 함수 상한과 짧은 큐 지연을 포함한다."
+  type        = number
+  default     = 1200
+
+  validation {
+    condition = (
+      var.async_event_max_age_seconds >= 900 &&
+      var.async_event_max_age_seconds <= 21600
+    )
+    error_message = "async_event_max_age_seconds는 900초 함수 상한 이상, Lambda 허용 상한 21600초 이하여야 합니다."
+  }
+}

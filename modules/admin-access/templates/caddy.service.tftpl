@@ -1,0 +1,32 @@
+[Unit]
+Description=WES admin localhost TLS reverse proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=caddy
+Group=caddy
+Environment=AWS_REGION=${aws_region}
+Environment=XDG_DATA_HOME=/var/lib/caddy/data
+Environment=XDG_CONFIG_HOME=/var/lib/caddy/config
+ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+ExecReload=/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile --force
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+NoNewPrivileges=true
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StateDirectory=caddy
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

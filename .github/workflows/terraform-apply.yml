@@ -1,5 +1,6 @@
 # main에 머지되면 바뀐 스택을 apply 한다. PR에서 plan 댓글을 확인하고 머지하는 것이 승인 절차다.
-# apply 롤(wes-tf-apply-*)은 main 브랜치 토큰만 assume 할 수 있다 (modules/github-actions).
+# apply 롤(wes-tf-apply-*)은 production environment sub와 main ref를 모두 만족해야 한다
+# (modules/github-actions).
 # destroy는 여기 없다 — 항상 로컬에서 수동으로 (docs/runbook.md '폐기').
 
 name: Terraform Apply

@@ -1,0 +1,70 @@
+#!/bin/bash
+set -euo pipefail
+
+for attempt in $(seq 1 60); do
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    break
+  fi
+  if [ "$attempt" -eq 60 ]; then
+    echo "Docker did not become ready within 300 seconds" >&2
+    exit 1
+  fi
+  sleep 5
+done
+
+ensure_network() {
+  name="$1"
+  subnet="$2"
+  internal="$3"
+
+  if docker network inspect "$name" >/dev/null 2>&1; then
+    actual_subnet=$(docker network inspect --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}' "$name")
+    actual_internal=$(docker network inspect --format '{{.Internal}}' "$name")
+    if [ "$actual_subnet" != "$subnet" ] || [ "$actual_internal" != "$internal" ]; then
+      echo "Docker network $name exists with unexpected settings: subnet=$actual_subnet internal=$actual_internal" >&2
+      exit 1
+    fi
+    return
+  fi
+
+  if [ "$internal" = "true" ]; then
+    docker network create --driver bridge --internal --subnet "$subnet" "$name"
+  else
+    docker network create --driver bridge --subnet "$subnet" "$name"
+  fi
+}
+
+ensure_network '${internal_network_name}' '${internal_network_subnet}' true
+ensure_network '${runtime_network_name}' '${runtime_network_subnet}' false
+
+touch '${deploy_lock_path}'
+chmod 0600 '${deploy_lock_path}'
+
+cat > /usr/local/sbin/wes-admin-metadata-firewall <<'FIREWALL'
+#!/bin/bash
+set -euo pipefail
+
+rule=(-s '${internal_network_subnet}' -d 169.254.169.254/32 -j REJECT --reject-with icmp-port-unreachable)
+iptables -C DOCKER-USER "$${rule[@]}" >/dev/null 2>&1 || iptables -I DOCKER-USER 1 "$${rule[@]}"
+FIREWALL
+chmod 0755 /usr/local/sbin/wes-admin-metadata-firewall
+
+cat > /etc/systemd/system/wes-admin-metadata-firewall.service <<'UNIT'
+[Unit]
+Description=Block BackOffice Docker network from EC2 instance metadata
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/wes-admin-metadata-firewall
+RemainAfterExit=yes
+
+[Install]
+WantedBy=docker.service
+UNIT
+
+systemctl daemon-reload
+systemctl enable wes-admin-metadata-firewall.service
+systemctl restart wes-admin-metadata-firewall.service

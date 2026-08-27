@@ -16,13 +16,13 @@ variable "app_role_name" {
 variable "web_origins" {
   description = <<-EOT
     버킷에 직접 PUT/GET 하는 브라우저 오리진. scheme://host[:port] 형태여야 하고 끝에
-    슬래시를 붙이면 매칭되지 않는다. 앱의 cors.allowed-origins와 같은 목록이어야 하며,
-    루트 스택이 그 SSM 파라미터를 그대로 읽어 넘긴다.
+    슬래시를 붙이면 매칭되지 않는다. 루트 스택이 앱의 공개 cors.allowed-origins에
+    관리자 웹 오리진을 합쳐 넘긴다.
   EOT
   type        = list(string)
 
   validation {
-    condition     = alltrue([for o in var.web_origins : can(regex("^https?://[^/]+$", o))])
-    error_message = "각 오리진은 경로나 끝 슬래시 없는 scheme://host[:port] 형태여야 합니다."
+    condition     = alltrue([for o in var.web_origins : can(regex("^https?://[^/*]+$", o))])
+    error_message = "각 오리진은 wildcard, 경로, 끝 슬래시 없는 scheme://host[:port] 형태여야 합니다."
   }
 }

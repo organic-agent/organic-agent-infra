@@ -91,6 +91,29 @@ resource "aws_lb_listener" "https" {
   }
 }
 
+# 내부 관리자 API는 wes-admin BFF가 앱의 사설 IP로만 호출한다. public ALB에서는
+# default forward보다 우선 평가해 앱 타깃에 도달하기 전에 존재를 숨기는 404로 끝낸다.
+resource "aws_lb_listener_rule" "block_internal_admin" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 1
+
+  action {
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "application/json"
+      message_body = jsonencode({ message = "Not Found" })
+      status_code  = "404"
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/internal/admin", "/internal/admin/*"]
+    }
+  }
+}
+
 resource "aws_route53_record" "app" {
   zone_id = var.zone_id
   name    = local.fqdn
