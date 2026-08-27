@@ -56,16 +56,36 @@ ensure_network '${internal_network_name}' '${internal_network_subnet}' true
 ensure_network '${runtime_network_name}' '${runtime_network_subnet}' false
 
 # 기존 인스턴스는 user_data 변경을 무시하므로 Caddy upstream 변경도 Association에서
-# 원자적으로 반영한다. 새 설정을 먼저 검증하고 내용이 달라질 때만 reload한다.
+# 원자적으로 반영한다. 새 설정을 먼저 검증하고 적용 상태가 다를 때만 restart한다.
 caddyfile_tmp=$(mktemp)
 printf '%s' '${caddyfile_base64}' | base64 -d > "$caddyfile_tmp"
 # 신규 인스턴스의 첫 user_data 실행에서는 이 스크립트 뒤에 Caddy를 설치한다. 기존
-# 인스턴스/Association 경로에서만 여기서 검증·reload하고, bootstrap은 후단 설치가 맡는다.
+# 인스턴스/Association 경로에서만 여기서 검증·restart하고, bootstrap은 후단 설치가 맡는다.
 if [ -x /usr/local/bin/caddy ] && [ -f /etc/systemd/system/caddy.service ]; then
   /usr/local/bin/caddy validate --config "$caddyfile_tmp" --adapter caddyfile
-  if ! cmp -s "$caddyfile_tmp" /etc/caddy/Caddyfile; then
+  caddy_state_file=/var/lib/caddy/wes-config.sha256
+  desired_caddy_sha=$(sha256sum "$caddyfile_tmp" | awk '{print $1}')
+  applied_caddy_sha=$(cat "$caddy_state_file" 2>/dev/null || true)
+  if [ "$desired_caddy_sha" != "$applied_caddy_sha" ] || \
+    ! cmp -s "$caddyfile_tmp" /etc/caddy/Caddyfile || \
+    ! systemctl is-active --quiet caddy.service; then
+    caddyfile_backup=$(mktemp)
+    cp /etc/caddy/Caddyfile "$caddyfile_backup"
     install -m 0644 "$caddyfile_tmp" /etc/caddy/Caddyfile
-    systemctl reload-or-restart caddy.service
+    if systemctl restart caddy.service; then
+      printf '%s\n' "$desired_caddy_sha" > "$caddy_state_file"
+      chmod 0644 "$caddy_state_file"
+    else
+      install -m 0644 "$caddyfile_backup" /etc/caddy/Caddyfile
+      if systemctl restart caddy.service; then
+        echo "Caddy restart failed; previous configuration restored and restarted" >&2
+      else
+        echo "Caddy restart failed; previous configuration restored but service recovery failed" >&2
+      fi
+      rm -f "$caddyfile_backup" "$caddyfile_tmp"
+      exit 1
+    fi
+    rm -f "$caddyfile_backup"
   fi
 fi
 rm -f "$caddyfile_tmp"

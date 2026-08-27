@@ -28,7 +28,16 @@ rg -Fq "flock -w 600 9" "$module_dir/templates/runtime_host.sh.tftpl"
 rg -Fq "backoffice_internal_ip = cidrhost(var.internal_network_subnet, 10)" "$module_dir/main.tf"
 rg -Fq "/usr/local/bin/caddy validate" "$module_dir/templates/runtime_host.sh.tftpl"
 rg -Fq "[ -x /usr/local/bin/caddy ]" "$module_dir/templates/runtime_host.sh.tftpl"
-rg -Fq "systemctl reload-or-restart caddy.service" "$module_dir/templates/runtime_host.sh.tftpl"
+rg -Fq "wes-config.sha256" "$module_dir/templates/runtime_host.sh.tftpl"
+rg -Fq "wes-config.sha256" "$module_dir/templates/user_data.sh.tftpl"
+rg -Fq '! cmp -s "$caddyfile_tmp" /etc/caddy/Caddyfile' "$module_dir/templates/runtime_host.sh.tftpl"
+rg -Fq "systemctl is-active --quiet caddy.service" "$module_dir/templates/runtime_host.sh.tftpl"
+rg -Fq "if systemctl restart caddy.service; then" "$module_dir/templates/runtime_host.sh.tftpl"
+rg -Fq "service recovery failed" "$module_dir/templates/runtime_host.sh.tftpl"
+if rg -Fq "systemctl reload-or-restart caddy.service" "$module_dir/templates/runtime_host.sh.tftpl"; then
+  echo "runtime host must restart Caddy because its admin API is disabled" >&2
+  exit 1
+fi
 rg -Fq 'resource "aws_ssm_association" "runtime_host"' "$module_dir/main.tf"
 rg -Fq 'runtime_parameter_prefix_arn' "$module_dir/main.tf"
 rg -Fq '"s3:GetObject"' "$module_dir/main.tf"
