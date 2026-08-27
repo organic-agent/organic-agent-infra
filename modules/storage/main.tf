@@ -81,6 +81,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "photos" {
 #
 # 서명 자체는 AWS를 부르지 않는 로컬 계산이지만, 서명한 자격증명에 권한이 없으면 S3가
 # 그 URL을 거절한다. 즉 이 정책이 없으면 앱은 아무 오류 없이 "쓸 수 없는 URL"을 계속 발급한다.
+#
+# dev 버킷(app_role_name = null)에는 붙이지 않는다. 그 버킷을 서명하는 것은 EC2가 아니라
+# 개발자 노트북의 자격증명이고, 운영 인스턴스 롤이 dev 버킷까지 만질 이유가 없다.
 data "aws_iam_policy_document" "app_photos" {
   statement {
     sid = "PhotoObjects"
@@ -100,12 +103,15 @@ data "aws_iam_policy_document" "app_photos" {
 }
 
 resource "aws_iam_role_policy" "app_photos" {
+  count = var.app_role_name == null ? 0 : 1
+
   name   = "photo-bucket"
   role   = var.app_role_name
   policy = data.aws_iam_policy_document.app_photos.json
 }
 
-# 앱이 부팅할 때 다른 설정과 함께 읽는다(app.storage.bucket).
+# 앱이 부팅할 때 다른 설정과 함께 읽는다(app.storage.bucket). /wes/prod는 EC2의 앱이,
+# /wes/local은 노트북의 bootRun(local 프로필)이 읽으므로 dev 버킷도 같은 키로 알려 준다.
 # 버킷 이름은 인프라가 정하는 값이라 저장소의 yml에 박지 않는다.
 resource "aws_ssm_parameter" "photo_bucket" {
   name  = "${var.parameter_prefix}/app.storage.bucket"

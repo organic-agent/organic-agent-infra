@@ -169,6 +169,21 @@ variable "parameter_prefix" {
   default     = "/wes/prod"
 }
 
+variable "local_parameter_prefix" {
+  description = "로컬 개발(local 프로필)용 SSM 파라미터 프리픽스. dev 버킷 이름(app.storage.bucket)을 이 아래에 쓴다"
+  type        = string
+  default     = "/wes/local"
+}
+
+variable "local_web_origins" {
+  description = <<-EOT
+    dev 버킷의 CORS 허용 오리진 — 로컬 프론트 주소들. 운영 버킷과 달리 SSM에서 읽지 않는다.
+    앱의 local 프로필 cors.allowed-origins는 yml 고정값(localhost)이라 여기 기본값과 맞춰 둔다.
+  EOT
+  type        = list(string)
+  default     = ["http://localhost:3000", "http://localhost:5173"]
+}
+
 variable "db_password_version" {
   description = "SSM 비밀번호 변경 후 RDS에 반영하려면 이 값을 올릴 것"
   type        = number
