@@ -53,6 +53,11 @@ run "plan_before_tailnet_join" {
     condition     = aws_ssm_association.runtime_host.name == "AWS-RunShellScript"
     error_message = "기존 인스턴스에도 Docker network·IMDS firewall·flock 계약을 적용해야 합니다."
   }
+
+  assert {
+    condition     = strcontains(aws_instance.this.user_data, "docker-compose-v2") && strcontains(local.runtime_host_script, "docker-compose-v2") && strcontains(local.runtime_host_script, "docker compose version")
+    error_message = "신규·기존 관리자 인스턴스 모두 Docker Compose v2 실행 계약을 보장해야 합니다."
+  }
 }
 
 run "plan_after_tailnet_join" {
