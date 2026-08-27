@@ -47,5 +47,10 @@ rg -Fq 'resource "aws_lambda_function_event_invoke_config" "this"' "$embedding_m
 rg -Fq 'maximum_retry_attempts       = 0' "$embedding_main"
 rg -Fq 'maximum_event_age_in_seconds = var.async_event_max_age_seconds' "$embedding_main"
 rg -Fq 'default     = 1200' "$repo_root/modules/embedding/variables.tf"
+rg -Fq 'reserved_concurrent_executions = var.reserved_concurrent_executions' "$embedding_main"
+rg -Fq 'default     = 4' "$repo_root/modules/embedding/variables.tf"
+rg -Fq 'metric_name         = "AsyncEventAge"' "$embedding_main"
+rg -Fq 'threshold           = 600000' "$embedding_main"
+rg -Fq 'metric_name         = "AsyncEventsDropped"' "$embedding_main"
 
 echo "worker deploy and async invoke static checks passed"
