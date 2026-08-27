@@ -195,6 +195,17 @@ resource "aws_lambda_function" "this" {
   }
 }
 
+# InvocationType.EVENT 전송 뒤 Lambda 서비스가 같은 작업을 자체 재시도하면 DB outbox의
+# attempt/CAS와 별개인 중복 실행 경로가 생긴다. 재시도는 DB 상태를 보고 서버 outbox가 맡고,
+# Lambda는 수락한 이벤트를 한 번만 실행한다. 20분 event age는 15분 함수 상한에 큐 지연
+# 5분을 더한 값이라, 장시간 적체된 낡은 작업을 뒤늦게 실행하지 않는다.
+resource "aws_lambda_function_event_invoke_config" "this" {
+  function_name = aws_lambda_function.this.function_name
+
+  maximum_retry_attempts       = 0
+  maximum_event_age_in_seconds = var.async_event_max_age_seconds
+}
+
 # 앱이 실행을 시작할 수 있게 한다. 인스턴스 프로파일이 앱의 유일한 신원이므로,
 # POST /api/v1/galleries/{id}/embeddings/run 이 동작하려면 이 정책이 있어야 한다.
 data "aws_iam_policy_document" "app_invoke" {

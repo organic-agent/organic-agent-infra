@@ -1,8 +1,11 @@
-# GitHub Actions가 AWS에 들어올 때 쓰는 OIDC 프로바이더와 롤 세 개.
+# GitHub Actions가 AWS에 들어올 때 쓰는 OIDC 프로바이더와 롤 여섯 개.
 #
-#   deploy   서버 저장소 CD  — main 머지 → SSM Run Command로 앱 EC2에 docker compose 배포
-#   tf_plan  이 저장소 PR    — terraform plan (읽기 전용)
-#   tf_apply 이 저장소 main  — terraform apply
+#   deploy           서버 저장소 CD     — public API를 wes-app에 배포
+#   admin_api_deploy 서버 저장소 CD     — public 배포 성공 후 admin API를 wes-admin에 배포
+#   worker_deploy    서버 저장소 CD     — embedder 이미지를 ECR에 푸시하고 Lambda 코드 갱신
+#   admin_deploy     백오피스 저장소 CD — BackOffice를 wes-admin에 배포
+#   tf_plan          이 저장소 PR       — terraform plan (읽기 전용)
+#   tf_apply         이 저장소 main     — terraform apply
 #
 # 장기 액세스 키를 발급·보관하지 않고, 각 롤은 특정 저장소의 특정 브랜치/이벤트 토큰만 받는다.
 # 닭과 달걀: tf_* 롤은 이 스택이 만든다. 최초 apply와 이 모듈을 고치는 apply는 로컬에서 하고,
@@ -12,6 +15,50 @@ data "aws_caller_identity" "current" {}
 
 locals {
   account_id = data.aws_caller_identity.current.account_id
+
+  # Server와 Infra는 2026-07-15 이전 생성 저장소라 현재 GitHub 기본 sub가 이름 기반이다.
+  # sub를 실제 토큰 형식과 정확히 맞추면서 repository_id/owner_id 조건을 함께 검사해,
+  # 저장소 rename·namespace 재사용으로 다른 저장소가 같은 역할을 assume하지 못하게 한다.
+  # BackOffice는 신규 저장소의 immutable 기본 sub 자체에도 두 ID가 포함된다.
+  github_trust = {
+    deploy = {
+      subject       = "repo:${var.server_repository}:ref:refs/heads/main"
+      repository_id = var.server_repository_id
+      ref           = "refs/heads/main"
+      environment   = null
+    }
+    admin_api_deploy = {
+      subject       = "repo:${var.server_repository}:ref:refs/heads/main"
+      repository_id = var.server_repository_id
+      ref           = "refs/heads/main"
+      environment   = null
+    }
+    worker_deploy = {
+      subject       = "repo:${var.server_repository}:ref:refs/heads/main"
+      repository_id = var.server_repository_id
+      ref           = "refs/heads/main"
+      environment   = null
+    }
+    admin_deploy = {
+      subject       = var.admin_oidc_subject
+      repository_id = var.admin_repository_id
+      ref           = "refs/heads/main"
+      environment   = null
+    }
+    tf_plan = {
+      subject       = "repo:${var.infra_repository}:pull_request"
+      repository_id = var.infra_repository_id
+      ref           = null
+      environment   = null
+    }
+    tf_apply = {
+      # apply jobs use GitHub environment=production, so their sub is not the main ref form.
+      subject       = "repo:${var.infra_repository}:environment:production"
+      repository_id = var.infra_repository_id
+      ref           = "refs/heads/main"
+      environment   = "production"
+    }
+  }
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -21,13 +68,10 @@ resource "aws_iam_openid_connect_provider" "github" {
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 }
 
-# 세 롤의 신뢰 정책은 sub 조건만 다르다.
+# 여섯 롤은 역할별 exact sub에 더해 immutable repository/owner ID를 함께 검사한다.
+# 서버의 세 배포 역할은 같은 main 주체를 신뢰하지만 권한 대상이 달라 서로 넓히지 않는다.
 data "aws_iam_policy_document" "assume" {
-  for_each = {
-    deploy   = "repo:${var.server_repository}:ref:refs/heads/main"
-    tf_plan  = "repo:${var.infra_repository}:pull_request"
-    tf_apply = "repo:${var.infra_repository}:ref:refs/heads/main"
-  }
+  for_each = local.github_trust
 
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -43,12 +87,44 @@ data "aws_iam_policy_document" "assume" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # main 브랜치 sub는 push와 main에서의 workflow_dispatch 둘 다 해당. pull_request sub는
-    # 이 저장소의 PR 이벤트만 — 포크 PR은 시크릿을 못 받아 여기까지 오지 못한다.
+    # 서버/BackOffice main과 Infra PR은 exact sub로, Infra apply는 production environment
+    # sub로 제한한다. 아래 immutable ID와 선택적 ref/environment 조건도 모두 만족해야 한다.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = [each.value]
+      values   = [each.value.subject]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:repository_owner_id"
+      values   = [var.repository_owner_id]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:repository_id"
+      values   = [each.value.repository_id]
+    }
+
+    dynamic "condition" {
+      for_each = each.value.ref == null ? [] : [each.value.ref]
+
+      content {
+        test     = "StringEquals"
+        variable = "token.actions.githubusercontent.com:ref"
+        values   = [condition.value]
+      }
+    }
+
+    dynamic "condition" {
+      for_each = each.value.environment == null ? [] : [each.value.environment]
+
+      content {
+        test     = "StringEquals"
+        variable = "token.actions.githubusercontent.com:environment"
+        values   = [condition.value]
+      }
     }
   }
 }
@@ -97,6 +173,122 @@ resource "aws_iam_role_policy" "deploy" {
   name   = "deploy-via-ssm"
   role   = aws_iam_role.deploy.name
   policy = data.aws_iam_policy_document.deploy.json
+}
+
+# =============================================================================
+# admin_api_deploy — 서버 저장소 CD, wes-admin 전용
+# =============================================================================
+
+resource "aws_iam_role" "admin_api_deploy" {
+  name_prefix        = "${var.name_prefix}-admin-api-deploy-"
+  assume_role_policy = data.aws_iam_policy_document.assume["admin_api_deploy"].json
+}
+
+# =============================================================================
+# admin_deploy — 백오피스 저장소 CD
+# =============================================================================
+
+# 기존 서버 배포 롤을 넓히지 않는다. 별도 역할이 백오피스 저장소 main의 immutable
+# OIDC subject만 신뢰하며, 아래 인라인 정책도 Name=wes-admin 인스턴스만 대상으로 제한한다.
+resource "aws_iam_role" "admin_deploy" {
+  name_prefix        = "${var.name_prefix}-admin-deploy-"
+  assume_role_policy = data.aws_iam_policy_document.assume["admin_deploy"].json
+}
+
+data "aws_iam_policy_document" "admin_deploy" {
+  # CD가 Name 태그로 인스턴스 ID를 찾는다. Describe*는 리소스 단위 제한이 안 됨.
+  statement {
+    actions   = ["ec2:DescribeInstances"]
+    resources = ["*"]
+  }
+
+  statement {
+    actions   = ["ssm:SendCommand"]
+    resources = ["arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"]
+  }
+
+  statement {
+    actions   = ["ssm:SendCommand"]
+    resources = ["arn:aws:ec2:${var.aws_region}:${local.account_id}:instance/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ssm:resourceTag/Name"
+      values   = [var.admin_instance_name]
+    }
+  }
+
+  # 명령 결과(성공/실패, stdout/stderr) 폴링용.
+  statement {
+    actions   = ["ssm:GetCommandInvocation"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "admin_deploy" {
+  name   = "deploy-via-ssm"
+  role   = aws_iam_role.admin_deploy.name
+  policy = data.aws_iam_policy_document.admin_deploy.json
+}
+
+# 관리자 API와 BackOffice는 같은 호스트에 배포되지만 서로 다른 저장소 주체와 역할을 쓴다.
+# 두 역할 모두 Name=wes-admin 한 대로 제한되며, 호스트의 공통 flock이 실행을 직렬화한다.
+resource "aws_iam_role_policy" "admin_api_deploy" {
+  name   = "deploy-via-ssm"
+  role   = aws_iam_role.admin_api_deploy.name
+  policy = data.aws_iam_policy_document.admin_deploy.json
+}
+
+# =============================================================================
+# worker_deploy — 서버 저장소 CD, wes-embedder ECR/Lambda 전용
+# =============================================================================
+
+# 공개/관리자 EC2 배포 역할에 ECR·Lambda 쓰기 권한을 섞지 않는다. 이 역할은 서버 main
+# workflow만 assume하며, 아래 정책의 정확한 repository/function 이외에는 변경할 수 없다.
+resource "aws_iam_role" "worker_deploy" {
+  name_prefix        = "${var.name_prefix}-worker-deploy-"
+  assume_role_policy = data.aws_iam_policy_document.assume["worker_deploy"].json
+}
+
+data "aws_iam_policy_document" "worker_deploy" {
+  # ECR Docker login은 리포지토리 ARN으로 제한할 수 없는 계정 단위 토큰 발급 API다.
+  statement {
+    sid       = "GetEcrAuthorizationToken"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "PushOnlyEmbedderRepository"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:CompleteLayerUpload",
+      "ecr:DescribeImageScanFindings",
+      "ecr:DescribeImages",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:InitiateLayerUpload",
+      "ecr:PutImage",
+      "ecr:UploadLayerPart",
+    ]
+    resources = [var.worker_repository_arn]
+  }
+
+  statement {
+    sid = "UpdateAndInspectOnlyEmbedderFunction"
+    actions = [
+      "lambda:GetFunction",
+      "lambda:GetFunctionConfiguration",
+      "lambda:UpdateFunctionCode",
+    ]
+    resources = [var.worker_function_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "worker_deploy" {
+  name   = "deploy-embedder-worker"
+  role   = aws_iam_role.worker_deploy.name
+  policy = data.aws_iam_policy_document.worker_deploy.json
 }
 
 # =============================================================================

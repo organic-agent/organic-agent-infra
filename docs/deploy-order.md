@@ -8,7 +8,7 @@
 [2] SSM 수동 파라미터 등록        — DB 비밀번호, OAuth, cors 등
 [3] ECR만 먼저 apply → 이미지 푸시 — 임베더 컨테이너 (Lambda보다 먼저 있어야 한다)
 [4] 앱 스택 terraform apply      — VPC/ALB/EC2/RDS + S3 + Lambda + 배포 롤 + 모니터링 EC2
-[5] AWS_DEPLOY_ROLE_ARN 시크릿   — 서버 저장소에 롤 ARN 등록
+[5] GitHub OIDC 롤 시크릿         — API·관리자 API·worker·BackOffice 롤 ARN 등록
 [6] 서버 저장소 main 머지         — CD가 빌드→GHCR→SSM 배포 (Flyway가 스키마 생성)
 [7] 임베딩용 DB 사용자 생성        — photos 테이블이 생긴 뒤 1회
 [8] 검증                         — 헬스체크·타깃 그룹·OAuth·업로드
@@ -49,6 +49,14 @@ dig NS easyselect.kr +short   # awsdns 4개면 위임 완료
 `spring.datasource.url`·`username`, `app.storage.bucket`, `app.embedding.function-name`,
 `app.logging.loki-url`은 테라폼이 apply 때 자동 생성하므로 등록하지 않는다.
 파라미터는 destroy와 무관하게 남으므로 최초 1회만 등록하면 된다.
+
+**관리자 API용 — `/wes/admin-api/prod/` 아래.** Terraform이 URL·사용자명·버킷·Lambda
+이름을 생성하고, 다음 비밀번호만 수동 SecureString으로 등록한다. 공개 앱 비밀번호나 OAuth/JWT
+값을 복사하지 않는다.
+
+| 파라미터 (`/wes/admin-api/prod/` 아래) | 타입 | 비고 |
+|---|---|---|
+| `spring.datasource.password` | SecureString | 수동 생성한 `wes_admin_api` 런타임 계정 비밀번호. Flyway/DDL 권한 없음 |
 
 **모니터링 서버용 — `/wes/prod/` 가 아니라 `/wes/monitoring/` 아래.** 앱이 `/wes/prod/`를
 통째로 읽기 때문에 Grafana 비밀번호를 거기 두면 앱 컨테이너에 노출된다:
@@ -115,10 +123,15 @@ GitHub Actions용 OIDC 배포 롤도 함께 생성된다.
 
 ```bash
 terraform output -raw github_deploy_role_arn
+terraform output -raw github_admin_api_deploy_role_arn
+terraform output -raw github_worker_deploy_role_arn
+terraform output -raw github_admin_deploy_role_arn
 ```
 
-이 값을 서버 저장소 **Settings → Secrets and variables → Actions**의
-`AWS_DEPLOY_ROLE_ARN` 시크릿에 등록(있으면 Update).
+첫 값은 서버 저장소 `AWS_DEPLOY_ROLE_ARN`, 둘째 값은 같은 저장소
+`AWS_ADMIN_API_DEPLOY_ROLE_ARN`, 셋째 값은 같은 저장소 `AWS_WORKER_DEPLOY_ROLE_ARN`,
+넷째 값은 BackOffice 저장소 `AWS_DEPLOY_ROLE_ARN`에 등록한다. worker 역할은
+`wes-embedder` ECR push와 같은 이름의 Lambda 코드 갱신·조회만 허용한다.
 
 **이 저장소(인프라)의 CI/CD 롤도 같이** 등록한다. 이후 PR의 plan과 main 머지의 apply가 이 롤로 돈다:
 
@@ -130,7 +143,7 @@ gh secret set AWS_APPLY_ROLE_ARN --body "$(terraform output -raw github_tf_apply
 상세 : [runbook.md > 인프라 CI/CD](runbook.md#-인프라-cicd-plan--apply)
 
 > **주의 :** 롤 이름에 랜덤 접미사가 붙어 **destroy → apply를 거치면 ARN이 바뀌므로**,
-> 스택을 다시 세웠다면 시크릿 셋 다 갱신해야 한다. 안 하면 CD가
+> 스택을 다시 세웠다면 관련 역할 ARN 시크릿을 모두 갱신해야 한다. 안 하면 CD가
 > `Not authorized to perform sts:AssumeRoleWithWebIdentity`로 실패한다.
 
 ---
@@ -139,10 +152,14 @@ gh secret set AWS_APPLY_ROLE_ARN --body "$(terraform output -raw github_tf_apply
 
 서버 저장소(WES-Server)에서 **main에 머지**하면 CD가 자동으로:
 
-1. JAR 빌드 → arm64 이미지 빌드 → GHCR 푸시
-2. OIDC로 배포 롤 assume (main 브랜치 토큰만 허용)
-3. `wes-app` 태그로 인스턴스 조회 → SSM Run Command로 `docker compose pull && up`
-4. 헬스체크(최대 150초) 통과까지 확인
+1. `wes-domain`, `wes-api`, `wes-admin-api`와 embedder를 검사하고 API 이미지 두 개를 GHCR에 푸시
+2. worker 변경이 있으면 전용 역할로 `wes-embedder` ECR 이미지를 push하고 같은 Lambda를 갱신
+3. 공개 API 전용 역할로 `wes-app`을 교체하고 Flyway/health 완료
+4. 성공한 경우에만 관리자 API 전용 역할로 `wes-admin`의 API 컨테이너를 교체
+5. 관리자 API health와 BackOffice BFF의 미인증 세션 `401` 연결 확인
+
+`wes-admin`에서 API와 BackOffice 배포가 겹치지 않도록 두 SSM 스크립트 모두
+`/var/lock/wes-admin-deploy.lock`을 `flock`으로 잡는다.
 
 같은 이미지 재배포는 Actions 탭 → `[PROD] Build and Deploy` → Run workflow (**main 브랜치 선택** — 다른 브랜치는 롤 신뢰 조건에 걸려 실패한다).
 
@@ -208,6 +225,8 @@ curl -sI https://monitoring.easyselect.kr | head -1    # HTTP/2 302 (Grafana 로
 | `/wes/prod/*`·`/wes/monitoring/*` 수동 파라미터 | SSM Parameter Store |
 | 컨테이너 이미지 | GHCR |
 | `AWS_DEPLOY_ROLE_ARN` 시크릿 | 서버 저장소 (재apply 시 값 갱신 필요 — [5] 참고) |
+| `AWS_ADMIN_API_DEPLOY_ROLE_ARN`·`AWS_WORKER_DEPLOY_ROLE_ARN` 시크릿 | 서버 저장소 (재apply 시 값 갱신 필요 — [5] 참고) |
+| `AWS_DEPLOY_ROLE_ARN` 시크릿 | BackOffice 저장소 (재apply 시 값 갱신 필요 — [5] 참고) |
 | `AWS_PLAN_ROLE_ARN`·`AWS_APPLY_ROLE_ARN` 시크릿 | 이 저장소 (재apply 시 값 갱신 필요 — [5] 참고) |
 
 반대로 **함께 사라지는 것** 중 하나는 조심해야 한다: 사진 버킷과 그 안의 원본이다.

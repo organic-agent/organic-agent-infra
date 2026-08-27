@@ -7,12 +7,14 @@ locals {
   db_password_parameter_name = "${var.parameter_prefix}/spring.datasource.password"
   db_password_parameter_arn  = "${local.parameter_prefix_arn}/spring.datasource.password"
 
-  # S3 버킷의 CORS 허용 오리진. 앱이 읽는 cors.allowed-origins를 그대로 쓴다.
+  # S3 버킷의 CORS 허용 오리진. 앱이 읽는 공개 오리진에 관리자 웹 오리진을 합친다.
   #
   # 값을 변수로 또 두지 않는 이유: 브라우저는 API와 S3 양쪽에 요청을 보내고, 두 목록이
   # 어긋나면 로그인은 되는데 업로드만 프리플라이트에서 죽는다. 원인이 CORS라는 걸
   # 알아채기 어려운 종류의 고장이라, 애초에 갈릴 수 없게 한 곳에서 읽는다.
-  web_origins = [for o in split(",", data.aws_ssm_parameter.cors_allowed_origins.value) : trimspace(o)]
+  admin_web_origin   = "https://${local.admin_fqdn}"
+  public_web_origins = [for o in split(",", data.aws_ssm_parameter.cors_allowed_origins.value) : trimspace(o) if trimspace(o) != ""]
+  web_origins        = distinct(concat(local.public_web_origins, [local.admin_web_origin]))
 }
 
 data "aws_caller_identity" "current" {}
@@ -143,15 +145,23 @@ module "monitoring" {
   loki_retention              = var.loki_retention
 }
 
-# GitHub Actions용 OIDC 롤 (서버 CD + 이 저장소의 plan/apply). 장기 키 없음.
+# GitHub Actions용 OIDC 롤 (서버/백오피스 CD + 이 저장소의 plan/apply). 장기 키 없음.
 module "github_actions" {
   source = "./modules/github-actions"
 
-  name_prefix       = local.name_prefix
-  aws_region        = var.aws_region
-  server_repository = var.github_repository
-  infra_repository  = var.infra_repository
-  app_instance_name = "${local.name_prefix}-app"
+  name_prefix           = local.name_prefix
+  aws_region            = var.aws_region
+  repository_owner_id   = var.github_repository_owner_id
+  server_repository     = var.github_repository
+  server_repository_id  = var.github_repository_id
+  admin_oidc_subject    = var.admin_github_oidc_subject
+  admin_repository_id   = var.admin_github_repository_id
+  infra_repository      = var.infra_repository
+  infra_repository_id   = var.infra_github_repository_id
+  app_instance_name     = "${local.name_prefix}-app"
+  admin_instance_name   = "${local.name_prefix}-admin"
+  worker_repository_arn = module.embedding.repository_arn
+  worker_function_arn   = module.embedding.function_arn
 }
 
 # deploy.tf에 루트 리소스로 있던 것을 모듈로 옮겼다. 주소만 바뀌고 재생성되지 않는다 —

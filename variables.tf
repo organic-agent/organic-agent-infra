@@ -47,6 +47,110 @@ variable "health_check_path" {
   default     = "/actuator/health"
 }
 
+# --- 백오피스 내부 접근 (WES-253) ---
+
+variable "admin_subdomain" {
+  description = "Tailscale 내부에서만 접근할 백오피스 서브도메인"
+  type        = string
+  default     = "admin"
+}
+
+variable "admin_instance_type" {
+  description = "백오피스와 관리자 API를 함께 실행할 EC2 타입 (arm64, 최소 2GiB 메모리)"
+  type        = string
+  default     = "t4g.small"
+
+  validation {
+    condition     = !contains(["t4g.nano", "t4g.micro"], var.admin_instance_type)
+    error_message = "백오피스와 Spring Boot 관리자 API를 함께 실행하므로 t4g.nano/micro는 허용하지 않습니다. 최소 t4g.small을 사용하세요."
+  }
+}
+
+variable "admin_app_port" {
+  description = "백오피스 앱이 localhost에서 리슨할 포트"
+  type        = number
+  default     = 8080
+}
+
+variable "admin_api_port" {
+  description = "관리자 API가 컨테이너와 localhost health에서 리슨할 포트. SG/Caddy에는 열지 않는다."
+  type        = number
+  default     = 8081
+
+  validation {
+    condition     = var.admin_api_port >= 1024 && var.admin_api_port <= 65535 && var.admin_api_port != var.admin_app_port
+    error_message = "admin_api_port는 1024~65535 사이이며 BackOffice 포트와 달라야 합니다."
+  }
+}
+
+variable "admin_proxy_https_port" {
+  description = "Caddy가 localhost에서 TLS를 종료하고 Tailscale Serve가 전달할 포트"
+  type        = number
+  default     = 8443
+}
+
+variable "admin_tailscale_hostname" {
+  description = "백오피스 전용 서버의 tailnet 호스트 이름"
+  type        = string
+  default     = "wes-admin"
+}
+
+variable "admin_tailscale_ipv4" {
+  description = "첫 apply 후 확인한 wes-admin의 Tailscale IPv4. null이면 admin DNS A 레코드를 만들지 않는다."
+  type        = string
+  default     = "100.88.250.104"
+
+  validation {
+    condition     = var.admin_tailscale_ipv4 == null ? true : try(cidrhost("${var.admin_tailscale_ipv4}/10", 0) == "100.64.0.0", false)
+    error_message = "admin_tailscale_ipv4는 Tailscale CGNAT 대역(100.64.0.0/10)의 IPv4여야 합니다."
+  }
+}
+
+variable "admin_tailscale_auth_parameter_name" {
+  description = "tag:wes-admin 일회용 auth key를 담을 수동 생성 SecureString. 앱이 읽는 /wes/prod 밖에 둔다."
+  type        = string
+  default     = "/wes/admin/tailscale-auth-key"
+
+  validation {
+    condition     = startswith(var.admin_tailscale_auth_parameter_name, "/") && !startswith(var.admin_tailscale_auth_parameter_name, "${var.parameter_prefix}/")
+    error_message = "admin_tailscale_auth_parameter_name은 /로 시작하고 앱 parameter_prefix 밖에 있어야 합니다."
+  }
+}
+
+variable "admin_tailscale_auth_kms_key_arn" {
+  description = "Tailscale auth key SecureString의 고객 관리형 KMS 키 ARN. 기본 aws/ssm 키이면 null."
+  type        = string
+  default     = null
+}
+
+variable "admin_parameter_prefix" {
+  description = "관리자 API만 읽는 SSM 파라미터 프리픽스. 공개 앱 /wes/prod와 분리한다."
+  type        = string
+  default     = "/wes/admin-api/prod"
+
+  validation {
+    condition = (
+      startswith(var.admin_parameter_prefix, "/") &&
+      !endswith(var.admin_parameter_prefix, "/") &&
+      var.admin_parameter_prefix != var.parameter_prefix &&
+      !startswith(var.admin_parameter_prefix, "${var.parameter_prefix}/")
+    )
+    error_message = "admin_parameter_prefix는 /로 시작하고 끝 슬래시가 없어야 하며 공개 앱 parameter_prefix와 분리되어야 합니다."
+  }
+}
+
+variable "admin_runtime_kms_key_arn" {
+  description = "관리자 API SecureString에 고객 관리형 KMS 키를 쓰는 경우의 ARN. 기본 aws/ssm 키이면 null."
+  type        = string
+  default     = null
+}
+
+variable "admin_db_username" {
+  description = "관리자 API 전용 PostgreSQL 런타임 계정. Flyway/DDL 권한은 주지 않고 수동 생성한다."
+  type        = string
+  default     = "wes_admin_api"
+}
+
 variable "db_name" {
   description = "초기 PostgreSQL 데이터베이스 이름"
   type        = string
@@ -75,6 +179,55 @@ variable "github_repository" {
   description = "CD가 돌아가는 서버 저장소 (owner/repo) — GitHub OIDC 배포 롤의 신뢰 조건에 사용"
   type        = string
   default     = "organic-agent/organic-agent-server"
+
+  validation {
+    condition     = var.github_repository == "organic-agent/organic-agent-server"
+    error_message = "github_repository는 운영 서버 저장소의 정확한 owner/name이어야 합니다."
+  }
+}
+
+variable "github_repository_owner_id" {
+  description = "organic-agent GitHub organization의 immutable owner ID"
+  type        = string
+  default     = "299031009"
+
+  validation {
+    condition     = var.github_repository_owner_id == "299031009"
+    error_message = "github_repository_owner_id는 organic-agent의 immutable owner ID여야 합니다."
+  }
+}
+
+variable "github_repository_id" {
+  description = "organic-agent-server의 immutable GitHub repository ID"
+  type        = string
+  default     = "1297201474"
+
+  validation {
+    condition     = var.github_repository_id == "1297201474"
+    error_message = "github_repository_id는 organic-agent-server의 immutable repository ID여야 합니다."
+  }
+}
+
+variable "admin_github_oidc_subject" {
+  description = "백오피스 main의 immutable GitHub OIDC sub — 전용 배포 롤은 이 단일 값만 신뢰"
+  type        = string
+  default     = "repo:organic-agent@299031009/organic-agent-backoffice@1344578659:ref:refs/heads/main"
+
+  validation {
+    condition     = var.admin_github_oidc_subject == "repo:organic-agent@299031009/organic-agent-backoffice@1344578659:ref:refs/heads/main"
+    error_message = "admin_github_oidc_subject는 backoffice main의 정확한 immutable sub여야 합니다. 이름 기반 값, 와일드카드, 복수 subject는 허용하지 않습니다."
+  }
+}
+
+variable "admin_github_repository_id" {
+  description = "organic-agent-backoffice의 immutable GitHub repository ID"
+  type        = string
+  default     = "1344578659"
+
+  validation {
+    condition     = var.admin_github_repository_id == "1344578659"
+    error_message = "admin_github_repository_id는 organic-agent-backoffice의 immutable repository ID여야 합니다."
+  }
 }
 
 variable "vpc_cidr" {
@@ -169,4 +322,20 @@ variable "infra_repository" {
   description = "이 저장소 (owner/repo) — Terraform plan/apply 롤의 OIDC 신뢰 조건에 사용"
   type        = string
   default     = "organic-agent/organic-agent-infra"
+
+  validation {
+    condition     = var.infra_repository == "organic-agent/organic-agent-infra"
+    error_message = "infra_repository는 운영 인프라 저장소의 정확한 owner/name이어야 합니다."
+  }
+}
+
+variable "infra_github_repository_id" {
+  description = "organic-agent-infra의 immutable GitHub repository ID"
+  type        = string
+  default     = "1288279318"
+
+  validation {
+    condition     = var.infra_github_repository_id == "1288279318"
+    error_message = "infra_github_repository_id는 organic-agent-infra의 immutable repository ID여야 합니다."
+  }
 }

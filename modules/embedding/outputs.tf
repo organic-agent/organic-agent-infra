@@ -3,6 +3,11 @@ output "repository_url" {
   value       = aws_ecr_repository.this.repository_url
 }
 
+output "repository_arn" {
+  description = "임베더 배포 역할의 단일 ECR 권한 대상 ARN"
+  value       = aws_ecr_repository.this.arn
+}
+
 output "function_name" {
   description = "임베딩 Lambda 이름 (수동 실행과 로그 조회 대상)"
   value       = aws_lambda_function.this.function_name
