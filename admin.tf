@@ -53,23 +53,6 @@ resource "aws_vpc_security_group_ingress_rule" "admin_to_loki" {
   ip_protocol                  = "tcp"
 }
 
-# 전환 단계 전용. 현재 운영 BackOffice가 아직 wes-app:8080의 기존 관리자 endpoint를 쓰므로,
-# admin API 배포와 BFF upstream 전환이 실제 검증되기 전에는 이 경로를 닫지 않는다.
-# 후속 cleanup PR은 아래 resource와 moved block만 제거해 계획된 단일 SG rule 삭제를 만든다.
-resource "aws_vpc_security_group_ingress_rule" "admin_to_public_api_transition" {
-  security_group_id            = module.security.ec2_security_group_id
-  description                  = "Internal admin API from wes-admin BFF"
-  referenced_security_group_id = module.admin_access.security_group_id
-  from_port                    = var.app_port
-  to_port                      = var.app_port
-  ip_protocol                  = "tcp"
-}
-
-moved {
-  from = module.security.aws_vpc_security_group_ingress_rule.ec2_app_from_admin
-  to   = aws_vpc_security_group_ingress_rule.admin_to_public_api_transition
-}
-
 # 비밀번호는 state에 남기지 않기 위해 수동 SecureString으로 관리한다. 나머지 런타임 값은
 # 인프라 출력에서 확정되므로 관리자 전용 prefix에 생성해 공개 앱의 OAuth/JWT 설정과 분리한다.
 resource "aws_ssm_parameter" "admin_datasource_url" {

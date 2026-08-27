@@ -16,18 +16,15 @@ rg -Fq 'resource "aws_vpc_security_group_ingress_rule" "admin_to_loki"' "$admin_
 rg -Fq 'security_group_id            = module.security.monitoring_security_group_id' "$admin_main"
 rg -Fq 'description                  = "Loki push from private admin API host"' "$admin_main"
 
+# BackOffice는 같은 호스트의 Docker internal network를 통해 wes-admin-api만 호출한다.
+# 전환용 wes-admin -> 공개 API SG 규칙과 그 state move는 최종 구성에 남지 않아야 한다.
 if rg -n 'resource "aws_vpc_security_group_ingress_rule" "ec2_app_from_admin"|admin.*app_port' \
-  "$security_main"; then
-  echo "the transitional admin-to-public rule must not reintroduce a module dependency cycle" >&2
+  "$security_main" || \
+  rg -n 'admin_to_public_api_transition|Internal admin API from wes-admin BFF|module\.security\.aws_vpc_security_group_ingress_rule\.ec2_app_from_admin' \
+    "$admin_main"; then
+  echo "the admin-to-public API transition rule must not remain" >&2
   exit 1
 fi
-
-# 첫 인프라 apply에서는 기존 BackOffice upstream을 보존한다. 실제 admin API/BFF 전환 뒤
-# 별도 cleanup PR에서 이 resource와 moved block만 제거한다.
-rg -Fq 'resource "aws_vpc_security_group_ingress_rule" "admin_to_public_api_transition"' "$admin_main"
-rg -Fq 'description                  = "Internal admin API from wes-admin BFF"' "$admin_main"
-rg -Fq 'from = module.security.aws_vpc_security_group_ingress_rule.ec2_app_from_admin' "$admin_main"
-rg -Fq 'to   = aws_vpc_security_group_ingress_rule.admin_to_public_api_transition' "$admin_main"
 
 rg -Fq 'resource "aws_lb_listener_rule" "block_internal_admin"' "$ingress_main"
 rg -Fq 'listener_arn = aws_lb_listener.https.arn' "$ingress_main"
