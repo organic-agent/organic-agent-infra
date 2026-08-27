@@ -211,7 +211,13 @@ resource "aws_iam_instance_profile" "this" {
 }
 
 locals {
+  # Docker 29는 --internal network의 published host port를 실제로 만들지 않는다.
+  # BackOffice는 외부 route를 얻지 않은 채 고정 internal IP만 사용하고, host Caddy가
+  # 이 주소로 직접 reverse proxy한다.
+  backoffice_internal_ip = cidrhost(var.internal_network_subnet, 10)
+
   caddyfile = templatefile("${path.module}/templates/Caddyfile.tftpl", {
+    app_host         = local.backoffice_internal_ip
     app_port         = var.app_port
     fqdn             = var.fqdn
     proxy_https_port = var.proxy_https_port
@@ -223,6 +229,7 @@ locals {
   })
 
   runtime_host_script = templatefile("${path.module}/templates/runtime_host.sh.tftpl", {
+    caddyfile_base64        = base64encode(local.caddyfile)
     deploy_lock_path        = var.deploy_lock_path
     internal_network_name   = var.internal_network_name
     internal_network_subnet = var.internal_network_subnet

@@ -9,12 +9,12 @@
   → Tailscale grant (group:wes-super-admins → tag:wes-admin, tcp:443만)
   → admin.easyselect.kr A 레코드 (100.64.0.0/10의 서버 Tailscale IP)
   → tailscale serve raw TCP :443 → 127.0.0.1:8443
-  → Caddy TLS + Route53 DNS-01 → 127.0.0.1:8080 백오피스 앱
+  → Caddy TLS + Route53 DNS-01 → 172.30.0.10:8080 백오피스 앱
 ```
 
 - Funnel은 사용하지 않는다. `tailscale serve --https`의 `*.ts.net` 자동 인증서도 사용하지 않는다.
 - 전용 EC2는 패키지·Tailscale·SSM·ACME 아웃바운드를 위해 기존 public subnet과 임시 public IP를 사용하지만 보안 그룹 인바운드 규칙은 0개다. 인터넷에서 public IP의 22/80/443으로 들어오는 경로는 없다.
-- Caddy와 앱은 각각 `127.0.0.1:8443`, `127.0.0.1:8080`에만 바인딩한다. tailnet에서 직접 열리는 포트는 Tailscale Serve의 TCP 443 하나다.
+- Caddy는 `127.0.0.1:8443`에만 바인딩한다. BackOffice는 host port를 publish하지 않고 `wes-admin-internal`의 고정 IP `172.30.0.10:8080`에서만 수신한다. tailnet에서 직접 열리는 포트는 Tailscale Serve의 TCP 443 하나다.
 - Caddy는 EC2 역할로 `_acme-challenge.admin.easyselect.kr` TXT만 변경한다. 계정 전체 hosted zone 목록이나 다른 레코드 변경 권한은 없다.
 - 인증서는 암호화된 EBS에 저장되고 Caddy가 자동 갱신한다. Tailscale auth key는 앱이 읽는 `/wes/prod/*` 밖의 수동 생성 SSM SecureString에서 부팅 시 한 번 읽으며 Terraform 구성과 state에는 값이 들어가지 않는다.
 - 관리자 API 컨테이너의 AWS SDK를 위해 IMDSv2 hop limit은 2다. 대신 BackOffice는 외부 라우팅이 없는 `wes-admin-internal`에만 붙이고 해당 CIDR의 IMDS 접근을 host `DOCKER-USER` 방화벽에서 다시 차단한다. 관리자 API만 `wes-admin-runtime`을 함께 사용한다.
@@ -93,7 +93,7 @@ wes-admin-runtime (관리자 API 전용 egress)
 └─ wes-admin-api → IMDSv2 / RDS / SSM / S3 / Lambda
 ```
 
-BackOffice는 `127.0.0.1:8080`만 publish하고 `wes-admin-internal` 하나에만 붙인다. 관리자 API는 먼저 `wes-admin-runtime`에서 시작한 뒤 internal network에 `wes-admin-api` alias로 추가 연결한다. 컨테이너의 `127.0.0.1`은 호스트나 다른 컨테이너가 아니므로 BFF upstream은 반드시 Docker DNS 이름을 쓴다.
+BackOffice는 host port를 publish하지 않고 `wes-admin-internal`의 `172.30.0.10`만 사용한다. Caddy는 host에서 이 고정 internal IP로 프록시한다. 관리자 API는 먼저 `wes-admin-runtime`에서 시작한 뒤 internal network에 `wes-admin-api` alias로 추가 연결한다. 컨테이너의 `127.0.0.1`은 호스트나 다른 컨테이너가 아니므로 BFF upstream은 반드시 Docker DNS 이름을 쓴다.
 
 ```sh
 docker run -d --name wes-admin-api \
@@ -104,8 +104,8 @@ docker network connect --alias wes-admin-api wes-admin-internal wes-admin-api
 
 docker run -d --name wes-backoffice \
   --network wes-admin-internal \
+  --ip 172.30.0.10 \
   --env ADMIN_API_BASE_URL=http://wes-admin-api:8081 \
-  --publish 127.0.0.1:8080:8080 \
   <approved-backoffice-image>
 ```
 
@@ -196,7 +196,8 @@ tailscale serve status
 docker network inspect wes-admin-internal --format '{{.Internal}} {{range .IPAM.Config}}{{.Subnet}}{{end}}'
 docker network inspect wes-admin-runtime --format '{{.Internal}} {{range .IPAM.Config}}{{.Subnet}}{{end}}'
 iptables -C DOCKER-USER -s 172.30.0.0/24 -d 169.254.169.254/32 -j REJECT --reject-with icmp-port-unreachable
-ss -ltnp | grep -E '127\.0\.0\.1:(8080|8081|8443)'
+ss -ltnp | grep -E '127\.0\.0\.1:(8081|8443)'
+curl http://172.30.0.10:8080/health
 curl --fail http://127.0.0.1:8081/actuator/health
 curl --resolve admin.easyselect.kr:8443:127.0.0.1 https://admin.easyselect.kr:8443/
 ```

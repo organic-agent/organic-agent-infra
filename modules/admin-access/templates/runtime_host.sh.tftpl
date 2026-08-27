@@ -22,6 +22,14 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 docker compose version >/dev/null
 
+touch '${deploy_lock_path}'
+chmod 0600 '${deploy_lock_path}'
+exec 9>'${deploy_lock_path}'
+flock -w 600 9 || {
+  echo "Another wes-admin deployment is in progress" >&2
+  exit 1
+}
+
 ensure_network() {
   name="$1"
   subnet="$2"
@@ -47,8 +55,20 @@ ensure_network() {
 ensure_network '${internal_network_name}' '${internal_network_subnet}' true
 ensure_network '${runtime_network_name}' '${runtime_network_subnet}' false
 
-touch '${deploy_lock_path}'
-chmod 0600 '${deploy_lock_path}'
+# 기존 인스턴스는 user_data 변경을 무시하므로 Caddy upstream 변경도 Association에서
+# 원자적으로 반영한다. 새 설정을 먼저 검증하고 내용이 달라질 때만 reload한다.
+caddyfile_tmp=$(mktemp)
+printf '%s' '${caddyfile_base64}' | base64 -d > "$caddyfile_tmp"
+# 신규 인스턴스의 첫 user_data 실행에서는 이 스크립트 뒤에 Caddy를 설치한다. 기존
+# 인스턴스/Association 경로에서만 여기서 검증·reload하고, bootstrap은 후단 설치가 맡는다.
+if [ -x /usr/local/bin/caddy ] && [ -f /etc/systemd/system/caddy.service ]; then
+  /usr/local/bin/caddy validate --config "$caddyfile_tmp" --adapter caddyfile
+  if ! cmp -s "$caddyfile_tmp" /etc/caddy/Caddyfile; then
+    install -m 0644 "$caddyfile_tmp" /etc/caddy/Caddyfile
+    systemctl reload-or-restart caddy.service
+  fi
+fi
+rm -f "$caddyfile_tmp"
 
 cat > /usr/local/sbin/wes-admin-metadata-firewall <<'FIREWALL'
 #!/bin/bash
