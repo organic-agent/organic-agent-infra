@@ -111,6 +111,11 @@ terraform apply   # ACM 검증 포함 5-15분
 EC2 user_data가 Docker·스왑을 설치하고, S3 사진 버킷과 임베딩 Lambda,
 GitHub Actions용 OIDC 배포 롤도 함께 생성된다.
 
+로컬 개발용 사진 버킷(`wes-dev-photos-<계정>`, `module.storage_dev`)도 같이 만들어지고
+`/wes/local/app.storage.bucket`에 기록된다. 운영 버킷과 달리 인스턴스 롤 정책이 없다 — 노트북
+자격증명(개발자 IAM)으로 서명·읽기·쓰기 한다. 로컬 프론트 오리진은 `local_web_origins` 변수다.
+서버 저장소의 `scripts/local-ai.sh`가 이 버킷을 `S3_BUCKET`으로 읽는다.
+
 모니터링 EC2(`wes-monitoring`)도 같이 뜬다. user_data가 Loki·Grafana·Caddy를 compose로
 올리고, Caddy가 `monitoring.easyselect.kr`의 Let's Encrypt 인증서를 받는다 — A 레코드가
 같은 apply에서 생기므로 **apply 완료 후 1-3분**은 인증서 오류가 정상이다.
