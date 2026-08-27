@@ -74,6 +74,8 @@ unset TS_AUTH_KEY
 
 systemctl daemon-reload
 systemctl enable --now caddy
+sha256sum /etc/caddy/Caddyfile | awk '{print $1}' > /var/lib/caddy/wes-config.sha256
+chmod 0644 /var/lib/caddy/wes-config.sha256
 
 # TLS는 Caddy가 localhost:${proxy_https_port}에서 종료한다. Serve는 인증서를 발급하지 않고
 # tailnet의 443/TCP만 raw TCP로 전달한다. Funnel은 구성하지 않는다.
