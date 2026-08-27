@@ -58,6 +58,11 @@ run "plan_before_tailnet_join" {
     condition     = strcontains(aws_instance.this.user_data, "docker-compose-v2") && strcontains(local.runtime_host_script, "docker-compose-v2") && strcontains(local.runtime_host_script, "docker compose version")
     error_message = "신규·기존 관리자 인스턴스 모두 Docker Compose v2 실행 계약을 보장해야 합니다."
   }
+
+  assert {
+    condition     = local.backoffice_internal_ip == "172.30.0.10" && strcontains(local.caddyfile, "reverse_proxy 172.30.0.10:8080") && strcontains(local.runtime_host_script, "flock -w 600 9") && strcontains(local.runtime_host_script, "[ -x /usr/local/bin/caddy ]") && strcontains(local.runtime_host_script, "systemctl reload-or-restart caddy.service")
+    error_message = "BackOffice는 internal 고정 IP를 사용하고 기존 Caddy도 Association으로 갱신해야 합니다."
+  }
 }
 
 run "plan_after_tailnet_join" {

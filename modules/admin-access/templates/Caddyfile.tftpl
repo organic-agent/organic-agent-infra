@@ -12,5 +12,5 @@ https://${fqdn}:${proxy_https_port} {
 		}
 	}
 
-	reverse_proxy 127.0.0.1:${app_port}
+	reverse_proxy ${app_host}:${app_port}
 }
