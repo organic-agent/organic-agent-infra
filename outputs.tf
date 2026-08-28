@@ -67,6 +67,11 @@ output "photo_bucket" {
   value       = module.storage.bucket_name
 }
 
+output "dev_photo_bucket" {
+  description = "로컬 개발용 사진 버킷 (이미 /wes/local/app.storage.bucket에 기록됨). 임베더·AI CLI의 S3_BUCKET"
+  value       = module.storage_dev.bucket_name
+}
+
 output "embedder_repository_url" {
   description = "임베더 이미지를 푸시할 ECR 리포지토리 (docker push 대상)"
   value       = module.embedding.repository_url

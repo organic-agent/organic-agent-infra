@@ -58,6 +58,22 @@ module "storage" {
   web_origins      = local.web_origins
 }
 
+# 로컬 개발용 사진 버킷. 앱은 이미지 바이트를 만지지 않고 브라우저가 S3에 직접 PUT/GET 하므로
+# S3만은 로컬 대체물(MinIO 등)이 없다 — 앱의 S3 클라이언트에 엔드포인트 오버라이드가 없기도 하다.
+# 운영 버킷을 같이 쓰면 로컬 pg의 갤러리 id가 운영과 겹칠 때 `galleries/{id}/…` 키 공간이 섞이므로
+# 버킷을 따로 판다. 임베더·AI CLI를 노트북에서 돌릴 때도 이 버킷을 읽는다.
+#
+# 같은 모듈의 두 번째 인스턴스다. 이름에 환경(dev)이 들어가고, /wes/local/app.storage.bucket에
+# 기록되어 `bootRun --spring.profiles.active=local`이 자동으로 집는다. 인스턴스 롤 정책은 없다.
+module "storage_dev" {
+  source = "./modules/storage"
+
+  name_prefix      = "${local.name_prefix}-dev"
+  parameter_prefix = var.local_parameter_prefix
+  app_role_name    = null
+  web_origins      = var.local_web_origins
+}
+
 module "embedding" {
   source = "./modules/embedding"
 
