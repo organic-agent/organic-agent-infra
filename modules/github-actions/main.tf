@@ -2,7 +2,7 @@
 #
 #   deploy           서버 저장소 CD     — public API를 wes-app에 배포
 #   admin_api_deploy 서버 저장소 CD     — public 배포 성공 후 admin API를 wes-admin에 배포
-#   worker_deploy    서버 저장소 CD     — embedder 이미지를 ECR에 푸시하고 Lambda 코드 갱신
+#   worker_deploy    AI 저장소 CD       — embedder·score·categorize 이미지를 ECR에 푸시하고 Lambda 코드 갱신
 #   admin_deploy     백오피스 저장소 CD — BackOffice를 wes-admin에 배포
 #   tf_plan          이 저장소 PR       — terraform plan (읽기 전용)
 #   tf_apply         이 저장소 main     — terraform apply
@@ -19,7 +19,8 @@ locals {
   # Server와 Infra는 2026-07-15 이전 생성 저장소라 현재 GitHub 기본 sub가 이름 기반이다.
   # sub를 실제 토큰 형식과 정확히 맞추면서 repository_id/owner_id 조건을 함께 검사해,
   # 저장소 rename·namespace 재사용으로 다른 저장소가 같은 역할을 assume하지 못하게 한다.
-  # BackOffice는 신규 저장소의 immutable 기본 sub 자체에도 두 ID가 포함된다.
+  # BackOffice와 AI 저장소는 신규 저장소라 immutable 기본 sub 자체에 두 ID가 포함된다
+  # (GET /repos/{owner}/{repo}/actions/oidc/customization/sub 의 sub_claim_prefix로 확인).
   github_trust = {
     deploy = {
       subject       = "repo:${var.server_repository}:ref:refs/heads/main"
@@ -34,8 +35,8 @@ locals {
       environment   = null
     }
     worker_deploy = {
-      subject       = "repo:${var.server_repository}:ref:refs/heads/main"
-      repository_id = var.server_repository_id
+      subject       = var.worker_oidc_subject
+      repository_id = var.worker_repository_id
       ref           = "refs/heads/main"
       environment   = null
     }
@@ -69,7 +70,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 }
 
 # 여섯 롤은 역할별 exact sub에 더해 immutable repository/owner ID를 함께 검사한다.
-# 서버의 세 배포 역할은 같은 main 주체를 신뢰하지만 권한 대상이 달라 서로 넓히지 않는다.
+# 서버의 두 배포 역할은 같은 main 주체를 신뢰하지만 권한 대상이 달라 서로 넓히지 않는다.
 data "aws_iam_policy_document" "assume" {
   for_each = local.github_trust
 
@@ -240,11 +241,13 @@ resource "aws_iam_role_policy" "admin_api_deploy" {
 }
 
 # =============================================================================
-# worker_deploy — 서버 저장소 CD, wes-embedder ECR/Lambda 전용
+# worker_deploy — AI 저장소 CD, Lambda 셋(embedder · score · categorize)의 ECR/Lambda 전용
 # =============================================================================
 
-# 공개/관리자 EC2 배포 역할에 ECR·Lambda 쓰기 권한을 섞지 않는다. 이 역할은 서버 main
-# workflow만 assume하며, 아래 정책의 정확한 repository/function 이외에는 변경할 수 없다.
+# 공개/관리자 EC2 배포 역할에 ECR·Lambda 쓰기 권한을 섞지 않는다. 이 역할은 AI 저장소 main의
+# deploy-lambda.yml만 assume하며(바뀐 모듈의 `<모듈>/deploy.sh`를 그대로 돌린다), 아래 정책의
+# 정확한 repository/function 목록 이외에는 변경할 수 없다. embedder 코드가 서버 저장소에서
+# AI 저장소로 이관되어(organic-agent-ai #20) 서버 CD에는 더 이상 embedder 잡이 없다.
 resource "aws_iam_role" "worker_deploy" {
   name_prefix        = "${var.name_prefix}-worker-deploy-"
   assume_role_policy = data.aws_iam_policy_document.assume["worker_deploy"].json
@@ -258,35 +261,37 @@ data "aws_iam_policy_document" "worker_deploy" {
     resources = ["*"]
   }
 
+  # DescribeRepositories: deploy.sh가 리포지토리 URI를 terraform output이 아니라 이 API로 찾는다.
   statement {
-    sid = "PushOnlyEmbedderRepository"
+    sid = "PushOnlyWorkerRepositories"
     actions = [
       "ecr:BatchCheckLayerAvailability",
       "ecr:BatchGetImage",
       "ecr:CompleteLayerUpload",
       "ecr:DescribeImageScanFindings",
       "ecr:DescribeImages",
+      "ecr:DescribeRepositories",
       "ecr:GetDownloadUrlForLayer",
       "ecr:InitiateLayerUpload",
       "ecr:PutImage",
       "ecr:UploadLayerPart",
     ]
-    resources = [var.worker_repository_arn]
+    resources = var.worker_repository_arns
   }
 
   statement {
-    sid = "UpdateAndInspectOnlyEmbedderFunction"
+    sid = "UpdateAndInspectOnlyWorkerFunctions"
     actions = [
       "lambda:GetFunction",
       "lambda:GetFunctionConfiguration",
       "lambda:UpdateFunctionCode",
     ]
-    resources = [var.worker_function_arn]
+    resources = var.worker_function_arns
   }
 }
 
 resource "aws_iam_role_policy" "worker_deploy" {
-  name   = "deploy-embedder-worker"
+  name   = "deploy-ai-lambdas"
   role   = aws_iam_role.worker_deploy.name
   policy = data.aws_iam_policy_document.worker_deploy.json
 }

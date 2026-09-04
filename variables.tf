@@ -245,6 +245,30 @@ variable "admin_github_repository_id" {
   }
 }
 
+# AI 저장소(organic-agent-ai)는 2026-08-17 생성이라 백오피스처럼 기본 sub가 immutable 형식이다
+# (`gh api repos/organic-agent/organic-agent-ai/actions/oidc/customization/sub` 의 sub_claim_prefix).
+variable "ai_github_oidc_subject" {
+  description = "AI 저장소 main의 immutable GitHub OIDC sub — Lambda 셋 배포 롤(worker_deploy)은 이 단일 값만 신뢰"
+  type        = string
+  default     = "repo:organic-agent@299031009/organic-agent-ai@1336874708:ref:refs/heads/main"
+
+  validation {
+    condition     = var.ai_github_oidc_subject == "repo:organic-agent@299031009/organic-agent-ai@1336874708:ref:refs/heads/main"
+    error_message = "ai_github_oidc_subject는 organic-agent-ai main의 정확한 immutable sub여야 합니다. 이름 기반 값, 와일드카드, 복수 subject는 허용하지 않습니다."
+  }
+}
+
+variable "ai_github_repository_id" {
+  description = "organic-agent-ai의 immutable GitHub repository ID"
+  type        = string
+  default     = "1336874708"
+
+  validation {
+    condition     = var.ai_github_repository_id == "1336874708"
+    error_message = "ai_github_repository_id는 organic-agent-ai의 immutable repository ID여야 합니다."
+  }
+}
+
 variable "vpc_cidr" {
   description = "VPC CIDR 블록"
   type        = string
@@ -269,20 +293,40 @@ variable "db_subnet_cidrs" {
   default     = ["10.0.10.0/24", "10.0.11.0/24"]
 }
 
-# --- 임베딩 파이프라인 ---
+variable "interface_endpoint_subnet_indexes" {
+  description = <<-EOT
+    lambda·bedrock-runtime 인터페이스 엔드포인트의 ENI를 둘 DB 서브넷 인덱스. 기본은 두 AZ 모두
+    (엔드포인트 둘 × ENI 둘 ≈ 월 $43). [0] 하나로 줄이면 비용이 절반이지만 그 AZ 장애 때 Lambda 셋의
+    재호출·체인·Bedrock 호출이 함께 멈춘다.
+  EOT
+  type        = list(number)
+  default     = [0, 1]
+}
+
+# --- AI Lambda 셋 (embedder → score → categorize) ---
 
 variable "embedder_db_username" {
   description = <<-EOT
-    임베딩 Lambda가 IAM 인증으로 붙을 DB 사용자. 마스터 계정이 아니다 — 마스터는 rds_iam을
-    받을 수 없고, 이 잡에 필요한 권한은 photos 테이블의 SELECT/UPDATE뿐이다.
+    임베딩 Lambda가 붙을 DB 사용자. 마스터 계정이 아니다 — 마스터는 rds_iam을 받을 수 없고,
+    서버의 Flyway 베이스라인이 이 이름의 role에 photos·photo_analysis의 최소 컬럼만 GRANT 한다.
     DB 안에 사용자를 만드는 것은 Terraform 밖의 수동 작업이다 (docs/runbook.md).
   EOT
   type        = string
   default     = "embedder"
 }
 
-variable "embedder_image_tag" {
-  description = "ECR에 올라간 임베더 이미지 태그. 이 태그가 이미 있어야 Lambda가 만들어진다 (docs/deploy-order.md)."
+variable "analysis_db_username" {
+  description = <<-EOT
+    score·categorize Lambda가 붙을 DB 사용자. 마스터도 임베더 계정도 아니다 — 서버 저장소 Flyway
+    베이스라인이 이 이름의 role이 있으면 photo_analysis·ai_concept_assignments·ai_analysis_jobs 등의
+    GRANT를 건다(PHOTOSELECT_GRANT_CONTRACT). 역시 수동 생성이다 (docs/runbook.md).
+  EOT
+  type        = string
+  default     = "photoselect"
+}
+
+variable "lambda_image_tag" {
+  description = "ECR에 올라간 Lambda 셋의 이미지 태그. 세 리포지토리에 이 태그가 이미 있어야 함수가 만들어진다 (docs/deploy-order.md)."
   type        = string
   default     = "latest"
 }
@@ -300,9 +344,45 @@ variable "embedder_batch_size" {
 }
 
 variable "embedding_dimension" {
-  description = "임베딩 폭. 앱의 vector(n) 컬럼·Photo.EMBEDDING_DIMENSION과 셋이 같아야 한다. 768은 DINOv2-base."
+  description = "임베딩 폭. 앱의 vector(n) 컬럼·PhotoAnalysis.EMBEDDING_DIMENSION과 셋이 같아야 한다. 768은 DINOv3-base."
   type        = number
   default     = 768
+}
+
+variable "score_memory_mb" {
+  description = "score Lambda 메모리(= CPU 할당량). CLIP-L + ARNIQA + torch라 AI 저장소가 6–8GB를 권한다. 실측 전이라 상한 쪽."
+  type        = number
+  default     = 8192
+}
+
+variable "score_ephemeral_storage_mb" {
+  description = "score Lambda의 /tmp. 갤러리 미리보기 전부(장당 ~200KB)를 먼저 내려받아 기본 512MB로는 2,500장 남짓에서 찬다."
+  type        = number
+  default     = 10240
+}
+
+variable "score_reserved_concurrent_executions" {
+  description = "score 함수 동시 실행 상한 = 동시에 점수를 매길 갤러리 수. 8GB 함수라 임베더(4)보다 낮게 둔다."
+  type        = number
+  default     = 2
+}
+
+variable "categorize_memory_mb" {
+  description = "categorize Lambda 메모리. torch 없이 거리행렬(7,000장에 ~200MB)만 들어 2–3GB면 넉넉하다."
+  type        = number
+  default     = 3008
+}
+
+variable "categorize_reserved_concurrent_executions" {
+  description = "categorize 함수 동시 실행 상한. score와 같은 값이면 체인이 밀리지 않는다."
+  type        = number
+  default     = 2
+}
+
+variable "bedrock_model_id" {
+  description = "categorize의 그룹 이름 짓기 모델(크로스 리전 추론 프로필 ID). 함수 환경변수와 실행 롤의 InvokeModel 대상이 여기서 함께 나온다."
+  type        = string
+  default     = "global.anthropic.claude-sonnet-4-6"
 }
 
 # --- 모니터링 (Loki + Grafana) ---

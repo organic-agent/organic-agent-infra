@@ -43,7 +43,7 @@ output "github_admin_api_deploy_role_arn" {
 }
 
 output "github_worker_deploy_role_arn" {
-  description = "서버 저장소의 AWS_WORKER_DEPLOY_ROLE_ARN 시크릿에 넣을 값 (wes-embedder ECR/Lambda 전용)"
+  description = "AI 저장소의 AWS_LAMBDA_DEPLOY_ROLE_ARN 변수(vars)에 넣을 값 (wes-embedder·wes-score·wes-categorize ECR/Lambda 전용)"
   value       = module.github_actions.worker_deploy_role_arn
 }
 
@@ -72,19 +72,27 @@ output "dev_photo_bucket" {
   value       = module.storage_dev.bucket_name
 }
 
-output "embedder_repository_url" {
-  description = "임베더 이미지를 푸시할 ECR 리포지토리 (docker push 대상)"
-  value       = module.embedding.repository_url
+output "lambda_repository_urls" {
+  description = "Lambda 셋의 이미지를 푸시할 ECR 리포지토리 (키: embedder · score · categorize). AI 저장소 deploy.sh는 이름으로 찾는다"
+  value       = module.analysis.repository_urls
 }
 
-output "embedder_function_name" {
-  description = "임베딩 Lambda 이름. 수동 실행: aws lambda invoke --function-name <this> ..."
-  value       = module.embedding.function_name
+output "lambda_function_names" {
+  description = "AI Lambda 이름 (키: embedder · score · categorize). 수동 실행: aws lambda invoke --function-name <this> ..."
+  value       = module.analysis.function_names
 }
 
-output "embedder_role_arn" {
-  description = "임베딩 Lambda 실행 롤 ARN (SCP 차단 판별 — docs/runbook.md 'SCP 차단' 참조)"
-  value       = module.embedding.role_arn
+output "lambda_role_arns" {
+  description = "Lambda 셋의 실행 롤 ARN (SCP 차단 판별 — docs/runbook.md 'SCP 차단' 참조)"
+  value       = module.analysis.role_arns
+}
+
+output "vpc_interface_endpoint_ids" {
+  description = "DB 서브넷의 인터페이스 엔드포인트 (lambda: 재호출·체인, bedrock-runtime: categorize naming). 시간당 과금 대상"
+  value = {
+    lambda          = module.network.lambda_endpoint_id
+    bedrock_runtime = module.network.bedrock_runtime_endpoint_id
+  }
 }
 
 output "db_resource_id" {
