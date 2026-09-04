@@ -208,7 +208,8 @@ Lambda 셋은 서버 CD와 무관하다. AI 저장소 main에 `embedder/`·`scor
 
 **7-1. DB 사용자** — DB를 새로 만들 때마다. SQL이라 Terraform이 만들지 못한다. 사용자는 둘이다 —
 `embedder`(임베더)와 `photoselect`(score·categorize). 테이블별 GRANT는 서버의 Flyway 베이스라인이
-**role이 있을 때만** 거므로, 사용자를 만든 뒤 앱을 한 번 재배포(또는 런북의 GRANT 블록을 직접 실행)한다.
+**V1이 도는 시점에 role이 있을 때만** 건다 — 스키마가 이미 있는 DB에 사용자를 뒤늦게 만들면 런북의
+GRANT 블록을 직접 실행한다(앱 재배포로는 V1이 다시 돌지 않는다).
 
 ```sql
 CREATE USER embedder    WITH PASSWORD '<embedder.db.password 와 같은 값>';

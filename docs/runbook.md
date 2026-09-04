@@ -371,10 +371,37 @@ CREATE USER photoselect WITH PASSWORD '<photoselect 전용 비밀번호>';
 REVOKE rds_iam FROM embedder;
 ```
 
-테이블별 GRANT는 손으로 걸지 않는다. 서버 저장소의 Flyway 베이스라인(`V1__baseline.sql`의
-`EMBEDDER_GRANT_CONTRACT` · `PHOTOSELECT_GRANT_CONTRACT`)이 **role이 있을 때만** 최소 컬럼·테이블로
-건다 — 그래서 사용자를 만든 뒤 앱을 한 번 재배포하거나, 그 두 블록의 `DO $$ ... $$;`를 psql에
-그대로 붙여 넣는다. 스키마가 바뀌어 GRANT 목록이 늘어도 다음 마이그레이션이 같은 방식으로 따라온다.
+테이블별 GRANT의 원본은 서버 저장소 Flyway 베이스라인(`V1__baseline.sql`의 `EMBEDDER_GRANT_CONTRACT` ·
+`PHOTOSELECT_GRANT_CONTRACT`)이다. 그 블록은 **마이그레이션이 도는 시점에 role이 있을 때만** 건다 —
+V1이 이미 돈 DB에 사용자를 뒤늦게 만들면 앱을 재배포해도 V1은 다시 돌지 않으므로 **직접 건다**.
+photoselect용은 아래를 psql에 넣는다(없는 테이블은 건너뛴다). embedder는 V1 블록의 컬럼 목록을 같은 식으로 옮긴다.
+
+```sql
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['galleries','photos','photo_analysis','concept_folders','detail_folders',
+      'photo_category_assignments','photo_selections','photo_selection_items','ai_analysis_jobs',
+      'ai_concept_assignments','ai_selection_jobs','ai_recommendations','ai_pair_verdicts'] LOOP
+    IF to_regclass('public.' || t) IS NOT NULL THEN EXECUTE format('GRANT SELECT ON public.%I TO photoselect', t); END IF;
+  END LOOP;
+  FOREACH t IN ARRAY ARRAY['photo_analysis','ai_concept_assignments','ai_recommendations','ai_pair_verdicts'] LOOP
+    IF to_regclass('public.' || t) IS NOT NULL THEN EXECUTE format('GRANT INSERT, UPDATE ON public.%I TO photoselect', t); END IF;
+  END LOOP;
+  FOREACH t IN ARRAY ARRAY['ai_analysis_jobs','ai_selection_jobs'] LOOP
+    IF to_regclass('public.' || t) IS NOT NULL THEN EXECUTE format('GRANT UPDATE ON public.%I TO photoselect', t); END IF;
+  END LOOP;
+END $$;
+-- 확인
+SELECT table_name, string_agg(privilege_type, ',') FROM information_schema.table_privileges
+ WHERE grantee = 'photoselect' GROUP BY 1 ORDER BY 1;
+```
+
+서버 저장소의 GRANT 계약이 바뀌면(새 테이블 등) 그 마이그레이션도 role 유무를 보고 걸므로, 그때는 자동으로 따라온다.
+
+> 로컬에 psql이 없으면 `wes-app` 인스턴스에 SSM Run Command(`AWS-RunShellScript`)로 보낸다 — 인스턴스 롤이
+> `/wes/prod/*`를 읽을 수 있어 마스터 비밀번호를 노트북으로 가져올 필요가 없다. `-c`는 psql 변수를 치환하지
+> 않으므로 `CREATE USER … PASSWORD :'pw'`는 stdin이나 `-f`로 넣고 `-v pw=…`로 값을 준다.
 
 > **`rds_iam`과 비밀번호 인증은 동시에 쓸 수 없다.** pg_hba는 선착순 매칭인데, RDS가 넣어
 > 두는 규칙 순서가 이렇다:
@@ -496,7 +523,7 @@ aws lambda invoke --region ap-northeast-2 --function-name wes-score \
 | 증상 | 원인 |
 |---|---|
 | `password authentication failed for user "embedder"` / `"photoselect"` | DB 사용자가 없다. RDS 에러 로그 DETAIL에 `Role "…" does not exist`가 함께 찍힌다 |
-| `permission denied for table photo_analysis` (photoselect) | 사용자는 있는데 Flyway의 GRANT 블록이 아직 안 돌았다 — 앱 재배포 또는 `PHOTOSELECT_GRANT_CONTRACT` 블록 실행 |
+| `permission denied for table photo_analysis` (photoselect) | 사용자는 있는데 GRANT가 없다 — V1이 role보다 먼저 돌았다. 위 "DB 사용자"의 GRANT 블록을 직접 실행 |
 | `PAM authentication failed` + DB 사용자·GRANT 정상 | 조직 SCP가 `rds-db:connect`를 막고 있다 → [SCP 차단](#-scp-차단-임시-우회로) |
 | `PAM authentication failed` + 비밀번호로 붙는 중 | 사용자가 아직 `rds_iam` 멤버다. pg_hba가 PAM 경로로 보내 비밀번호를 아예 안 본다 — `REVOKE rds_iam FROM …;` |
 | 접속 성공하다가 apply 후 갑자기 실패 | apply가 `DB_PASSWORD` 환경변수를 지웠다. 함수가 재생성되면 `ignore_changes`도 못 지킨다 — 다시 주입 |
