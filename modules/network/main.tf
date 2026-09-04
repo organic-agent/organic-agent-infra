@@ -108,3 +108,79 @@ resource "aws_vpc_endpoint" "s3" {
     Name = "${var.name_prefix}-s3"
   }
 }
+
+# --- AI Lambda 셋이 AWS API에 닿을 통로 (인터페이스 엔드포인트) ---
+#
+# S3 게이트웨이 엔드포인트만으로는 부족한 호출이 셋 있다. embedder·score의 자기 재호출과
+# score → categorize 체인은 Lambda API(`lambda.<region>.amazonaws.com`)로, categorize의 그룹
+# 이름 짓기는 Bedrock(`bedrock-runtime.<region>.amazonaws.com`)으로 나간다. 둘 다 게이트웨이
+# 엔드포인트가 없는 서비스라 인터페이스 엔드포인트(= ENI)가 필요하고, 없으면 15분짜리
+# 함수가 남은 시간을 연결 타임아웃에 쓰고 재호출·체인만 실패한 채 끝난다.
+#
+# 인터페이스 엔드포인트는 게이트웨이와 달리 **시간당 과금**이다(ENI 하나에 약 $0.0147/h,
+# 서브넷 = AZ마다 하나). 두 AZ에 다 두면 엔드포인트 둘 × ENI 둘 ≈ 월 $43, 한 AZ면 절반.
+# 여기서는 Lambda ENI가 두 DB 서브넷 어디에나 생기므로 두 AZ에 다 둔다 — 한 AZ만 두면
+# 다른 AZ의 함수가 AZ를 건너 붙는데 동작은 하지만 그 AZ가 죽으면 같이 죽는다.
+# 비용을 줄이려면 `interface_endpoint_subnet_indexes`로 서브넷 하나만 고른다.
+#
+# private_dns_enabled: 함수 코드는 기본 퍼블릭 호스트네임(boto3 기본값)으로 부른다. 이 옵션이
+# 그 이름을 VPC 안에서 ENI 주소로 풀어 주므로 코드에 엔드포인트 URL을 심을 필요가 없다.
+
+# 엔드포인트 ENI에 붙는 보안 그룹. 이 VPC 안에서만 443으로 들어온다 — 엔드포인트는 VPC 밖에서
+# 닿을 수 없으므로 출처를 Lambda SG로 더 좁혀 얻는 것이 없고, security 모듈이 network 모듈에
+# 의존하는 구조라 여기서 Lambda SG를 참조하면 순환이 된다.
+resource "aws_security_group" "vpc_endpoints" {
+  name_prefix = "${var.name_prefix}-vpce-"
+  description = "Interface VPC endpoints: HTTPS from inside the VPC"
+  vpc_id      = aws_vpc.this.id
+
+  tags = {
+    Name = "${var.name_prefix}-vpce"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "vpc_endpoints_https" {
+  security_group_id = aws_security_group.vpc_endpoints.id
+  description       = "HTTPS from the VPC (Lambda ENIs in the DB subnets)"
+  cidr_ipv4         = aws_vpc.this.cidr_block
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+}
+
+locals {
+  interface_endpoint_subnet_ids = [for i in var.interface_endpoint_subnet_indexes : aws_subnet.db[i].id]
+}
+
+# embedder·score 자기 재호출, score → categorize 체인.
+resource "aws_vpc_endpoint" "lambda" {
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.lambda"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = local.interface_endpoint_subnet_ids
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${var.name_prefix}-lambda"
+  }
+}
+
+# categorize의 그룹 이름 짓기(Bedrock InvokeModel). `global.` 크로스 리전 프로필도 이 리전의
+# bedrock-runtime으로 들어가고, 다른 리전으로 넘기는 것은 Bedrock 안쪽 일이다.
+resource "aws_vpc_endpoint" "bedrock_runtime" {
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.bedrock-runtime"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = local.interface_endpoint_subnet_ids
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${var.name_prefix}-bedrock-runtime"
+  }
+}

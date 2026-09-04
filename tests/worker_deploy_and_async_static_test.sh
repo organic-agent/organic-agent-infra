@@ -3,20 +3,21 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 oidc_main="$repo_root/modules/github-actions/main.tf"
-embedding_main="$repo_root/modules/embedding/main.tf"
+analysis_main="$repo_root/modules/analysis/main.tf"
+analysis_vars="$repo_root/modules/analysis/variables.tf"
 
-# Server main 주체라도 EC2 배포 역할을 넓히지 않고 worker 역할을 별도로 둔다.
+# EC2 배포 역할을 넓히지 않고 worker 역할을 별도로 둔다. 역할은 정확한 ECR·Lambda ARN 목록만 받는다.
 rg -Fq 'resource "aws_iam_role" "worker_deploy"' "$oidc_main"
 rg -Fq 'resource "aws_iam_role_policy" "worker_deploy"' "$oidc_main"
 rg -Fq 'assume_role_policy = data.aws_iam_policy_document.assume["worker_deploy"].json' "$oidc_main"
-rg -Fq 'resources = [var.worker_repository_arn]' "$oidc_main"
-rg -Fq 'resources = [var.worker_function_arn]' "$oidc_main"
+rg -Fq 'resources = var.worker_repository_arns' "$oidc_main"
+rg -Fq 'resources = var.worker_function_arns' "$oidc_main"
 rg -Fq '"ecr:PutImage"' "$oidc_main"
 rg -Fq '"ecr:DescribeImageScanFindings"' "$oidc_main"
 rg -Fq '"lambda:UpdateFunctionCode"' "$oidc_main"
 rg -Fq '"lambda:GetFunctionConfiguration"' "$oidc_main"
 
-if rg -n '"ecr:\*"|"lambda:\*"|worker_repository_arn.*\*|worker_function_arn.*\*' "$oidc_main"; then
+if rg -n '"ecr:\*"|"lambda:\*"|worker_repository_arns.*\*|worker_function_arns.*\*' "$oidc_main"; then
   echo "worker deploy role must stay on exact ECR/Lambda resources and actions" >&2
   exit 1
 fi
@@ -43,14 +44,15 @@ rg -Fq 'default     = "1288279318"' "$repo_root/variables.tf"
 rg -Fq 'environment: production' "$repo_root/.github/workflows/terraform-apply.yml"
 
 # DB outbox가 재시도를 소유하므로 Lambda 서비스 재시도는 끄고, 15분 runtime+5분 queue로 제한한다.
-rg -Fq 'resource "aws_lambda_function_event_invoke_config" "this"' "$embedding_main"
-rg -Fq 'maximum_retry_attempts       = 0' "$embedding_main"
-rg -Fq 'maximum_event_age_in_seconds = var.async_event_max_age_seconds' "$embedding_main"
-rg -Fq 'default     = 1200' "$repo_root/modules/embedding/variables.tf"
-rg -Fq 'reserved_concurrent_executions = var.reserved_concurrent_executions' "$embedding_main"
-rg -Fq 'default     = 4' "$repo_root/modules/embedding/variables.tf"
-rg -Fq 'metric_name         = "AsyncEventAge"' "$embedding_main"
-rg -Fq 'threshold           = 600000' "$embedding_main"
-rg -Fq 'metric_name         = "AsyncEventsDropped"' "$embedding_main"
+rg -Fq 'resource "aws_lambda_function_event_invoke_config" "this"' "$analysis_main"
+rg -Fq 'maximum_retry_attempts       = 0' "$analysis_main"
+rg -Fq 'maximum_event_age_in_seconds = var.async_event_max_age_seconds' "$analysis_main"
+rg -Fq 'default     = 1200' "$analysis_vars"
+rg -Fq 'reserved_concurrent_executions = each.value.reserved_concurrency' "$analysis_main"
+rg -Fq 'reserved_concurrency = var.embedder_reserved_concurrent_executions' "$analysis_main"
+rg -Fq 'default     = 4' "$analysis_vars"
+rg -Fq 'metric_name         = "AsyncEventAge"' "$analysis_main"
+rg -Fq 'threshold           = 600000' "$analysis_main"
+rg -Fq 'metric_name         = "AsyncEventsDropped"' "$analysis_main"
 
 echo "worker deploy and async invoke static checks passed"

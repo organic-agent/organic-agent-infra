@@ -14,7 +14,7 @@ output "admin_api_deploy_role_arn" {
 }
 
 output "worker_deploy_role_arn" {
-  description = "서버 저장소가 wes-embedder ECR/Lambda를 배포할 때 쓰는 AWS_WORKER_DEPLOY_ROLE_ARN 값"
+  description = "AI 저장소가 Lambda 셋의 ECR/Lambda를 배포할 때 쓰는 AWS_LAMBDA_DEPLOY_ROLE_ARN 변수 값"
   value       = aws_iam_role.worker_deploy.arn
 }
 

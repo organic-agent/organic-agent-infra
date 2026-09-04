@@ -38,6 +38,8 @@ module "network" {
   azs                 = var.azs
   public_subnet_cidrs = var.public_subnet_cidrs
   db_subnet_cidrs     = var.db_subnet_cidrs
+
+  interface_endpoint_subnet_indexes = var.interface_endpoint_subnet_indexes
 }
 
 module "security" {
@@ -74,14 +76,19 @@ module "storage_dev" {
   web_origins      = var.local_web_origins
 }
 
-module "embedding" {
-  source = "./modules/embedding"
+# AI 분석 Lambda 셋(embedder → score → categorize). 서버의 analysis 도메인이 단계마다 부른다.
+# 코드는 AI 저장소(organic-agent-ai)의 embedder/ · score/ · categorize/ 이고, 셋의 실행 모양
+# (DB 서브넷·보안 그룹·DB_*/S3_BUCKET·수동 DB_PASSWORD)이 같아 모듈 하나가 맵으로 만든다.
+module "analysis" {
+  source = "./modules/analysis"
 
   name_prefix      = local.name_prefix
   parameter_prefix = var.parameter_prefix
 
-  # RDS와 같은 DB 서브넷에 들어간다. 이 출력이 S3 게이트웨이 엔드포인트를 기다리므로,
-  # 함수가 만들어질 때는 이미 사진을 읽을 경로가 있다.
+  # RDS와 같은 DB 서브넷에 들어간다. 이 출력이 S3 게이트웨이와 lambda·bedrock-runtime 인터페이스
+  # 엔드포인트를 기다리므로, 함수가 만들어질 때는 이미 사진·Lambda API·Bedrock에 닿을 경로가 있다.
+  # 보안 그룹은 이름이 embedder지만 인그레스 없음 + 이그레스 전부라 셋이 같은 규칙이고, RDS 보안
+  # 그룹이 이미 이 그룹을 인그레스 소스로 받는다 — 함수마다 그룹을 나눠 얻는 것이 없다.
   subnet_ids        = module.network.db_subnet_ids
   security_group_id = module.security.embedder_security_group_id
   app_role_name     = module.compute.instance_role_name
@@ -89,17 +96,27 @@ module "embedding" {
   photo_bucket_name = module.storage.bucket_name
   photo_bucket_arn  = module.storage.bucket_arn
 
-  # 비밀번호는 넘기지 않는다. 접속은 RDS IAM 인증이다 (modules/database의 주석 참고).
-  db_host        = module.database.address
-  db_port        = module.database.port
-  db_name        = module.database.db_name
-  db_resource_id = module.database.resource_id
-  db_username    = var.embedder_db_username
+  # 비밀번호는 넘기지 않는다. 원래는 RDS IAM 인증이었고, 지금은 apply 밖에서 주입한다
+  # (docs/runbook.md "비밀번호 주입"·"SCP 차단").
+  db_host              = module.database.address
+  db_port              = module.database.port
+  db_name              = module.database.db_name
+  db_resource_id       = module.database.resource_id
+  embedder_db_username = var.embedder_db_username
+  analysis_db_username = var.analysis_db_username
 
-  image_tag           = var.embedder_image_tag
-  memory_mb           = var.embedder_memory_mb
-  batch_size          = var.embedder_batch_size
+  image_tag = var.lambda_image_tag
+
+  embedder_memory_mb  = var.embedder_memory_mb
+  embedder_batch_size = var.embedder_batch_size
   embedding_dimension = var.embedding_dimension
+
+  score_memory_mb                           = var.score_memory_mb
+  score_ephemeral_storage_mb                = var.score_ephemeral_storage_mb
+  score_reserved_concurrent_executions      = var.score_reserved_concurrent_executions
+  categorize_memory_mb                      = var.categorize_memory_mb
+  categorize_reserved_concurrent_executions = var.categorize_reserved_concurrent_executions
+  bedrock_model_id                          = var.bedrock_model_id
 }
 
 module "database" {
@@ -161,23 +178,27 @@ module "monitoring" {
   loki_retention              = var.loki_retention
 }
 
-# GitHub Actions용 OIDC 롤 (서버/백오피스 CD + 이 저장소의 plan/apply). 장기 키 없음.
+# GitHub Actions용 OIDC 롤 (서버/백오피스/AI CD + 이 저장소의 plan/apply). 장기 키 없음.
 module "github_actions" {
   source = "./modules/github-actions"
 
-  name_prefix           = local.name_prefix
-  aws_region            = var.aws_region
-  repository_owner_id   = var.github_repository_owner_id
-  server_repository     = var.github_repository
-  server_repository_id  = var.github_repository_id
-  admin_oidc_subject    = var.admin_github_oidc_subject
-  admin_repository_id   = var.admin_github_repository_id
-  infra_repository      = var.infra_repository
-  infra_repository_id   = var.infra_github_repository_id
-  app_instance_name     = "${local.name_prefix}-app"
-  admin_instance_name   = "${local.name_prefix}-admin"
-  worker_repository_arn = module.embedding.repository_arn
-  worker_function_arn   = module.embedding.function_arn
+  name_prefix          = local.name_prefix
+  aws_region           = var.aws_region
+  repository_owner_id  = var.github_repository_owner_id
+  server_repository    = var.github_repository
+  server_repository_id = var.github_repository_id
+  admin_oidc_subject   = var.admin_github_oidc_subject
+  admin_repository_id  = var.admin_github_repository_id
+  infra_repository     = var.infra_repository
+  infra_repository_id  = var.infra_github_repository_id
+  app_instance_name    = "${local.name_prefix}-app"
+  admin_instance_name  = "${local.name_prefix}-admin"
+
+  # Lambda 셋의 배포 역할. AI 저장소 main의 deploy-lambda.yml이 assume해 바뀐 모듈만 밀고 갱신한다.
+  worker_oidc_subject    = var.ai_github_oidc_subject
+  worker_repository_id   = var.ai_github_repository_id
+  worker_repository_arns = values(module.analysis.repository_arns)
+  worker_function_arns   = values(module.analysis.function_arns)
 }
 
 # deploy.tf에 루트 리소스로 있던 것을 모듈로 옮겼다. 주소만 바뀌고 재생성되지 않는다 —
@@ -195,4 +216,69 @@ moved {
 moved {
   from = aws_iam_role_policy.github_deploy
   to   = module.github_actions.aws_iam_role_policy.deploy
+}
+
+# modules/embedding(임베더 하나)이 modules/analysis(Lambda 셋의 맵)로 합쳐졌다(#18). 주소만 바뀌고
+# 재생성되지 않는다 — 임베더 함수는 apply 밖에서 넣은 DB_PASSWORD를 들고 운영 중이라, 재생성되면
+# 그 값이 사라지고 사진 처리가 접속 단계에서 멈춘다.
+moved {
+  from = module.embedding.aws_ecr_repository.this
+  to   = module.analysis.aws_ecr_repository.this["embedder"]
+}
+
+moved {
+  from = module.embedding.aws_ecr_lifecycle_policy.this
+  to   = module.analysis.aws_ecr_lifecycle_policy.this["embedder"]
+}
+
+moved {
+  from = module.embedding.aws_iam_role.this
+  to   = module.analysis.aws_iam_role.this["embedder"]
+}
+
+moved {
+  from = module.embedding.aws_iam_role_policy_attachment.vpc_access
+  to   = module.analysis.aws_iam_role_policy_attachment.vpc_access["embedder"]
+}
+
+moved {
+  from = module.embedding.aws_iam_role_policy.this
+  to   = module.analysis.aws_iam_role_policy.this["embedder"]
+}
+
+moved {
+  from = module.embedding.aws_cloudwatch_log_group.this
+  to   = module.analysis.aws_cloudwatch_log_group.this["embedder"]
+}
+
+moved {
+  from = module.embedding.aws_lambda_function.this
+  to   = module.analysis.aws_lambda_function.this["embedder"]
+}
+
+moved {
+  from = module.embedding.aws_lambda_function_event_invoke_config.this
+  to   = module.analysis.aws_lambda_function_event_invoke_config.this["embedder"]
+}
+
+moved {
+  from = module.embedding.aws_cloudwatch_metric_alarm.async_event_age
+  to   = module.analysis.aws_cloudwatch_metric_alarm.async_event_age["embedder"]
+}
+
+moved {
+  from = module.embedding.aws_cloudwatch_metric_alarm.async_events_dropped
+  to   = module.analysis.aws_cloudwatch_metric_alarm.async_events_dropped["embedder"]
+}
+
+moved {
+  from = module.embedding.aws_ssm_parameter.function_name
+  to   = module.analysis.aws_ssm_parameter.function_name["embedder"]
+}
+
+# 앱 롤의 invoke 정책은 이름이 invoke-embedder → invoke-analysis-functions로 바뀌어 인라인 정책이
+# 교체된다(삭제 후 생성, 함수 셋 대상). ARN이 어디에도 박혀 있지 않아 영향은 없다.
+moved {
+  from = module.embedding.aws_iam_role_policy.app_invoke
+  to   = module.analysis.aws_iam_role_policy.app_invoke
 }

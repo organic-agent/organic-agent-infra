@@ -9,7 +9,7 @@ variable "aws_region" {
 }
 
 variable "server_repository" {
-  description = "공개/관리자 API/worker CD가 도는 서버 저장소 (owner/repo) — 세 최소권한 배포 롤의 신뢰 조건"
+  description = "공개/관리자 API CD가 도는 서버 저장소 (owner/repo) — 두 최소권한 배포 롤의 신뢰 조건"
   type        = string
 }
 
@@ -19,7 +19,17 @@ variable "server_repository_id" {
 }
 
 variable "repository_owner_id" {
-  description = "세 저장소를 소유한 GitHub organization의 immutable owner ID"
+  description = "네 저장소(서버·백오피스·AI·인프라)를 소유한 GitHub organization의 immutable owner ID"
+  type        = string
+}
+
+variable "worker_oidc_subject" {
+  description = "AI 저장소 main의 전체 immutable GitHub OIDC sub — worker 배포 롤의 정확한 단일 신뢰 조건"
+  type        = string
+}
+
+variable "worker_repository_id" {
+  description = "AI 저장소의 immutable GitHub repository ID"
   type        = string
 }
 
@@ -53,12 +63,22 @@ variable "admin_instance_name" {
   type        = string
 }
 
-variable "worker_repository_arn" {
-  description = "worker 배포 역할이 이미지를 push할 단일 embedder ECR repository ARN"
-  type        = string
+variable "worker_repository_arns" {
+  description = "worker 배포 역할이 이미지를 push할 ECR repository ARN 목록 (embedder · score · categorize)"
+  type        = list(string)
+
+  validation {
+    condition     = length(var.worker_repository_arns) > 0 && alltrue([for a in var.worker_repository_arns : !strcontains(a, "*")])
+    error_message = "worker_repository_arns는 와일드카드 없는 정확한 ECR repository ARN을 하나 이상 담아야 합니다."
+  }
 }
 
-variable "worker_function_arn" {
-  description = "worker 배포 역할이 코드 갱신·조회할 단일 embedder Lambda ARN"
-  type        = string
+variable "worker_function_arns" {
+  description = "worker 배포 역할이 코드 갱신·조회할 Lambda ARN 목록 (embedder · score · categorize)"
+  type        = list(string)
+
+  validation {
+    condition     = length(var.worker_function_arns) > 0 && alltrue([for a in var.worker_function_arns : !strcontains(a, "*")])
+    error_message = "worker_function_arns는 와일드카드 없는 정확한 Lambda 함수 ARN을 하나 이상 담아야 합니다."
+  }
 }

@@ -26,7 +26,7 @@ module "admin_access" {
   runtime_parameter_prefix_arn = local.admin_parameter_prefix_arn
   runtime_kms_key_arn          = var.admin_runtime_kms_key_arn
   photo_bucket_arn             = module.storage.bucket_arn
-  embedding_function_arn       = module.embedding.function_arn
+  embedding_function_arn       = module.analysis.function_arns["embedder"]
 
   app_port         = var.admin_app_port
   proxy_https_port = var.admin_proxy_https_port
@@ -76,7 +76,7 @@ resource "aws_ssm_parameter" "admin_photo_bucket" {
 resource "aws_ssm_parameter" "admin_embedding_function" {
   name  = "${var.admin_parameter_prefix}/app.embedding.function-name"
   type  = "String"
-  value = module.embedding.function_name
+  value = module.analysis.function_names["embedder"]
 }
 
 # 관리자 API가 남긴 trace를 같은 Loki로 전송하고, BackOffice가 동일 correlation ID의

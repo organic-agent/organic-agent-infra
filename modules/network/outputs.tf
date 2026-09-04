@@ -13,6 +13,22 @@ output "db_subnet_ids" {
   value       = aws_subnet.db[*].id
 
   # Lambda의 ENI가 이 서브넷에 생기는데, 게이트웨이 엔드포인트의 라우트가 생기기 전에는
-  # S3에 닿지 못한다. 이 출력을 쓰는 쪽이 그 순서를 기다리게 한다.
-  depends_on = [aws_vpc_endpoint.s3, aws_route_table_association.db]
+  # S3에 닿지 못하고, 인터페이스 엔드포인트가 없으면 Lambda·Bedrock API에 닿지 못한다.
+  # 이 출력을 쓰는 쪽이 그 순서를 기다리게 한다.
+  depends_on = [
+    aws_vpc_endpoint.s3,
+    aws_vpc_endpoint.lambda,
+    aws_vpc_endpoint.bedrock_runtime,
+    aws_route_table_association.db,
+  ]
+}
+
+output "lambda_endpoint_id" {
+  description = "Lambda API 인터페이스 엔드포인트 ID (embedder·score 재호출, score → categorize 체인)"
+  value       = aws_vpc_endpoint.lambda.id
+}
+
+output "bedrock_runtime_endpoint_id" {
+  description = "Bedrock Runtime 인터페이스 엔드포인트 ID (categorize의 그룹 이름 짓기)"
+  value       = aws_vpc_endpoint.bedrock_runtime.id
 }
