@@ -1,12 +1,7 @@
 // 기존 tailnet policy의 같은 최상위 키에 병합한다.
-// group:wes-super-admins에는 실제 최고 관리자 계정만 둔다.
+// 직접 가입한 사용자 소유 기기와 tag 기반 기기 모두 백오피스 HTTPS에 접근한다.
+// 공유 기기와 subnet route 뒤의 미등록 기기는 포함하지 않는다.
 {
-  "groups": {
-    "group:wes-super-admins": [
-      "eatyasic@gmail.com",
-    ],
-  },
-
   "tagOwners": {
     // tailnet 운영 계정이 백오피스 서버용 auth key와 tag를 관리한다.
     "tag:wes-admin": ["asmorganicagent@gmail.com"],
@@ -14,7 +9,7 @@
 
   "grants": [
     {
-      "src": ["group:wes-super-admins"],
+      "src": ["autogroup:member", "autogroup:tagged"],
       "dst": ["tag:wes-admin"],
       "ip": ["tcp:443"],
     },
@@ -34,7 +29,22 @@
     {
       "src": "asmorganicagent@gmail.com",
       "proto": "tcp",
-      "deny": ["tag:wes-admin:443"],
+      "accept": ["tag:wes-admin:443"],
+      "deny": [
+        "tag:wes-admin:22",
+        "tag:wes-admin:8080",
+        "tag:wes-admin:8443",
+      ],
+    },
+    {
+      "src": "tag:wes-admin",
+      "proto": "tcp",
+      "accept": ["tag:wes-admin:443"],
+      "deny": [
+        "tag:wes-admin:22",
+        "tag:wes-admin:8080",
+        "tag:wes-admin:8443",
+      ],
     },
   ],
 }

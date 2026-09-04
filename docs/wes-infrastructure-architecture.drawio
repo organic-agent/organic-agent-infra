@@ -157,10 +157,10 @@
         <mxCell id="admin-api-main" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.container_1;fillColor=#0F766E;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
           <mxGeometry height="68" width="68" x="1320" y="730" as="geometry" />
         </mxCell>
-        <mxCell id="label-admin-super-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;최고 관리자&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;eatyasic@gmail.com&lt;br&gt;Tailscale 연결 기기&lt;/font&gt;" vertex="1">
+        <mxCell id="label-admin-super-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;tailnet 등록 기기&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;사용자 소유 기기&lt;br&gt;tag 기반 노드&lt;/font&gt;" vertex="1">
           <mxGeometry height="50" width="180" x="14" y="802" as="geometry" />
         </mxCell>
-        <mxCell id="label-admin-grant-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;Tailscale grant&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;group:wes-super-admins&lt;br&gt;→ tag:wes-admin · tcp:443만&lt;/font&gt;" vertex="1">
+        <mxCell id="label-admin-grant-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;Tailscale grant&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;member + tagged&lt;br&gt;→ tag:wes-admin · tcp:443만&lt;/font&gt;" vertex="1">
           <mxGeometry height="50" width="210" x="319" y="802" as="geometry" />
         </mxCell>
         <mxCell id="label-admin-serve-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;EC2 · wes-admin&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Tailscale Serve :443&lt;br&gt;SSM auth key는 최초 가입만&lt;/font&gt;" vertex="1">
@@ -178,10 +178,10 @@
         <mxCell id="admin-networks-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;fontColor=#155E75;fontSize=9;" value="&lt;b&gt;wes-admin-internal&lt;/b&gt; 172.30.0.0/24 · 외부 라우팅 없음 · BFF ↔ API&lt;br&gt;&lt;b&gt;wes-admin-runtime&lt;/b&gt; 172.30.1.0/24 · API만 RDS·SSM·S3·Lambda 접근" vertex="1">
           <mxGeometry height="40" width="520" x="930" y="866" as="geometry" />
         </mxCell>
-        <mxCell id="admin-security-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;fontColor=#92400E;fontSize=9.5;" value="&lt;b&gt;ALB · ACM · Funnel 미사용&lt;/b&gt;&lt;br&gt;public IP는 outbound 전용 · SG ingress 0&lt;br&gt;eatyasic@gmail.com만 :443 허용&lt;br&gt;운영 계정·비관리자·off-tailnet 거부" vertex="1">
+        <mxCell id="admin-security-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;fontColor=#92400E;fontSize=9.5;" value="&lt;b&gt;ALB · ACM · Funnel 미사용&lt;/b&gt;&lt;br&gt;public IP는 outbound 전용 · SG ingress 0&lt;br&gt;tailnet 등록 기기는 :443 허용&lt;br&gt;공유 기기·off-tailnet 거부" vertex="1">
           <mxGeometry height="90" width="350" x="1740" y="742" as="geometry" />
         </mxCell>
-        <mxCell id="edge-admin-super-grant-main" edge="1" parent="1" source="admin-super-admin-main" target="admin-grant-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;fontStyle=1;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="① identity">
+        <mxCell id="edge-admin-super-grant-main" edge="1" parent="1" source="admin-super-admin-main" target="admin-grant-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;fontStyle=1;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="① tailnet">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="edge-admin-grant-serve-main" edge="1" parent="1" source="admin-grant-main" target="admin-serve-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;fontStyle=1;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="② :443만">

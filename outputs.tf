@@ -131,7 +131,7 @@ output "github_tf_apply_role_arn" {
 }
 
 output "admin_url" {
-  description = "Tailscale에 연결된 허용 사용자만 접근할 백오피스 URL"
+  description = "tailnet에 등록된 모든 기기에서 접근할 백오피스 URL"
   value       = "https://${module.admin_access.fqdn}"
 }
 
