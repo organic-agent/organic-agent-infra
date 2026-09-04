@@ -367,6 +367,10 @@ PGPASSWORD="$DB_PASSWORD" psql -h <rds_address> -U wes_admin -d wes_db
 CREATE USER embedder    WITH PASSWORD '<embedder 전용 비밀번호>';
 CREATE USER photoselect WITH PASSWORD '<photoselect 전용 비밀번호>';
 
+-- 이 DB는 public 스키마의 PUBLIC USAGE가 회수돼 있어 role마다 따로 준다. 없으면 테이블은커녕
+-- `vector` 타입도 못 봐서 접속 직후 `vector type not found in the database`(pgvector register)로 죽는다.
+GRANT USAGE ON SCHEMA public TO embedder, photoselect;
+
 -- SCP 우회로를 쓰는 동안에는 rds_iam을 주지 않는다 (아래 설명). 이미 준 상태라면:
 REVOKE rds_iam FROM embedder;
 ```
@@ -523,6 +527,7 @@ aws lambda invoke --region ap-northeast-2 --function-name wes-score \
 | 증상 | 원인 |
 |---|---|
 | `password authentication failed for user "embedder"` / `"photoselect"` | DB 사용자가 없다. RDS 에러 로그 DETAIL에 `Role "…" does not exist`가 함께 찍힌다 |
+| `vector type not found in the database` (접속 직후, pgvector register) | role에 `public` 스키마 USAGE가 없다 — `GRANT USAGE ON SCHEMA public TO <role>;` |
 | `permission denied for table photo_analysis` (photoselect) | 사용자는 있는데 GRANT가 없다 — V1이 role보다 먼저 돌았다. 위 "DB 사용자"의 GRANT 블록을 직접 실행 |
 | `PAM authentication failed` + DB 사용자·GRANT 정상 | 조직 SCP가 `rds-db:connect`를 막고 있다 → [SCP 차단](#-scp-차단-임시-우회로) |
 | `PAM authentication failed` + 비밀번호로 붙는 중 | 사용자가 아직 `rds_iam` 멤버다. pg_hba가 PAM 경로로 보내 비밀번호를 아예 안 본다 — `REVOKE rds_iam FROM …;` |
