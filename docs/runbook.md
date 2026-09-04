@@ -15,8 +15,8 @@ API 도메인 : `api.easyselect.kr` · 로그 조회 : `monitoring.easyselect.kr
 | 서버 쉘 접속 | `ssh wes` (설정은 [서버 접속](#-서버-접속-ssm)) |
 | 앱 배포 | 서버 저장소 main 머지 시 CD 자동 (재배포는 Actions 수동 실행) → [앱 배포](#-앱-배포-cd-자동) |
 | 인프라 배포 | PR → plan 댓글 확인 → main 머지 시 CD가 apply → [인프라 CI/CD](#-인프라-cicd-plan--apply). 최초 1회는 로컬 `terraform apply` → [배포](#-배포-2단계) |
-| 임베더 이미지 빌드·배포 | [임베딩 파이프라인](#-임베딩-파이프라인) |
-| 임베딩이 안 돌 때 | [임베딩 파이프라인 > 문제 해결](#-문제-해결) |
+| Lambda 셋 이미지 빌드·배포 | [AI 파이프라인](#-ai-파이프라인-embedder--score--categorize) |
+| 임베딩·분석이 안 돌 때 | [AI 파이프라인 > 문제 해결](#-문제-해결) |
 | 앱 로그 보기 | `https://monitoring.easyselect.kr` (Grafana → Explore) → [모니터링](#-모니터링-loki--grafana) |
 | 로그가 안 들어올 때 | [모니터링 > 문제 해결](#-문제-해결-1) |
 | 전부 정리 | `terraform destroy` (존은 남음) → [폐기](#-폐기) |
@@ -50,7 +50,7 @@ Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
 
 | 스택 | 경로 | 담당 | destroy 시 |
 |---|---|---|---|
-| 앱 스택 | 저장소 루트 | VPC / ALB / EC2 / RDS / S3 / Lambda / 모니터링 EC2 | 전부 삭제 (테스트 데이터·로그 포함) |
+| 앱 스택 | 저장소 루트 | VPC / ALB / EC2 / RDS / S3 / Lambda 셋 / VPC 엔드포인트 / 모니터링 EC2 | 전부 삭제 (테스트 데이터·로그 포함) |
 | 존 스택 | `dns/` | Route53 호스팅 존 + NS 위임 | 앱 스택과 무관하게 유지 |
 
 - state는 **S3 원격 백엔드**(`wes-tf-state-233927217926`, 암호화+버전닝+S3 네이티브 잠금)라서 AWS 자격증명만 있으면 누구든 plan/apply 할 수 있다 — 동시 apply는 잠금이 막는다.
@@ -74,6 +74,8 @@ Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
 | `spring.datasource.password` | **수동 등록** (SecureString) | 테라폼은 ephemeral + write-only(`password_wo`)로 전달만 — **state에 비밀번호가 남지 않는다** |
 | `app.storage.bucket` | 테라폼 (apply 시 자동) | 원본 사진 버킷 이름 |
 | `app.embedding.function-name` | 테라폼 (apply 시 자동) | 임베딩 Lambda 이름 |
+| `app.analysis.score-function-name` | 테라폼 (apply 시 자동) | 점수 Lambda 이름 (앱의 분석 오케스트레이터가 읽는다) |
+| `app.analysis.categorize-function-name` | 테라폼 (apply 시 자동) | 카테고리 Lambda 이름 |
 | `app.logging.loki-url` | 테라폼 (apply 시 자동) | Loki push URL(`http://<모니터링 프라이빗 IP>:3100/loki/api/v1/push`). 인스턴스가 재생성되면 값이 바뀌므로 앱 재시작 필요 |
 | `cors.allowed-origins` | **수동 등록** (String) | apply의 **입력**이기도 하다 — 테라폼이 이 값을 읽어 S3 버킷 CORS에 그대로 쓴다 |
 
@@ -93,7 +95,7 @@ Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
 모니터링 비용을 더 줄이려면 `monitoring_instance_type`을 `t4g.nano`로 내릴 수 있지만(−$3),
 512MiB에 Grafana+Loki를 같이 올리면 compactor가 돌 때 OOM이 잦다. 스왑이 받아주긴 해도 조회가 느려진다.
 
-임베딩 파이프라인이 붙어도 고정비는 거의 늘지 않는다. S3 게이트웨이 엔드포인트는 무료고 Lambda는 호출할 때만 과금되므로(3GB × 실행 시간), 실제로 늘어나는 것은 S3에 쌓이는 원본과 ECR의 임베더 이미지 3-5GB(월 $0.5 수준)다.
+AI 파이프라인의 고정비는 **인터페이스 VPC 엔드포인트**가 거의 전부다. `lambda`·`bedrock-runtime` 둘을 두 AZ에 두면 ENI 넷 × 약 $0.0147/h ≈ 월 $43이고, `interface_endpoint_subnet_indexes = [0]`으로 한 AZ만 두면 절반이다. S3 게이트웨이 엔드포인트는 무료고 Lambda는 호출할 때만 과금되므로(embedder 3GB · score 8GB · categorize 3GB × 실행 시간), 그 밖에 늘어나는 것은 S3에 쌓이는 원본·미리보기, ECR의 이미지(embedder·score 각 3-5GB, 월 $1 수준), categorize의 Bedrock 호출(갤러리당 몇 번)이다.
 
 ---
 
@@ -288,15 +290,20 @@ SSH 키·호스트 IP·22번 포트가 전혀 필요 없다. 같은 이미지 �
 ```bash
 terraform output -raw github_deploy_role_arn
 terraform output -raw github_admin_api_deploy_role_arn
-terraform output -raw github_worker_deploy_role_arn
 ```
 
-세 값을 서버 저장소의 Actions 시크릿 `AWS_DEPLOY_ROLE_ARN`,
-`AWS_ADMIN_API_DEPLOY_ROLE_ARN`, `AWS_WORKER_DEPLOY_ROLE_ARN`에 각각 등록한다.
-(비밀은 아니지만 저장소 밖 값이라 시크릿으로 관리)
+두 값을 서버 저장소의 Actions 시크릿 `AWS_DEPLOY_ROLE_ARN`, `AWS_ADMIN_API_DEPLOY_ROLE_ARN`에
+각각 등록한다. (비밀은 아니지만 저장소 밖 값이라 시크릿으로 관리)
 
-> 롤의 신뢰 조건은 `organic-agent/organic-agent-server`의 **main 브랜치**로 제한돼 있다.
-> 이름뿐 아니라 immutable repository/owner ID도 정확히 검사한다. 저장소를 이전하면 이름과 ID를
+Lambda 셋의 배포 역할은 서버가 아니라 **AI 저장소**가 쓴다 — `deploy-lambda.yml`이 읽는 변수(vars)에 넣는다:
+
+```bash
+gh variable set AWS_LAMBDA_DEPLOY_ROLE_ARN --repo organic-agent/organic-agent-ai \
+  --body "$(terraform output -raw github_worker_deploy_role_arn)"
+```
+
+> 롤의 신뢰 조건은 각 저장소의 **main 브랜치**로 제한돼 있다 (서버 롤 둘은 `organic-agent-server`,
+> worker 롤은 `organic-agent-ai`). 이름뿐 아니라 immutable repository/owner ID도 정확히 검사한다. 저장소를 이전하면 이름과 ID를
 > 함께 검토하고 의도적인 IAM/GitHub OIDC 전환 순서로 적용한다.
 
 수동 점검이 필요하면 `ssh wes` 후 `docker ps`, `docker logs wes-app`, 컨테이너 교체는 `/opt/wes-prod`에서 `docker compose` 명령으로 한다.
@@ -306,40 +313,46 @@ OAuth 클라이언트 ID/시크릿도 `/wes/prod/` 아래 SecureString 파라미
 
 ---
 
-## # 임베딩 파이프라인
+## # AI 파이프라인 (embedder → score → categorize)
 
-작가가 갤러리에 원본을 올리면 각 사진의 임베딩 벡터가 `photos.embedding`(pgvector `vector(768)`)에 적재된다. 잡 코드는 서버 저장소의 `wes/embedder/`에 있다.
+작가가 갤러리에 원본을 올리고 "AI 분석"을 누르면 Lambda 셋이 차례로 돈다. 코드는 AI 저장소(`organic-agent-ai`)의 최상위 디렉토리 하나 = 함수 하나(`embedder/` · `score/` · `categorize/`)다.
 
 ```
 프론트 ──서명 PUT──→ S3          (앱은 목적지만 정해주고 바이트는 거치지 않는다)
 프론트 ──POST /photos/complete──→ 앱   (status: PENDING → UPLOADED)
-프론트 ──POST /embeddings/run──→ 앱 ──lambda:Invoke(EVENT)──→ 임베딩 Lambda
-                                                              ├─ S3 GET (게이트웨이 엔드포인트)
-                                                              ├─ DINOv2 (CPU)
-                                                              └─ UPDATE photos SET embedding
-진행 상황: GET /photos/summary 의 embedded 수
+프론트 ──"AI 분석"──→ 앱(분석 오케스트레이터) ──EVENT──→ [wes-embedder]   S3 GET(원본) → 미리보기 PUT → DINOv3 → photo_analysis.embedding
+                                             ──EVENT──→ [wes-score]      S3 GET(미리보기) → CLIP·ARNIQA·LAION → photo_analysis 점수
+                                                            └──EVENT(체인)──→ [wes-categorize]  그룹 묶기 → Bedrock(이름) → ai_concept_assignments, 잡 DONE
+진행 상황: ai_analysis_jobs (앱이 30초마다 스윕)
 ```
 
 - **갤러리 단위로 한 번 부른다.** S3 이벤트로 장당 트리거를 걸면 수천 장 업로드가 Lambda 수천 개를 동시에 띄우고, 각자 커넥션을 열어 db.t4g.micro를 고갈시킨다.
-- **응답을 기다리지 않는다(EVENT).** 갤러리 하나가 Lambda 상한인 15분까지 걸릴 수 있다.
-- **재실행이 안전하다.** 대상 조건이 `embedding IS NULL`이라 중간에 중단돼도 다시 부르면 남은 것만 이어서 한다.
-- **재시도 주체는 DB outbox 하나다.** Lambda 서비스 재시도는 0회이며, 이벤트 수명은 20분
-  (15분 runtime 상한 + 최대 5분 queue 지연)이다. 오래 적체된 이벤트를 뒤늦게 중복 실행하지 않는다.
+- **응답을 기다리지 않는다(EVENT).** 갤러리 하나가 Lambda 상한인 15분까지 걸릴 수 있다. embedder·score는 15분 앞에서 배치 경계에 멈추고 **자기 자신을 다시 부른다** — 그래서 실행 롤에 자기 함수의 `lambda:InvokeFunction`이 있다.
+- **재실행이 안전하다.** embedder는 `embedding IS NULL`, score는 `MODEL_VERSION` + CLIP 유무로 남은 것만 이어서 한다.
+- **재시도 주체는 앱의 오케스트레이터 하나다.** Lambda 서비스 재시도는 셋 다 0회이며, 이벤트 수명은 20분(15분 runtime 상한 + 최대 5분 queue 지연)이다. 오래 적체된 이벤트를 뒤늦게 중복 실행하지 않는다.
+- **DB 서브넷은 인터넷이 없다.** S3는 게이트웨이 엔드포인트, Lambda API(재호출·체인)와 Bedrock(categorize의 이름 짓기)은 `lambda`·`bedrock-runtime` **인터페이스 엔드포인트**로 나간다. 인터페이스 엔드포인트는 ENI당 시간 과금이다([비용](#-비용)).
+- **categorize의 대표 사진은 국외로 나간다.** 서울 온디맨드에 Sonnet이 없어 `global.` 크로스 리전 프로필(`bedrock_model_id`)을 쓴다.
+
+| 함수 | 메모리 | /tmp | 동시 실행 | DB 사용자 | 특이 권한 |
+|---|---|---|---|---|---|
+| `wes-embedder` | 3GB | 512MB | 4 | `embedder` | S3 원본 읽기·`previews/` 쓰기, 자기 재호출 |
+| `wes-score` | 8GB | 10GB (미리보기 전부 내려받음) | 2 | `photoselect` | S3 `previews/` 읽기, 자기 재호출, `wes-categorize` 호출 |
+| `wes-categorize` | 3GB | 512MB | 2 | `photoselect` | S3 `previews/` 읽기, `bedrock:InvokeModel`(프로필 + 기반 모델) |
 
 ### # DB 접속 (설계와 현재 상태)
 
-원래 설계는 **RDS IAM 인증**이었다. Lambda는 NAT도 인터페이스 엔드포인트도 없는 DB 서브넷에 있어서 Parameter Store를 읽을 수 없고, 비밀번호를 환경변수로 주입하면 이 스택이 지켜 온 "비밀번호는 state에 남기지 않는다"가 깨진다. 토큰 생성은 네트워크를 타지 않는 로컬 서명이라 둘 다 피할 수 있었다.
+원래 설계는 **RDS IAM 인증**이었다. Lambda는 NAT도 없는 DB 서브넷에 있어서 Parameter Store를 읽을 수 없고, 비밀번호를 환경변수로 주입하면 이 스택이 지켜 온 "비밀번호는 state에 남기지 않는다"가 깨진다. 토큰 생성은 네트워크를 타지 않는 로컬 서명이라 둘 다 피할 수 있었다.
 
-**지금은 쓰지 못한다.** 조직 SCP가 이 계정 전체에서 `rds-db:connect`를 거부한다. 계정 `233927217926`은 조직의 멤버 계정이라 여기서는 풀 수 없다 ( SCP는 관리 계정에는 적용되지 않으므로, 관리자인데도 막힌다는 것이 곧 멤버 계정이라는 증거다 ). 그래서 접속은 임시로 비밀번호를 쓴다. 판별법과 원복 절차는 아래 [SCP 차단](#-scp-차단-임시-우회로) 참고.
+**지금은 쓰지 못한다.** 조직 SCP가 이 계정 전체에서 `rds-db:connect`를 거부한다. 계정 `233927217926`은 조직의 멤버 계정이라 여기서는 풀 수 없다 ( SCP는 관리 계정에는 적용되지 않으므로, 관리자인데도 막힌다는 것이 곧 멤버 계정이라는 증거다 ). 그래서 접속은 임시로 비밀번호를 쓴다 — 함수 셋 모두. 판별법과 원복 절차는 아래 [SCP 차단](#-scp-차단-임시-우회로) 참고.
 
-수동 작업은 **두 가지**다. 둘 다 Terraform이 할 수 없는 일이고, 하나라도 빠지면 임베딩이 접속 단계에서 실패한다.
+수동 작업은 **두 가지**다. 둘 다 Terraform이 할 수 없는 일이고, 하나라도 빠지면 함수가 접속 단계에서 실패한다.
 
 #### # 1. DB 사용자 (DB를 새로 만들 때마다)
 
-SQL이라 Terraform이 만들지 못한다. 없으면 `password authentication failed`로 실패한다 ( 로그 DETAIL에 `Role "embedder" does not exist`가 함께 찍힌다 ).
+SQL이라 Terraform이 만들지 못한다. 없으면 `password authentication failed`로 실패한다 ( 로그 DETAIL에 `Role "embedder" does not exist`가 함께 찍힌다 ). 사용자는 둘이다 — `embedder`(임베더)와 `photoselect`(score·categorize).
 
 ```bash
-# photos 테이블은 앱이 처음 뜰 때 Flyway가 만든다. 그 뒤에 실행할 것.
+# 테이블은 앱이 처음 뜰 때 Flyway가 만든다. 그 뒤에 실행할 것.
 ssh wes
 sudo apt-get install -y postgresql-client
 DB_PASSWORD=$(aws ssm get-parameter --name /wes/prod/spring.datasource.password \
@@ -350,15 +363,18 @@ PGPASSWORD="$DB_PASSWORD" psql -h <rds_address> -U wes_admin -d wes_db
 `<rds_address>`는 `terraform output -raw rds_endpoint`에서 `:5432`를 뗀 값이다.
 
 ```sql
--- 마스터와 다른 값을 쓴다. /wes/prod/embedder.db.password 에 등록한 값과 같아야 한다.
-CREATE USER embedder WITH PASSWORD '<embedder 전용 비밀번호>';
-
--- 잡이 건드리는 것은 이 테이블뿐이다. 넓게 주지 않는다.
-GRANT SELECT, UPDATE ON photos TO embedder;
+-- 마스터와 다른 값을 쓴다. 각각 /wes/prod/embedder.db.password, /wes/prod/photoselect.db.password 에 등록한 값과 같아야 한다.
+CREATE USER embedder    WITH PASSWORD '<embedder 전용 비밀번호>';
+CREATE USER photoselect WITH PASSWORD '<photoselect 전용 비밀번호>';
 
 -- SCP 우회로를 쓰는 동안에는 rds_iam을 주지 않는다 (아래 설명). 이미 준 상태라면:
 REVOKE rds_iam FROM embedder;
 ```
+
+테이블별 GRANT는 손으로 걸지 않는다. 서버 저장소의 Flyway 베이스라인(`V1__baseline.sql`의
+`EMBEDDER_GRANT_CONTRACT` · `PHOTOSELECT_GRANT_CONTRACT`)이 **role이 있을 때만** 최소 컬럼·테이블로
+건다 — 그래서 사용자를 만든 뒤 앱을 한 번 재배포하거나, 그 두 블록의 `DO $$ ... $$;`를 psql에
+그대로 붙여 넣는다. 스키마가 바뀌어 GRANT 목록이 늘어도 다음 마이그레이션이 같은 방식으로 따라온다.
 
 > **`rds_iam`과 비밀번호 인증은 동시에 쓸 수 없다.** pg_hba는 선착순 매칭인데, RDS가 넣어
 > 두는 규칙 순서가 이렇다:
@@ -379,30 +395,37 @@ REVOKE rds_iam FROM embedder;
 
 #### # 2. 비밀번호 주입 (함수를 새로 만들 때마다)
 
-`DB_PASSWORD`는 Terraform이 넣으면 state에 평문으로 남으므로 apply 밖에서 한 번 주입하고, `modules/embedding`의 `ignore_changes`가 이후 apply에서 그 키를 지켜 준다.
+`DB_PASSWORD`는 Terraform이 넣으면 state에 평문으로 남으므로 apply 밖에서 한 번 주입하고, `modules/analysis`의 `ignore_changes`가 이후 apply에서 그 키를 지켜 준다.
 
-`update-function-configuration --environment`는 **환경변수 맵 전체를 덮어쓴다.** 값 하나만 넘기면 `DB_HOST` 이하가 전부 사라지므로, 반드시 기존 맵을 읽어 병합해야 한다:
+`update-function-configuration --environment`는 **환경변수 맵 전체를 덮어쓴다.** 값 하나만 넘기면 `DB_HOST` 이하가 전부 사라지므로, 반드시 기존 맵을 읽어 병합해야 한다. 함수 셋을 한 번에:
 
 ```bash
-FN=wes-embedder
 REGION=ap-northeast-2
 
-PW=$(aws ssm get-parameter --region "$REGION" \
-  --name /wes/prod/embedder.db.password \
-  --with-decryption --query Parameter.Value --output text)
+inject() {  # inject <함수> <SSM 파라미터>
+  local fn=$1 param=$2
+  local pw merged
+  pw=$(aws ssm get-parameter --region "$REGION" --name "$param" \
+    --with-decryption --query Parameter.Value --output text)
+  merged=$(aws lambda get-function-configuration --region "$REGION" --function-name "$fn" \
+    --query 'Environment.Variables' --output json | jq --arg pw "$pw" '. + {DB_PASSWORD: $pw}')
+  aws lambda update-function-configuration --region "$REGION" --function-name "$fn" \
+    --environment "$(jq -n --argjson v "$merged" '{Variables: $v}')" --no-cli-pager --output text --query LastUpdateStatus
+  aws lambda wait function-updated --region "$REGION" --function-name "$fn"
+}
 
-MERGED=$(aws lambda get-function-configuration --region "$REGION" --function-name "$FN" \
-  --query 'Environment.Variables' --output json | jq --arg pw "$PW" '. + {DB_PASSWORD: $pw}')
-
-aws lambda update-function-configuration --region "$REGION" --function-name "$FN" \
-  --environment "$(jq -n --argjson v "$MERGED" '{Variables: $v}')"
+inject wes-embedder   /wes/prod/embedder.db.password
+inject wes-score      /wes/prod/photoselect.db.password
+inject wes-categorize /wes/prod/photoselect.db.password
 ```
 
 확인 (값 자체는 찍지 않는다):
 
 ```bash
-aws lambda get-function-configuration --region ap-northeast-2 --function-name wes-embedder \
-  --query 'Environment.Variables | keys' --output json
+for fn in wes-embedder wes-score wes-categorize; do
+  aws lambda get-function-configuration --region ap-northeast-2 --function-name "$fn" \
+    --query 'Environment.Variables | keys' --output json
+done
 ```
 
 > apply 뒤에는 이 키가 살아남았는지 한 번 확인할 것. `ignore_changes`가 지켜 주지만,
@@ -417,7 +440,7 @@ RDS 에러 로그에는 `pam_authenticate failed: Permission denied`로 찍힌�
 
 ```bash
 aws iam simulate-principal-policy \
-  --policy-source-arn "$(terraform output -raw embedder_role_arn)" \
+  --policy-source-arn "$(terraform output -json lambda_role_arns | jq -r '.embedder')" \
   --action-names rds-db:connect \
   --resource-arns "arn:aws:rds-db:ap-northeast-2:233927217926:dbuser:$(terraform output -raw db_resource_id)/embedder" \
   --query 'EvaluationResults[].{D:EvalDecision,Org:OrganizationsDecisionDetail.AllowedByOrganizations}'
@@ -428,62 +451,66 @@ aws iam simulate-principal-policy \
 **원복 (관리 계정에서 SCP를 푼 뒤):**
 
 1. 위 시뮬레이션이 `allowed`로 바뀌는지 확인
-2. `psql`에서 `GRANT rds_iam TO embedder;` (우회로를 쓰며 REVOKE 했다면)
-3. `embedder/db.py`의 `connect()`를 `generate_db_auth_token` 방식으로 되돌리고 이미지 재배포
-4. Lambda 환경변수에서 `DB_PASSWORD` 제거, `modules/embedding`의 `ignore_changes`에서 해당 줄 제거
+2. `psql`에서 `GRANT rds_iam TO embedder;` `GRANT rds_iam TO photoselect;` (우회로를 쓰며 REVOKE 했다면)
+3. AI 저장소 세 모듈의 `db.py`를 `generate_db_auth_token` 방식으로 되돌리고 이미지 재배포. score·categorize 실행 롤에는 `rds-db:connect` 문장이 아직 없으므로 `modules/analysis`의 embedder 정책과 같은 문장을 추가
+4. Lambda 환경변수에서 `DB_PASSWORD` 제거, `modules/analysis`의 `ignore_changes`에서 해당 줄 제거
 5. **마스터 비밀번호 교체** — state 버킷은 버저닝이 켜져 있어 우회로를 쓰는 동안의 값이 과거 버전에 남는다. 절차는 [사전 준비](#-사전-준비-최초-1회) 하단
 
 ### # 이미지 빌드와 배포
 
-첫 apply 순서(리포지토리 → 푸시 → 전체 apply)는
-[deploy-order.md의 [3]](deploy-order.md#-3-임베더-이미지-스택-세울-때마다)에 있다.
-코드만 바뀐 뒤의 재배포는 apply 없이:
+첫 apply 순서(리포지토리 셋 → 푸시 → 전체 apply)는
+[deploy-order.md의 [3]](deploy-order.md#-3-lambda-셋-이미지-스택-세울-때마다)에 있다.
+코드만 바뀐 뒤의 재배포는 apply 없이 AI 저장소의 모듈별 `deploy.sh`로 한다 — 빌드·푸시·
+`update-function-code`·다이제스트 검증까지 한 스크립트가 하고, 운영 CD(`deploy-lambda.yml`)도
+같은 스크립트를 돌린다:
 
 ```bash
-REPO="$(terraform output -raw embedder_repository_url)"
-aws ecr get-login-password --region ap-northeast-2 \
-  | docker login --username AWS --password-stdin "${REPO%%/*}"
-
-cd ../organic-agent-server/wes/embedder
-docker buildx build --platform linux/amd64 --provenance=false --sbom=false \
-  -t "${REPO}:latest" --push .
-
-aws lambda update-function-code --region ap-northeast-2 \
-  --function-name "$(terraform output -raw embedder_function_name)" \
-  --image-uri "${REPO}:latest"
+cd ../organic-agent-ai
+embedder/deploy.sh     # HF_TOKEN 또는 `hf auth login` 필요 (DINOv3 게이트 모델)
+score/deploy.sh
+categorize/deploy.sh
 ```
 
-> 태그의 중괄호를 빼면 안 된다. zsh는 `"$REPO:latest"`의 `:l`을 소문자 변환 모디파이어로
-> 해석해서 엉뚱한 리포지토리 이름을 만든다 (deploy-order.md의 [3] 참고).
-
 함수의 `image_uri`는 `ignore_changes`라 이렇게 밀어 넣어도 다음 plan이 되돌리지 않는다.
-운영 CD에서는 `AWS_WORKER_DEPLOY_ROLE_ARN` 역할만 이 ECR repository와 Lambda를 갱신한다.
-공개/관리자 EC2 배포 역할에는 ECR·Lambda 쓰기 권한이 없다.
+운영 CD에서는 AI 저장소 main만 신뢰하는 worker 역할(`AWS_LAMBDA_DEPLOY_ROLE_ARN` 변수)이
+세 ECR repository와 세 Lambda를 갱신한다. 공개/관리자 EC2 배포 역할에는 ECR·Lambda 쓰기 권한이 없다.
 
 ### # 수동 실행
 
 ```bash
-aws lambda invoke --region ap-northeast-2 \
-  --function-name "$(terraform output -raw embedder_function_name)" \
+# 임베딩만
+aws lambda invoke --region ap-northeast-2 --function-name wes-embedder \
   --cli-binary-format raw-in-base64-out \
   --payload '{"galleryId":1,"force":false}' /dev/stdout
+
+# 점수 → (체인) 카테고리. jobId 없이 부르면 잡 계약 밖의 적재만 하고 체인은 타지 않는다.
+aws lambda invoke --region ap-northeast-2 --function-name wes-score \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{"galleryId":1}' /dev/stdout
 ```
 
-로그 : `aws logs tail /aws/lambda/wes-embedder --follow`
+로그 : `aws logs tail /aws/lambda/wes-embedder --follow` (`wes-score` · `wes-categorize`도 같은 경로)
 
 ### # 문제 해결
 
 | 증상 | 원인 |
 |---|---|
-| `password authentication failed for user "embedder"` | DB 사용자가 없다. RDS 에러 로그 DETAIL에 `Role "embedder" does not exist`가 함께 찍힌다 |
+| `password authentication failed for user "embedder"` / `"photoselect"` | DB 사용자가 없다. RDS 에러 로그 DETAIL에 `Role "…" does not exist`가 함께 찍힌다 |
+| `permission denied for table photo_analysis` (photoselect) | 사용자는 있는데 Flyway의 GRANT 블록이 아직 안 돌았다 — 앱 재배포 또는 `PHOTOSELECT_GRANT_CONTRACT` 블록 실행 |
 | `PAM authentication failed` + DB 사용자·GRANT 정상 | 조직 SCP가 `rds-db:connect`를 막고 있다 → [SCP 차단](#-scp-차단-임시-우회로) |
-| `PAM authentication failed` + 비밀번호로 붙는 중 | `embedder`가 아직 `rds_iam` 멤버다. pg_hba가 PAM 경로로 보내 비밀번호를 아예 안 본다 — `REVOKE rds_iam FROM embedder;` |
+| `PAM authentication failed` + 비밀번호로 붙는 중 | 사용자가 아직 `rds_iam` 멤버다. pg_hba가 PAM 경로로 보내 비밀번호를 아예 안 본다 — `REVOKE rds_iam FROM …;` |
 | 접속 성공하다가 apply 후 갑자기 실패 | apply가 `DB_PASSWORD` 환경변수를 지웠다. 함수가 재생성되면 `ignore_changes`도 못 지킨다 — 다시 주입 |
 | S3 GET에서 타임아웃 (자격증명 오류처럼 보이지 않는다) | DB 서브넷의 S3 게이트웨이 엔드포인트가 없다 |
+| `reinvoked=false` / `chained=false`, 로그에 `Connect timeout on endpoint URL: "https://lambda…"` | `lambda` 인터페이스 엔드포인트가 없거나 아직 `pending`이다. 잡은 score가 FAILED로 닫는다 — 엔드포인트가 `available`이 된 뒤 앱에서 다시 분석 |
+| 재호출·체인이 `AccessDeniedException` | 실행 롤의 `lambda:InvokeFunction` 대상(자기 함수·categorize) 확인 |
+| categorize 로그에 `Connect timeout on endpoint URL: "https://bedrock-runtime…"` | `bedrock-runtime` 인터페이스 엔드포인트가 없다 |
+| categorize가 Bedrock `AccessDeniedException` | 프로필 ARN과 기반 모델 ARN **둘 다** `bedrock:InvokeModel`이 있어야 한다. `bedrock_model_id`와 `BEDROCK_MODEL_ID`가 같은지, 프로필이 리전에 있는지(`aws bedrock list-inference-profiles`) 확인 |
+| score가 `[Errno 28] No space left on device` | `/tmp`가 찼다. 갤러리 미리보기 전부를 내려받으므로 `score_ephemeral_storage_mb`를 올린다 |
 | 호출은 되는데 핸들러 로그가 없다 | VPC 함수의 ENI를 못 만들었다 — 롤에 `AWSLambdaVPCAccessExecutionRole` 확인 |
 | `InvalidParameterValueException: image manifest ... not supported` | buildx가 manifest list를 만들었다 — `--provenance=false --sbom=false` 빠짐 |
 | 앱이 `PHOTO_503_1`로 답한다 | `app.embedding.function-name` 파라미터가 없다 (apply가 만든다) |
-| 앱이 `PHOTO_502_1`로 답한다 | 호출 자체가 거절됐다 — 인스턴스 롤의 `lambda:InvokeFunction` 확인 |
+| 앱이 분석 요청에 503으로 답한다 | `app.analysis.score-function-name`·`categorize-function-name` 파라미터가 없다 (apply가 만든다) |
+| 앱이 `PHOTO_502_1` / 분석 dispatch가 거절된다 | 호출 자체가 거절됐다 — 인스턴스 롤의 `lambda:InvokeFunction`(함수 셋) 확인 |
 | 업로드가 브라우저 프리플라이트에서 죽는다 | S3 버킷 CORS의 오리진 — `cors.allowed-origins` 파라미터를 고치고 apply |
 
 ---

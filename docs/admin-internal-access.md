@@ -154,15 +154,18 @@ Server와 Infra는 이름 기반 기본 subject를 쓰지만 IAM에서 immutable
 맞춘 environment subject와 `ref=refs/heads/main`도 동시에 요구한다.
 
 적용 후 서버 저장소에는 공개/관리자 API 역할을 각각 등록하고, 백오피스 저장소에는 기존 이름으로 등록한다.
+Lambda 셋의 worker 역할은 AI 저장소(`organic-agent-ai`)의 변수로 간다 — [deploy-order.md의 [5]](deploy-order.md#-5-배포-롤-시크릿-스택-세울-때마다).
 
 ```sh
 # WES-Server
 terraform output -raw github_deploy_role_arn           # AWS_DEPLOY_ROLE_ARN
 terraform output -raw github_admin_api_deploy_role_arn # AWS_ADMIN_API_DEPLOY_ROLE_ARN
-terraform output -raw github_worker_deploy_role_arn    # AWS_WORKER_DEPLOY_ROLE_ARN
 
 # WES-BackOffice
 terraform output -raw github_admin_deploy_role_arn     # AWS_DEPLOY_ROLE_ARN
+
+# organic-agent-ai (시크릿이 아니라 변수)
+terraform output -raw github_worker_deploy_role_arn    # AWS_LAMBDA_DEPLOY_ROLE_ARN
 ```
 
 WES-Server workflow는 공개 `wes-app` 배포와 health가 성공한 뒤에만 관리자 API job을 실행한다. 둘은 같은 커밋 SHA 이미지 태그를 사용하고 관리자 job은 별도 역할을 assume한다. 장기 AWS 액세스 키는 만들거나 저장하지 않는다.
