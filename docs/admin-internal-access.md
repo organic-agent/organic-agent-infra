@@ -1,12 +1,12 @@
 # WES-253 백오피스 내부 접근
 
-`https://admin.easyselect.kr`을 Tailscale에 접속한 `group:wes-super-admins`만 이용하도록 구성한다. 기존 공개 API(`api.easyselect.kr` → ALB)는 변경하지 않는다.
+`https://admin.easyselect.kr`을 tailnet에 직접 등록된 모든 기기에서 이용하도록 구성한다. 기존 공개 API(`api.easyselect.kr` → ALB)는 변경하지 않는다.
 
 ## 구성과 보안 경계
 
 ```text
-허용된 최고 관리자
-  → Tailscale grant (group:wes-super-admins → tag:wes-admin, tcp:443만)
+tailnet 등록 기기 (사용자 소유 기기 + tag 기반 노드)
+  → Tailscale grant (autogroup:member + autogroup:tagged → tag:wes-admin, tcp:443만)
   → admin.easyselect.kr A 레코드 (100.64.0.0/10의 서버 Tailscale IP)
   → tailscale serve raw TCP :443 → 127.0.0.1:8443
   → Caddy TLS + Route53 DNS-01 → 172.30.0.10:8080 백오피스 앱
@@ -26,13 +26,13 @@
 
 ### 1. tailnet policy 병합
 
-[`tailscale/wes-admin-policy.hujson.example`](../tailscale/wes-admin-policy.hujson.example)의 `groups`, `tagOwners`, `grants`, `tests` 항목을 기존 tailnet policy에 병합한다. `eatyasic@gmail.com`만 최고 관리자 그룹에 포함되고, tailnet 운영 계정 `asmorganicagent@gmail.com`은 태그를 관리하지만 백오피스 443 접근은 거부되는지 테스트한다.
+[`tailscale/wes-admin-policy.hujson.example`](../tailscale/wes-admin-policy.hujson.example)의 `tagOwners`, `grants`, `tests` 항목을 기존 tailnet policy에 병합한다. `autogroup:member`는 tailnet에 직접 가입한 사용자의 기기를, `autogroup:tagged`는 사용자 대신 tag로 등록된 노드를 포함한다. 둘을 함께 사용해 tailnet 등록 기기는 모두 백오피스 443에 접근할 수 있게 하고, 다른 tailnet에서 공유받은 기기와 subnet route 뒤의 미등록 기기는 포함하지 않는다.
 
-Tailscale 정책은 허용 규칙의 합집합이다. 기존 `* → *:*`, `autogroup:member → tag:wes-admin:*` 같은 넓은 ACL/grant가 남아 있으면 이번 443 grant가 접근을 좁히지 못한다. policy editor의 테스트가 다음을 모두 통과해야 저장한다.
+Tailscale 정책은 허용 규칙의 합집합이다. 기존 `* → *:*`, `* → tag:wes-admin:*` 같은 더 넓은 ACL/grant가 남아 있으면 이번 443 grant가 접근을 좁히지 못한다. policy editor의 테스트가 다음을 모두 통과해야 저장한다.
 
-- 최고 관리자 → `tag:wes-admin:443` 허용
-- 최고 관리자 → 22, 8080, 8443 거부
-- 비관리자 → `tag:wes-admin:443` 거부
+- tailnet 직접 가입 사용자의 기기 → `tag:wes-admin:443` 허용
+- tag 기반 기기 → `tag:wes-admin:443` 허용
+- tailnet 등록 기기 → 22, 8080, 8443 거부
 
 ### 2. 일회용 서버 auth key 저장
 
@@ -208,9 +208,9 @@ curl --resolve admin.easyselect.kr:8443:127.0.0.1 https://admin.easyselect.kr:84
 클라이언트와 AWS에서는 다음을 확인한다.
 
 1. `dig admin.easyselect.kr +short`가 서버의 Tailscale IPv4 하나를 반환한다.
-2. 허용된 최고 관리자의 Tailscale 연결 기기에서 `curl -I https://admin.easyselect.kr`가 유효한 공개 인증서와 앱 응답을 반환한다.
-3. tailnet 비관리자 기기에서는 같은 요청이 연결되지 않는다.
-4. Tailscale을 끈 기기에서는 같은 요청이 연결되지 않는다.
+2. tailnet에 직접 가입한 모든 사용자의 연결 기기에서 `curl -I https://admin.easyselect.kr`가 유효한 공개 인증서와 앱 응답을 반환한다.
+3. tag 기반 기기에서도 같은 요청이 앱 응답을 반환한다.
+4. 다른 tailnet에서 공유받은 기기나 Tailscale을 끈 기기에서는 같은 요청이 연결되지 않는다.
 5. `aws ec2 describe-security-groups --group-ids <admin SG>`의 `IpPermissions`가 빈 배열이다.
 6. 서버의 public IP에 대한 외부 22/80/443 연결이 모두 실패한다.
 

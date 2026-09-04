@@ -19,7 +19,7 @@ OAuth 로그인과 사진 갤러리(업로드·AI 분석) 테스트용 AWS 인�
 DNS와 앱 스택을 분리해 앱 스택을 삭제해도 Hosted Zone과 NS 위임을 유지한다.
 
 - 요청 경로 : `api.easyselect.kr` → ALB(HTTPS) → EC2 `:8080` → RDS PostgreSQL `:5432`
-- 백오피스 경로 : 허용된 Tailscale 최고 관리자 → `admin.easyselect.kr` → 전용 EC2의 tailnet TCP `:443` → localhost Caddy/BackOffice. BackOffice는 같은 호스트의 `wes-admin-api`와 외부 라우팅 없는 Docker network로만 통신한다
+- 백오피스 경로 : tailnet에 등록된 모든 기기 → `admin.easyselect.kr` → 전용 EC2의 tailnet TCP `:443` → localhost Caddy/BackOffice. BackOffice는 같은 호스트의 `wes-admin-api`와 외부 라우팅 없는 Docker network로만 통신한다
 - 사진 경로 : 브라우저가 서명 URL로 S3(`wes-photos-*`)에 직접 PUT/GET → 사진 바이트가 앱을 거치지 않는다
 - AI 분석 : 앱이 갤러리 단위로 Lambda 셋을 단계마다 비동기 호출한다. `wes-embedder`가 S3 게이트웨이 엔드포인트로 원본을 읽어 미리보기와 DINOv3 임베딩을 남기고, `wes-score`가 미리보기마다 CLIP·ARNIQA·LAION 점수를 매긴 뒤 `wes-categorize`를 체인 호출하고, categorize가 그룹을 묶어 Bedrock(`global.` Sonnet 프로필)으로 이름을 짓는다. 코드는 AI 저장소(`organic-agent-ai`)의 최상위 디렉토리 하나 = 함수 하나
 - 모니터링 : 앱이 logback appender로 모니터링 EC2(`wes-monitoring`, t4g.micro + EIP)의 Loki `:3100`에 로그를 보내고, `monitoring.easyselect.kr` → Caddy(Let's Encrypt) → Grafana로 조회한다. ALB를 거치지 않는다
