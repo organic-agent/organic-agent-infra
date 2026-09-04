@@ -214,6 +214,7 @@ GRANT 블록을 직접 실행한다(앱 재배포로는 V1이 다시 돌지 않�
 ```sql
 CREATE USER embedder    WITH PASSWORD '<embedder.db.password 와 같은 값>';
 CREATE USER photoselect WITH PASSWORD '<photoselect.db.password 와 같은 값>';
+GRANT USAGE ON SCHEMA public TO embedder, photoselect;   -- PUBLIC 기본 USAGE가 회수된 DB라 필수
 ```
 
 **7-2. 비밀번호 주입** — 함수를 새로 만들 때마다, 함수 셋 각각. Terraform이 넣으면 state에 평문으로
