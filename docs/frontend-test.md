@@ -30,7 +30,7 @@ scripts/deploy-frontend-test.sh /absolute/path/to/WES-Frontend-Test
 
 테스트 origin을 `/wes/prod/cors.allowed-origins`에 추가하면 앱 스택이 같은 값을 읽어 사진 S3 CORS를 맞춘다. 기존 origin은 보존한다. 공개 API는 시작 시 설정을 읽으므로 별도 서버 배포 또는 재시작이 필요하다. 이 설정 변경은 운영 CORS 변경 승인 후 수행한다.
 
-OAuth provider 콘솔에도 `https://test.easyselect.kr/callback/google`, `/callback/kakao`, `/callback/naver`처럼 해당 공급자의 실제 callback을 등록해야 한다. 로그인 URL이 발급되는 것만으로 공급자 콘솔 설정 완료를 판단하지 않는다.
+OAuth provider 콘솔에도 `https://test.easyselect.kr/login/oauth2/code/google`, `https://test.easyselect.kr/login/oauth2/code/kakao`, `https://test.easyselect.kr/login/oauth2/code/naver`를 등록해야 한다. 이 경로는 원본 프론트 라우트와 서버 resolver 테스트로 확인했으며 공급자 콘솔의 실제 등록 여부는 아직 미확인이다. 로그인 URL이 발급되는 것만으로 공급자 콘솔 설정 완료를 판단하지 않는다.
 
 ## 점검 및 로그
 
