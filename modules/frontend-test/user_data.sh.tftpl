@@ -1,0 +1,58 @@
+#!/bin/bash
+set -Eeuo pipefail
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y docker.io curl
+snap install aws-cli --classic
+ln -sf /snap/bin/aws /usr/local/bin/aws
+systemctl enable --now docker
+# A small swap file absorbs the one-time Next build peak on this test machine.
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+install -d -m 0755 /etc/wes-frontend /opt/wes-frontend/releases /opt/wes-frontend/caddy-data /opt/wes-frontend/caddy-config
+cat > /etc/wes-frontend/deployment.env <<'ENV'
+AWS_REGION=${aws_region}
+ARTIFACT_BUCKET=${bucket_name}
+ENV
+chmod 600 /etc/wes-frontend/deployment.env
+cat > /usr/local/bin/deploy-frontend <<'DEPLOY'
+${deploy_script}
+DEPLOY
+chmod 750 /usr/local/bin/deploy-frontend
+cat > /etc/wes-frontend/Caddyfile <<'CADDY'
+{
+  admin localhost:2019
+}
+${fqdn} {
+  encode zstd gzip
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy strict-origin-when-cross-origin
+    X-Robots-Tag "noindex, nofollow, noarchive"
+    Strict-Transport-Security "max-age=31536000"
+    -Server
+  }
+  log {
+    output stdout
+    format filter {
+      wrap json
+      fields {
+        request>uri delete
+        request>headers delete
+      }
+    }
+  }
+  respond /infrastructure-health "ready" 200
+  reverse_proxy 127.0.0.1:3000
+}
+CADDY
+docker run -d --name wes-frontend-proxy --restart unless-stopped --network host \
+  --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
+  -v /etc/wes-frontend/Caddyfile:/etc/caddy/Caddyfile:ro \
+  -v /opt/wes-frontend/caddy-data:/data \
+  -v /opt/wes-frontend/caddy-config:/config \
+  '${caddy_image}'
+touch /opt/wes-frontend/bootstrap-complete
