@@ -328,6 +328,7 @@ OAuth 클라이언트 ID/시크릿도 `/wes/prod/` 아래 SecureString 파라미
 
 - **갤러리 단위로 한 번 부른다.** S3 이벤트로 장당 트리거를 걸면 수천 장 업로드가 Lambda 수천 개를 동시에 띄우고, 각자 커넥션을 열어 db.t4g.micro를 고갈시킨다.
 - **응답을 기다리지 않는다(EVENT).** 갤러리 하나가 Lambda 상한인 15분까지 걸릴 수 있다. embedder·score는 15분 앞에서 배치 경계에 멈추고 **자기 자신을 다시 부른다** — 그래서 실행 롤에 자기 함수의 `lambda:InvokeFunction`이 있다.
+- **score는 갤러리를 샤드로 나눠 동시에 돈다.** wes가 부른 실행은 조정자가 되어 사진 250장당 샤드 하나(최대 8)로 자기 함수를 다시 EVENT 하고 끝난다. 샤드는 자기 몫만 처리하고, 마지막으로 끝난 샤드가 `wes-categorize`를 부른다. 그래서 `wes-score`의 예약 동시성은 샤드 상한(8) 이상이어야 한다 — 낮으면 샤드가 스로틀되어 라운드가 늘어난다.
 - **재실행이 안전하다.** embedder는 `embedding IS NULL`, score는 `MODEL_VERSION` + CLIP 유무로 남은 것만 이어서 한다.
 - **재시도 주체는 앱의 오케스트레이터 하나다.** Lambda 서비스 재시도는 셋 다 0회이며, 이벤트 수명은 20분(15분 runtime 상한 + 최대 5분 queue 지연)이다. 오래 적체된 이벤트를 뒤늦게 중복 실행하지 않는다.
 - **DB 서브넷은 인터넷이 없다.** S3는 게이트웨이 엔드포인트, Lambda API(재호출·체인)와 Bedrock(categorize의 이름 짓기)은 `lambda`·`bedrock-runtime` **인터페이스 엔드포인트**로 나간다. 인터페이스 엔드포인트는 ENI당 시간 과금이다([비용](#-비용)).
@@ -336,7 +337,7 @@ OAuth 클라이언트 ID/시크릿도 `/wes/prod/` 아래 SecureString 파라미
 | 함수 | 메모리 | /tmp | 동시 실행 | DB 사용자 | 특이 권한 |
 |---|---|---|---|---|---|
 | `wes-embedder` | 3GB | 512MB | 4 | `embedder` | S3 원본 읽기·`previews/` 쓰기, 자기 재호출 |
-| `wes-score` | 8GB | 10GB (미리보기 전부 내려받음) | 2 | `photoselect` | S3 `previews/` 읽기, 자기 재호출, `wes-categorize` 호출 |
+| `wes-score` | 8GB | 10GB (미리보기 전부 내려받음) | 8 (= 샤드 상한) | `photoselect` | S3 `previews/` 읽기, 자기 재호출(샤드 fan-out), `wes-categorize` 호출 |
 | `wes-categorize` | 3GB | 512MB | 2 | `photoselect` | S3 `previews/` 읽기, `bedrock:InvokeModel`(프로필 + 기반 모델) |
 
 ### # DB 접속 (설계와 현재 상태)

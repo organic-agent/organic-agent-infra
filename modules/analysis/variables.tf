@@ -148,9 +148,9 @@ variable "score_ephemeral_storage_mb" {
 }
 
 variable "score_reserved_concurrent_executions" {
-  description = "score 함수 동시 실행 상한. 갤러리 하나 = 실행 하나(자기 재호출로 직렬)라 갤러리 몇 개를 동시에 돌릴지의 값이다. 8GB 함수라 임베더보다 낮게 둔다."
+  description = "score 함수 동시 실행 상한. 갤러리 하나 = 조정자 1 + 샤드 N(사진 250장 단위, 최대 MAX_SHARDS=8) 동시 실행이라 동시 갤러리 수 × 8 이 필요하다. 8 미만이면 샤드가 스로틀되어 라운드가 늘어난다(2 일 때 822장 = 4 샤드 2 라운드 14분, 8 이면 ≈ 6분)."
   type        = number
-  default     = 2
+  default     = 8
 
   validation {
     condition     = var.score_reserved_concurrent_executions >= 1 && var.score_reserved_concurrent_executions <= 10
