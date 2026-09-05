@@ -27,3 +27,8 @@ variable "app_parameter_prefix_arn" {
   description = "인스턴스(앱)가 읽을 수 있는 SSM 파라미터 경로의 ARN (예: arn:...:parameter/wes/dev)"
   type        = string
 }
+
+variable "bedrock_model_id" {
+  description = "앱(recommendation 도메인)이 추천 이유·비교샷 판정에 부르는 Bedrock 크로스 리전 추론 프로필 ID. 루트의 bedrock_model_id와 같은 값이며 앱 설정 app.llm.model-id와 일치해야 한다."
+  type        = string
+}
