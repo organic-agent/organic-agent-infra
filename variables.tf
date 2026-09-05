@@ -380,7 +380,7 @@ variable "categorize_reserved_concurrent_executions" {
 }
 
 variable "bedrock_model_id" {
-  description = "categorize의 그룹 이름 짓기 모델(크로스 리전 추론 프로필 ID). 함수 환경변수와 실행 롤의 InvokeModel 대상이 여기서 함께 나온다."
+  description = "categorize의 그룹 이름 짓기와 앱(EC2)의 추천 이유·비교샷 판정에 쓰는 Bedrock 모델(크로스 리전 추론 프로필 ID). Lambda 환경변수, Lambda·EC2 실행 롤의 InvokeModel 대상이 여기서 함께 나온다. 앱 설정 app.llm.model-id와 같아야 한다."
   type        = string
   default     = "global.anthropic.claude-sonnet-4-6"
 }

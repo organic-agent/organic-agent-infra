@@ -141,6 +141,7 @@ module "compute" {
   instance_type            = var.instance_type
   ssh_public_key           = var.ssh_public_key
   app_parameter_prefix_arn = local.parameter_prefix_arn
+  bedrock_model_id         = var.bedrock_model_id
 }
 
 module "ingress" {

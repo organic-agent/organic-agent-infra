@@ -68,6 +68,36 @@ resource "aws_iam_role_policy" "read_app_parameters" {
   policy = data.aws_iam_policy_document.read_app_parameters.json
 }
 
+# 앱의 recommendation 도메인이 추천 이유 문장과 비교샷 판정에 Bedrock을 부른다(app.llm.enabled=true일 때).
+# 크로스 리전 프로필 호출은 프로필 ARN(이 계정·리전)과 그 프로필이 보내는 기반 모델 ARN(리전 무관) 양쪽에
+# InvokeModel이 있어야 한다 — modules/analysis의 categorize와 같은 규칙. 스트리밍은 쓰지 않는다.
+# 이 정책이 없으면 앱은 기동은 되지만 호출마다 AccessDenied를 받아 템플릿 문장으로 폴백한다.
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+locals {
+  # `global.anthropic.claude-sonnet-4-6` → 기반 모델 `anthropic.claude-sonnet-4-6`. `global.` 프로필의 기반 모델 ARN은
+  # 리전 자리가 빈 값이라 `*`로 받는다.
+  bedrock_foundation_model_id = replace(var.bedrock_model_id, "/^(global|us|eu|apac|jp|au|ca)\\./", "")
+}
+
+data "aws_iam_policy_document" "invoke_llm" {
+  statement {
+    sid     = "InvokeRecommendationModel"
+    actions = ["bedrock:InvokeModel"]
+    resources = [
+      "arn:aws:bedrock:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:inference-profile/${var.bedrock_model_id}",
+      "arn:aws:bedrock:*::foundation-model/${local.bedrock_foundation_model_id}",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "invoke_llm" {
+  name   = "invoke-llm"
+  role   = aws_iam_role.this.name
+  policy = data.aws_iam_policy_document.invoke_llm.json
+}
+
 resource "aws_iam_instance_profile" "this" {
   name_prefix = "${var.name_prefix}-ec2-"
   role        = aws_iam_role.this.name
