@@ -434,3 +434,25 @@ variable "infra_github_repository_id" {
     error_message = "infra_github_repository_id는 organic-agent-infra의 immutable repository ID여야 합니다."
   }
 }
+
+variable "frontend_test_github_oidc_subject" {
+  description = "테스트 프론트 main의 immutable GitHub OIDC sub"
+  type        = string
+  default     = "repo:organic-agent@299031009/organic-agent-test-web@1359048612:ref:refs/heads/main"
+
+  validation {
+    condition     = var.frontend_test_github_oidc_subject == "repo:organic-agent@299031009/organic-agent-test-web@1359048612:ref:refs/heads/main"
+    error_message = "테스트 프론트 배포는 organic-agent-test-web main의 정확한 immutable subject만 허용합니다."
+  }
+}
+
+variable "frontend_test_github_repository_id" {
+  description = "organic-agent-test-web의 immutable GitHub repository ID"
+  type        = string
+  default     = "1359048612"
+
+  validation {
+    condition     = var.frontend_test_github_repository_id == "1359048612"
+    error_message = "테스트 프론트 배포 저장소 ID는 1359048612여야 합니다."
+  }
+}

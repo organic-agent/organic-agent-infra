@@ -1,9 +1,10 @@
-# GitHub Actions가 AWS에 들어올 때 쓰는 OIDC 프로바이더와 롤 여섯 개.
+# GitHub Actions가 AWS에 들어올 때 쓰는 OIDC 프로바이더와 롤 일곱 개.
 #
 #   deploy           서버 저장소 CD     — public API를 wes-app에 배포
 #   admin_api_deploy 서버 저장소 CD     — public 배포 성공 후 admin API를 wes-admin에 배포
 #   worker_deploy    AI 저장소 CD       — embedder·score·categorize 이미지를 ECR에 푸시하고 Lambda 코드 갱신
 #   admin_deploy     백오피스 저장소 CD — BackOffice를 wes-admin에 배포
+#   frontend_test_deploy 테스트 프론트 CD — 전용 SSM 문서로 테스트 머신에만 배포
 #   tf_plan          이 저장소 PR       — terraform plan (읽기 전용)
 #   tf_apply         이 저장소 main     — terraform apply
 #
@@ -46,6 +47,12 @@ locals {
       ref           = "refs/heads/main"
       environment   = null
     }
+    frontend_test_deploy = {
+      subject       = var.frontend_test_oidc_subject
+      repository_id = var.frontend_test_repository_id
+      ref           = "refs/heads/main"
+      environment   = null
+    }
     tf_plan = {
       subject       = "repo:${var.infra_repository}:pull_request"
       repository_id = var.infra_repository_id
@@ -69,7 +76,7 @@ resource "aws_iam_openid_connect_provider" "github" {
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 }
 
-# 여섯 롤은 역할별 exact sub에 더해 immutable repository/owner ID를 함께 검사한다.
+# 일곱 롤은 역할별 exact sub에 더해 immutable repository/owner ID를 함께 검사한다.
 # 서버의 두 배포 역할은 같은 main 주체를 신뢰하지만 권한 대상이 달라 서로 넓히지 않는다.
 data "aws_iam_policy_document" "assume" {
   for_each = local.github_trust

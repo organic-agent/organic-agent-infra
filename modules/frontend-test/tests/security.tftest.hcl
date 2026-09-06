@@ -40,3 +40,23 @@ run "private_artifact_and_secret_boundary" {
     error_message = "The host may only read releases, and WES application secrets must be explicitly denied."
   }
 }
+
+run "fixed_deployment_document" {
+  command = plan
+  assert {
+    condition     = aws_ssm_document.deploy.name == "wes-frontend-test-deploy" && aws_ssm_document.deploy.document_type == "Command"
+    error_message = "Test deployment must use its own fixed Command document."
+  }
+  assert {
+    condition     = jsondecode(aws_ssm_document.deploy.content).schemaVersion == "2.2" && alltrue([for parameter in values(jsondecode(aws_ssm_document.deploy.content).parameters) : parameter.type == "String" && parameter.interpolationType == "ENV_VAR"])
+    error_message = "Require validated String parameters with environment interpolation."
+  }
+  assert {
+    condition     = jsondecode(aws_ssm_document.deploy.content).parameters.Revision.allowedPattern == "^[a-f0-9]{40}$" && jsondecode(aws_ssm_document.deploy.content).parameters.ArtifactSha256.allowedPattern == "^[a-f0-9]{64}$" && jsondecode(aws_ssm_document.deploy.content).parameters.ArtifactKey.allowedPattern == "^releases/[a-f0-9]{40}\\.tar\\.gz$"
+    error_message = "Reject arbitrary paths, shell input, and non-commit revisions."
+  }
+  assert {
+    condition     = length(jsondecode(aws_ssm_document.deploy.content).mainSteps) == 1 && jsondecode(aws_ssm_document.deploy.content).mainSteps[0].inputs.timeoutSeconds == "1800" && strcontains(jsondecode(aws_ssm_document.deploy.content).mainSteps[0].inputs.runCommand[0], "/usr/local/bin/deploy-frontend")
+    error_message = "Allow only the fixed host deployment and runtime inspection."
+  }
+}

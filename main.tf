@@ -195,6 +195,13 @@ module "github_actions" {
   app_instance_name    = "${local.name_prefix}-app"
   admin_instance_name  = "${local.name_prefix}-admin"
 
+  # 테스트 프론트 전용 역할은 기존 서버/관리자 역할의 권한을 확장하지 않는다.
+  frontend_test_oidc_subject        = var.frontend_test_github_oidc_subject
+  frontend_test_repository_id       = var.frontend_test_github_repository_id
+  frontend_test_instance_id         = module.frontend_test.instance_id
+  frontend_test_artifact_bucket_arn = module.frontend_test.artifact_bucket_arn
+  frontend_test_deploy_document_arn = module.frontend_test.deploy_document_arn
+
   # Lambda 셋의 배포 역할. AI 저장소 main의 deploy-lambda.yml이 assume해 바뀐 모듈만 밀고 갱신한다.
   worker_oidc_subject    = var.ai_github_oidc_subject
   worker_repository_id   = var.ai_github_repository_id

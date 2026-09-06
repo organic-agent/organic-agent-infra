@@ -27,3 +27,8 @@ output "tf_apply_role_arn" {
   description = "이 저장소의 AWS_APPLY_ROLE_ARN 시크릿 값"
   value       = aws_iam_role.tf_apply.arn
 }
+
+output "frontend_test_deploy_role_arn" {
+  description = "테스트 프론트 GitHub Actions의 AWS_DEPLOY_ROLE_ARN 변수"
+  value       = aws_iam_role.frontend_test_deploy.arn
+}
