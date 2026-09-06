@@ -108,9 +108,9 @@ variable "embedding_dimension" {
 }
 
 variable "embedder_reserved_concurrent_executions" {
-  description = "embedder 함수 동시 실행 상한. dispatcher가 여러 EVENT를 수락해도 소형 RDS와 Lambda 비용이 한꺼번에 치솟지 않게 한다."
+  description = "embedder 함수 동시 실행 상한. 갤러리 하나 = 조정자 1 + 샤드 N(사진 250장 단위, 최대 MAX_SHARDS=8) 동시 실행이라 동시 갤러리 수 × 8 이 필요하다. 8 미만이면 샤드가 스로틀되어 라운드가 늘어난다. 소형 RDS 커넥션은 샤드당 1개."
   type        = number
-  default     = 4
+  default     = 8
 
   validation {
     condition     = var.embedder_reserved_concurrent_executions >= 1 && var.embedder_reserved_concurrent_executions <= 10
