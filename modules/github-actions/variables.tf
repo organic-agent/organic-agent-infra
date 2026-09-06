@@ -82,3 +82,28 @@ variable "worker_function_arns" {
     error_message = "worker_function_arns는 와일드카드 없는 정확한 Lambda 함수 ARN을 하나 이상 담아야 합니다."
   }
 }
+
+variable "frontend_test_oidc_subject" {
+  description = "테스트 프론트 main의 정확한 immutable GitHub OIDC subject"
+  type        = string
+}
+
+variable "frontend_test_repository_id" {
+  description = "테스트 프론트의 immutable GitHub repository ID"
+  type        = string
+}
+
+variable "frontend_test_instance_id" {
+  description = "테스트 프론트 전용 배포 대상 EC2 ID"
+  type        = string
+}
+
+variable "frontend_test_artifact_bucket_arn" {
+  description = "테스트 프론트 소스 아카이브를 업로드할 전용 버킷 ARN"
+  type        = string
+}
+
+variable "frontend_test_deploy_document_arn" {
+  description = "임의 shell 명령 대신 허용하는 고정 테스트 프론트 배포 문서 ARN"
+  type        = string
+}

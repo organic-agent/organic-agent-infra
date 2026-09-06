@@ -12,7 +12,7 @@
 - 소스 아카이브 버킷은 공개 접근 차단·SSE-S3·TLS 필수이며 아카이브는 30일 후 만료한다. 고객 사진을 저장하지 않는다.
 - API·관리자·모니터링 리소스의 SG, ALB, IAM 및 라우팅은 변경하지 않는다.
 
-## 첫 배포와 업데이트
+## 수동 배포와 업데이트
 
 프론트 담당은 Node22 standalone Dockerfile, `/health` 200, `/version.json`의 `SOURCE_REVISION` 또는 `BUILD_SHA` 노출을 제공한다. 빌드에 사용하는 값은 공개 API/origin만 넣고 서버 비밀 값은 전달하지 않는다.
 
@@ -24,7 +24,28 @@ scripts/deploy-frontend-test.sh /absolute/path/to/WES-Frontend-Test
 
 스크립트는 커밋된 소스만 압축하고 `.env`·자격 증명 설정·빌드 캐시·심볼릭 링크를 거부한다. AWS operator의 기존 인증으로 비공개 S3에 업로드하고 해당 한 대에 SSM Run Command를 보낸다. 머신이 SHA256을 검증한 후 ARM64 이미지를 빌드한다. `127.0.0.1:3001` 후보 컨테이너의 health/revision을 먼저 확인하고 기존 컨테이너를 교체한다. 최종 검증은 실제 HTTPS health/revision이다.
 
-현재 원본 GitHub 저장소의 fork 정책 때문에 별도 테스트 원격과 CI 역할을 만들지 않는다. 원본 원격 설정을 우회하거나 기존 서버 배포 역할을 확장하지 않는다.
+## GitHub Actions 자동 배포
+
+테스트 프론트 저장소는 `organic-agent/organic-agent-test-web`이다. `main`에 push하면 테스트와 빌드를 통과한 같은 commit을 `https://test.easyselect.kr`에 자동 배포한다. PR은 검증만 실행하며 배포 역할을 사용하지 않는다.
+
+전용 IAM 역할은 GitHub OIDC의 정확한 main subject, repository ID `1359048612`, owner ID `299031009`, audience와 ref를 함께 확인한다. 장기 AWS 키는 저장하지 않는다. 기존 서버·관리자·인프라 CI 역할의 권한을 확대하지 않는다.
+
+GitHub repository variables는 Terraform 출력으로 설정한다.
+
+| Variable | Terraform output/value |
+| --- | --- |
+| `AWS_DEPLOY_ROLE_ARN` | `frontend_test_deploy_role_arn` |
+| `AWS_REGION` | `ap-northeast-2` |
+| `FRONTEND_ARTIFACT_BUCKET` | `frontend_test_artifact_bucket` |
+| `FRONTEND_INSTANCE_ID` | `frontend_test_instance_id` |
+| `FRONTEND_DEPLOY_DOCUMENT` | `frontend_test_deploy_document_name` |
+| `FRONTEND_URL` | `frontend_test_url` |
+
+Actions 역할은 전용 버킷의 `releases/*`에 `s3:PutObject`만 수행하고, `wes-frontend-test-deploy` 문서를 테스트 EC2 한 대에만 실행한다. `AWS-RunShellScript`, EC2 조회·수정, IAM, 서버 파라미터 읽기 권한은 없다. 배포 결과 조회용 `ssm:GetCommandInvocation`만 AWS가 요구하는 wildcard 리소스를 사용한다.
+
+SSM 문서는 SHA40 revision, SHA256, 해당 revision의 아카이브 경로만 받는다. 모든 문자열은 `ENV_VAR`로 전달하고 경로와 revision을 다시 대조한다. 고정 호스트 스크립트가 기존 후보 검증/롤백으로 배포하고, 고정 읽기 전용 점검으로 실행 이미지·비루트 사용자·read-only root·capabilities 제거·loopback 포트·health·revision을 검증한다. 새 컨테이너 시작이나 최종 보안 검증이 실패하면 검증한 이전 이미지로 복구한다. Actions 래퍼 전체는 별도 flock으로 직렬화하며, GitHub 실행 취소 뒤에도 진행 중인 SSM 배포와 겹치지 않는다. 수동 배포도 기존 호스트 flock을 사용하고, 래퍼는 다른 배포가 진행 중이거나 다른 이미지가 실행 중이면 이를 롤백하지 않는다. 문서 추가는 기존 EC2 user data와 인스턴스를 변경하지 않는다.
+
+CI 역할 최초 추가는 `modules/github-actions` 자체의 부트스트랩이므로 로컬에서 검토한 저장 plan을 적용한다. 예상 변경은 테스트 전용 IAM 역할/인라인 정책/SSM 문서 3개 추가뿐이다. 이후 일반 프론트 배포에는 Terraform 권한이 필요하지 않다.
 
 ## API와 OAuth 선행조건
 

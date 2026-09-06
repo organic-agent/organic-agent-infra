@@ -16,3 +16,6 @@ module "frontend_test" {
 output "frontend_test_url" { value = module.frontend_test.url }
 output "frontend_test_instance_id" { value = module.frontend_test.instance_id }
 output "frontend_test_artifact_bucket" { value = module.frontend_test.artifact_bucket }
+
+output "frontend_test_deploy_role_arn" { value = module.github_actions.frontend_test_deploy_role_arn }
+output "frontend_test_deploy_document_name" { value = module.frontend_test.deploy_document_name }
