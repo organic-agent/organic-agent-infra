@@ -362,9 +362,9 @@ variable "score_ephemeral_storage_mb" {
 }
 
 variable "score_reserved_concurrent_executions" {
-  description = "score 함수 동시 실행 상한 = 동시 갤러리 수 × 샤드 수. score는 갤러리를 샤드(사진 250장 단위, 최대 MAX_SHARDS=8)로 나눠 같은 함수를 동시에 띄우므로 8 미만이면 샤드가 스로틀되어 라운드가 늘어난다. 8 = 갤러리 하나가 최대 속도, 16 = 갤러리 둘."
+  description = "score 함수 동시 실행 상한 = 샤드 상한(MAX_SHARDS=32). score는 갤러리를 샤드(사진 150장 단위, 최대 32)로 나눠 같은 함수를 동시에 띄우므로 이 값 미만이면 샤드가 스로틀되어 라운드가 늘어난다. 상한은 RDS 커넥션(db.t4g.micro 79, 평상시 24 + 샤드 32)이 정한다 — 더 올리려면 RDS 클래스부터."
   type        = number
-  default     = 8
+  default     = 32
 }
 
 variable "categorize_memory_mb" {

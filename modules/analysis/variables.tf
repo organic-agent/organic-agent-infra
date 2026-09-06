@@ -108,13 +108,13 @@ variable "embedding_dimension" {
 }
 
 variable "embedder_reserved_concurrent_executions" {
-  description = "embedder 함수 동시 실행 상한. 갤러리 하나 = 조정자 1 + 샤드 N(사진 250장 단위, 최대 MAX_SHARDS=8) 동시 실행이라 동시 갤러리 수 × 8 이 필요하다. 8 미만이면 샤드가 스로틀되어 라운드가 늘어난다. 소형 RDS 커넥션은 샤드당 1개."
+  description = "embedder 함수 동시 실행 상한 = 샤드 상한(MAX_SHARDS=32). 갤러리 하나 = 조정자 1 + 샤드 N(사진 150장 단위, 최대 32) 동시 실행이라 이 값 미만이면 샤드가 스로틀되어 라운드가 늘어난다. 샤드는 세션 advisory lock 으로 RDS 커넥션 1개를 끝까지 붙든다 — db.t4g.micro(max_connections 79)에서 평상시 24 + 32 = 56 이 한계 근거. 갤러리 2개가 겹치면 예약 동시성이 두 번째를 대기열에 세워 직렬화한다(커넥션은 넘치지 않는다)."
   type        = number
-  default     = 8
+  default     = 32
 
   validation {
-    condition     = var.embedder_reserved_concurrent_executions >= 1 && var.embedder_reserved_concurrent_executions <= 10
-    error_message = "embedder_reserved_concurrent_executions는 1~10 사이여야 합니다."
+    condition     = var.embedder_reserved_concurrent_executions >= 1 && var.embedder_reserved_concurrent_executions <= 64
+    error_message = "embedder_reserved_concurrent_executions는 1~64 사이여야 합니다 (advisory lock stride 64 = 샤드 인덱스 상한)."
   }
 }
 
@@ -148,13 +148,13 @@ variable "score_ephemeral_storage_mb" {
 }
 
 variable "score_reserved_concurrent_executions" {
-  description = "score 함수 동시 실행 상한. 갤러리 하나 = 조정자 1 + 샤드 N(사진 250장 단위, 최대 MAX_SHARDS=8) 동시 실행이라 동시 갤러리 수 × 8 이 필요하다. 8 미만이면 샤드가 스로틀되어 라운드가 늘어난다(2 일 때 822장 = 4 샤드 2 라운드 14분, 8 이면 ≈ 6분)."
+  description = "score 함수 동시 실행 상한 = 샤드 상한(MAX_SHARDS=32). 갤러리 하나 = 조정자 1 + 샤드 N(사진 150장 단위, 최대 32) 동시 실행이라 이 값 미만이면 샤드가 스로틀되어 라운드가 늘어난다(2 일 때 822장 = 4 샤드 2 라운드 14분, 8 이면 6분). 32 면 7,200장이 샤드당 225장으로 한 라운드(≈ 11분). RDS 커넥션 근거는 embedder 변수와 같다(embedder → score 는 체인이라 겹치지 않는다)."
   type        = number
-  default     = 8
+  default     = 32
 
   validation {
-    condition     = var.score_reserved_concurrent_executions >= 1 && var.score_reserved_concurrent_executions <= 10
-    error_message = "score_reserved_concurrent_executions는 1~10 사이여야 합니다."
+    condition     = var.score_reserved_concurrent_executions >= 1 && var.score_reserved_concurrent_executions <= 64
+    error_message = "score_reserved_concurrent_executions는 1~64 사이여야 합니다 (advisory lock stride 64 = 샤드 인덱스 상한)."
   }
 }
 
