@@ -215,7 +215,16 @@ GRANT 블록을 직접 실행한다(앱 재배포로는 V1이 다시 돌지 않�
 CREATE USER embedder    WITH PASSWORD '<embedder.db.password 와 같은 값>';
 CREATE USER photoselect WITH PASSWORD '<photoselect.db.password 와 같은 값>';
 GRANT USAGE ON SCHEMA public TO embedder, photoselect;   -- PUBLIC 기본 USAGE가 회수된 DB라 필수
+
+-- 역할별 커넥션 상한. 분석 파이프라인이 앱 사용자의 커넥션을 뺏지 못하게 하는 울타리 (무중단)
+ALTER ROLE embedder    CONNECTION LIMIT 32;   -- = embedder Lambda 예약 동시성
+ALTER ROLE photoselect CONNECTION LIMIT  8;
+ALTER ROLE wes_admin   CONNECTION LIMIT 40;   -- 앱(마스터)
 ```
+
+상한 값의 근거와 embedder 동시성을 올릴 때 함께 올려야 하는 이유는
+[runbook.md > DB 사용자](runbook.md#-1-db-사용자-db를-새로-만들-때마다)와
+[분석 파이프라인 v2 인프라 계획](pipeline-v2-infra-plan.md) 결정 E.
 
 **7-2. 비밀번호 주입** — 함수를 새로 만들 때마다, 함수 셋 각각. Terraform이 넣으면 state에 평문으로
 남으므로 apply 밖에서 넣고, `ignore_changes`가 이후 apply에서 그 키를 지킨다.

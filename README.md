@@ -52,4 +52,5 @@ PR을 열면 CI가 같은 검사와 `plan`을 돌려 요약을 댓글로 달고,
 - [배포 순서](docs/deploy-order.md)
 - [운영 런북](docs/runbook.md)
 - [백오피스 Tailscale 내부 접근](docs/admin-internal-access.md)
+- [분석 파이프라인 v2 인프라 계획](docs/pipeline-v2-infra-plan.md) — GPU score 워커 풀·AMI 파이프라인·Phase 0 커넥션 상한
 - [Terraform 학습 가이드](wes-terraform-learning-guide.md)
