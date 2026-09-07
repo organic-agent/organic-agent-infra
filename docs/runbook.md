@@ -376,6 +376,23 @@ GRANT USAGE ON SCHEMA public TO embedder, photoselect;
 REVOKE rds_iam FROM embedder;
 ```
 
+**역할별 커넥션 상한** — 사용자를 만든 직후, 그리고 DB를 새로 만들 때마다 같이 건다. 분석 파이프라인
+(Lambda 샤드·GPU 워커)이 한꺼번에 붙어도 앱 사용자의 커넥션을 뺏지 못하게 하는 울타리다. 상한의 목적은
+"한 역할이 다른 역할 몫을 못 뺏게" 하는 것이라 합계(80)가 db.t4g.micro의 `max_connections`(79)를 넘는 것은
+의도된 값이다 — 셋이 동시에 다 차는 경우는 없다. `ALTER ROLE`은 무중단이고 이미 열린 커넥션은 끊지 않는다.
+
+```sql
+ALTER ROLE embedder    CONNECTION LIMIT 32;   -- embedder Lambda 예약 동시성과 같은 값 (샤드당 커넥션 1)
+ALTER ROLE photoselect CONNECTION LIMIT  8;   -- score·categorize Lambda + GPU 워커 2대
+ALTER ROLE wes_admin   CONNECTION LIMIT 40;   -- 앱(마스터). Hikari 풀 + Flyway + 이 psql 세션이 여기 든다
+-- 확인
+SELECT rolname, rolconnlimit FROM pg_roles WHERE rolname IN ('embedder','photoselect','wes_admin');
+```
+
+관리자 API 계정(`wes_admin_api`)의 상한은 서버 저장소가 정한다. embedder 예약 동시성을 올리면(`embedder_reserved_concurrent_executions`)
+이 값도 같이 올린다 — 낮으면 샤드가 `FATAL: too many connections for role "embedder"`로 죽는다. 상한을 풀려면 `CONNECTION LIMIT -1`.
+값의 근거와 RDS 클래스 결정 시점은 [분석 파이프라인 v2 인프라 계획](pipeline-v2-infra-plan.md) 결정 D·E.
+
 테이블별 GRANT의 원본은 서버 저장소 Flyway 베이스라인(`V1__baseline.sql`의 `EMBEDDER_GRANT_CONTRACT` ·
 `PHOTOSELECT_GRANT_CONTRACT`)이다. 그 블록은 **마이그레이션이 도는 시점에 role이 있을 때만** 건다 —
 V1이 이미 돈 DB에 사용자를 뒤늦게 만들면 앱을 재배포해도 V1은 다시 돌지 않으므로 **직접 건다**.
@@ -530,6 +547,7 @@ aws lambda invoke --region ap-northeast-2 --function-name wes-score \
 | `password authentication failed for user "embedder"` / `"photoselect"` | DB 사용자가 없다. RDS 에러 로그 DETAIL에 `Role "…" does not exist`가 함께 찍힌다 |
 | `vector type not found in the database` (접속 직후, pgvector register) | role에 `public` 스키마 USAGE가 없다 — `GRANT USAGE ON SCHEMA public TO <role>;` |
 | `permission denied for table photo_analysis` (photoselect) | 사용자는 있는데 GRANT가 없다 — V1이 role보다 먼저 돌았다. 위 "DB 사용자"의 GRANT 블록을 직접 실행 |
+| `FATAL: too many connections for role "embedder"` (또는 `photoselect`) | 역할별 `CONNECTION LIMIT`에 걸렸다. 예약 동시성을 올렸는데 상한을 같이 올리지 않았거나, 죽은 세션이 남아 있다 — `pg_stat_activity`로 확인 뒤 상한 조정 |
 | `PAM authentication failed` + DB 사용자·GRANT 정상 | 조직 SCP가 `rds-db:connect`를 막고 있다 → [SCP 차단](#-scp-차단-임시-우회로) |
 | `PAM authentication failed` + 비밀번호로 붙는 중 | 사용자가 아직 `rds_iam` 멤버다. pg_hba가 PAM 경로로 보내 비밀번호를 아예 안 본다 — `REVOKE rds_iam FROM …;` |
 | 접속 성공하다가 apply 후 갑자기 실패 | apply가 `DB_PASSWORD` 환경변수를 지웠다. 함수가 재생성되면 `ignore_changes`도 못 지킨다 — 다시 주입 |
@@ -545,6 +563,49 @@ aws lambda invoke --region ap-northeast-2 --function-name wes-score \
 | 앱이 분석 요청에 503으로 답한다 | `app.analysis.score-function-name`·`categorize-function-name` 파라미터가 없다 (apply가 만든다) |
 | 앱이 `PHOTO_502_1` / 분석 dispatch가 거절된다 | 호출 자체가 거절됐다 — 인스턴스 롤의 `lambda:InvokeFunction`(함수 셋) 확인 |
 | 업로드가 브라우저 프리플라이트에서 죽는다 | S3 버킷 CORS의 오리진 — `cors.allowed-origins` 파라미터를 고치고 apply |
+
+### # 파이프라인 v2 준비 (Phase 0 수동 작업)
+
+[분석 파이프라인 v2 인프라 계획](pipeline-v2-infra-plan.md)의 Phase 0. 셋 다 Terraform 밖의 작업이고 다운타임이 없다.
+전체 순서와 근거는 계획 문서 §5, 이후 Phase(GPU AMI 파이프라인·워커 풀)는 §3 PR 순서를 따른다.
+
+**1. 역할별 커넥션 상한** — 위 [DB 사용자](#-1-db-사용자-db를-새로-만들-때마다)의 `ALTER ROLE … CONNECTION LIMIT` 3건.
+
+**2. GPU 벤치마크 IAM 정리** — 2026-09-07 GPU·SageMaker 벤치마크가 콘솔/CLI로 만든 롤 두 개가 남아 있다.
+Terraform 밖 리소스라 `plan`에 나오지 않는다. SageMaker는 운영에서 쓰지 않는 것으로 확정됐다.
+삭제 전 `RoleLastUsed`가 벤치마크 날짜(09-07)인지 확인한다.
+
+```bash
+export AWS_PAGER=""
+for r in wes-gpu-benchmark wes-sagemaker-benchmark; do
+  aws iam get-role --role-name "$r" --query 'Role.[RoleName,RoleLastUsed.LastUsedDate]' --output text
+done
+
+# wes-gpu-benchmark: 인스턴스 프로파일 → 인라인 정책 → 관리형 정책 → 롤 순서 (역순이면 DeleteConflict)
+aws iam remove-role-from-instance-profile --instance-profile-name wes-gpu-benchmark --role-name wes-gpu-benchmark
+aws iam delete-instance-profile --instance-profile-name wes-gpu-benchmark
+aws iam delete-role-policy --role-name wes-gpu-benchmark --policy-name benchmark
+aws iam detach-role-policy --role-name wes-gpu-benchmark --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+aws iam delete-role --role-name wes-gpu-benchmark
+
+# wes-sagemaker-benchmark: 인라인 정책 → 롤
+aws iam delete-role-policy --role-name wes-sagemaker-benchmark --policy-name benchmark
+aws iam delete-role --role-name wes-sagemaker-benchmark
+```
+
+벤치마크가 ECR `wes-score`에 남긴 `gpu` 태그(AI 저장소 main #70 빌드, 4.2GB)는 **지우지 않는다** — GPU 워커 풀이 부팅 시 pull 하는 이동 태그로 그대로 쓴다.
+
+**3. EC2 G 인스턴스 쿼터 8 → 12** — g6.xlarge는 4 vCPU라 지금 쿼터(8)로는 워커 2대가 상한이고, AMI 빌드 인스턴스(g6.xlarge)가
+겹치면 쿼터 초과로 빌드가 실패한다. 인스턴스 대수는 2대 그대로라 비용은 변하지 않는다. 승인은 보통 1~2일.
+
+```bash
+aws service-quotas get-service-quota --service-code ec2 --quota-code L-DB2E81BA --region ap-northeast-2 \
+  --query 'Quota.[QuotaName,Value]' --output text
+aws service-quotas request-service-quota-increase --service-code ec2 --quota-code L-DB2E81BA \
+  --desired-value 12 --region ap-northeast-2
+aws service-quotas list-requested-service-quota-change-history-by-quota --service-code ec2 \
+  --quota-code L-DB2E81BA --region ap-northeast-2 --query 'RequestedQuotas[].[Status,DesiredValue,Created]' --output text
+```
 
 ---
 
