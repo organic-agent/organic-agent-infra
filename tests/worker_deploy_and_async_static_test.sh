@@ -43,14 +43,30 @@ rg -Fq 'environment   = "production"' "$oidc_main"
 rg -Fq 'default     = "1288279318"' "$repo_root/variables.tf"
 rg -Fq 'environment: production' "$repo_root/.github/workflows/terraform-apply.yml"
 
+# 변수 블록 하나의 default 값만 뽑는다. 파일 전체를 고정 문자열로 찍으면(예: `default     = 4`) 값이 바뀔 때마다
+# 테스트가 낡고, 부분 매칭이라 다른 변수의 4096 같은 값에도 헛 통과한다(#36).
+variable_default() {
+  # `\s`는 BSD sed(macOS)가 모른다 — POSIX 클래스로. rg는 둘 다 안다.
+  sed -n "/^variable \"$1\" {/,/^}/p" "$2" | rg -o 'default\s*=\s*\S+' | head -1 | sed -E 's/default[[:space:]]*=[[:space:]]*//'
+}
+
 # DB outbox가 재시도를 소유하므로 Lambda 서비스 재시도는 끄고, 15분 runtime+5분 queue로 제한한다.
 rg -Fq 'resource "aws_lambda_function_event_invoke_config" "this"' "$analysis_main"
 rg -Fq 'maximum_retry_attempts       = 0' "$analysis_main"
 rg -Fq 'maximum_event_age_in_seconds = var.async_event_max_age_seconds' "$analysis_main"
-rg -Fq 'default     = 1200' "$analysis_vars"
+[ "$(variable_default async_event_max_age_seconds "$analysis_vars")" = "1200" ]
+
+# 예약 동시성은 갤러리 샤딩의 샤드 상한(MAX_SHARDS=32)과 같아야 한다 — embedder·score 둘 다(#30·#32).
+# 값 자체는 변수 블록에서 읽고, 상한(64 = advisory lock stride)은 validation 메시지로 확인한다.
 rg -Fq 'reserved_concurrent_executions = each.value.reserved_concurrency' "$analysis_main"
 rg -Fq 'reserved_concurrency = var.embedder_reserved_concurrent_executions' "$analysis_main"
-rg -Fq 'default     = 4' "$analysis_vars"
+rg -Fq 'reserved_concurrency = var.score_reserved_concurrent_executions' "$analysis_main"
+[ "$(variable_default embedder_reserved_concurrent_executions "$analysis_vars")" = "32" ]
+[ "$(variable_default score_reserved_concurrent_executions "$analysis_vars")" = "32" ]
+# 루트는 score 만 변수로 노출한다. embedder 는 모듈 기본값을 그대로 쓴다(main.tf 의 module "analysis" 인자 참고).
+[ "$(variable_default score_reserved_concurrent_executions "$repo_root/variables.tf")" = "32" ]
+rg -Fq 'embedder_reserved_concurrent_executions는 1~64 사이여야 합니다' "$analysis_vars"
+rg -Fq 'score_reserved_concurrent_executions는 1~64 사이여야 합니다' "$analysis_vars"
 rg -Fq 'metric_name         = "AsyncEventAge"' "$analysis_main"
 rg -Fq 'threshold           = 600000' "$analysis_main"
 rg -Fq 'metric_name         = "AsyncEventsDropped"' "$analysis_main"
