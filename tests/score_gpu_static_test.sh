@@ -212,4 +212,7 @@ rg -Fq 'evaluation_periods  = 6' "$workers"
 rg -Fq 'alarm_actions = ["arn:aws:automate:${data.aws_region.current.name}:ec2:stop"]' "$workers"
 rg -Fq 'depends_on = [aws_iam_service_linked_role.cloudwatch_events]' "$workers"
 
+# --- 10. 워커 인스턴스: 정지 중 퍼블릭 IP 드리프트로 replace 되지 않게 ---
+rg -Fq 'ignore_changes = [associate_public_ip_address]' "$mod/workers.tf"
+
 echo "score-gpu static checks passed"

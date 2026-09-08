@@ -136,6 +136,13 @@ resource "aws_instance" "this" {
     Name = local.name
     Role = "score-gpu-worker"
   }
+
+  lifecycle {
+    # 정지된 인스턴스는 퍼블릭 IP가 회수돼 API가 "없음"으로 답하고, 프로바이더는 그걸 associate_public_ip_address =
+    # false로 읽어 **매 plan마다 replace**를 만든다(#57에서 발견 — 첫 apply 뒤 두 대가 정지되자마자 드리프트).
+    # 서브넷이 map_public_ip_on_launch라 켜질 때마다 새 퍼블릭 IP를 받으므로 이 속성의 드리프트는 무시해도 된다.
+    ignore_changes = [associate_public_ip_address]
+  }
 }
 
 # 생성 직후 한 번 정지시킨다. 그 뒤 start/stop은 wes와 워커가 소유하므로 state 드리프트는 무시한다 — 이게 없으면 첫 apply

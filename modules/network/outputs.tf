@@ -17,15 +17,9 @@ output "db_subnet_ids" {
   # 이 출력을 쓰는 쪽이 그 순서를 기다리게 한다.
   depends_on = [
     aws_vpc_endpoint.s3,
-    aws_vpc_endpoint.lambda,
     aws_vpc_endpoint.bedrock_runtime,
     aws_route_table_association.db,
   ]
-}
-
-output "lambda_endpoint_id" {
-  description = "Lambda API 인터페이스 엔드포인트 ID (embedder·score 재호출, score → categorize 체인)"
-  value       = aws_vpc_endpoint.lambda.id
 }
 
 output "bedrock_runtime_endpoint_id" {

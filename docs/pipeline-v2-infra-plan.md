@@ -39,7 +39,7 @@
 | H | Image Builder 서비스 연결 역할은 **`aws_iam_service_linked_role`로 코드 관리**, `tf_apply`에 권한 문장을 로컬 apply 1회로 넣는다 | 저장소 규칙 "IAM은 코드로, `modules/github-actions` 변경만 로컬 apply". 수동 생성은 deploy-order에 수동 단계가 늘고 destroy 뒤 재배포 때 빠뜨리기 쉽다 |
 | I | AMI 도구는 **EC2 Image Builder**(Terraform 안) | Packer는 GitHub Actions에 EC2 RunInstances 권한을 가진 OIDC 롤이 하나 더 필요하다. "CI는 plan/apply만"을 유지한다 |
 | J | 비밀 아닌 설정(DB_HOST·S3_BUCKET)은 **`/wes/prod/` 파라미터 세 개**에서 워커 env 스크립트가 읽는다. 프리픽스 전체는 열지 않는다 | 앱이 이미 쓰는 경로라 값이 어긋나지 않는다. JWT·OAuth 시크릿이 같은 프리픽스에 있어 와일드카드는 금지 |
-| K | embedder 롤의 `ReinvokeSelf` 제거는 **보류** | 갤러리 경로(재호출)가 embedder에도 폴백으로 남을 수 있다. E1 배포 뒤 AI 쪽과 재확인 |
+| K | embedder 롤의 `ReinvokeSelf` 제거는 보류 → **해소(2026-09-08, #57)**: AI 저장소가 embedder·score의 갤러리 경로·재호출·체인을 삭제(#98·#100)하고 세 함수에 배포한 뒤, `ReinvokeSelf`·`ReinvokeSelfAndChainCategorize`·`lambda` 인터페이스 엔드포인트를 함께 제거. `bedrock-runtime` 엔드포인트는 한 AZ로 | 갤러리 경로가 폴백으로 남지 않음이 코드로 확정됐다. 월 $43 → $11 |
 | L | GPU 인스턴스 끄기의 **최후 안전장치는 인프라 소유**: 인스턴스별 CloudWatch 알람(CPU 30분 < 5%)의 EC2 정지 액션. 대상은 알람 dimension `InstanceId`로 GPU 2대에만 박힌다(§4.5) | 워커 자기 정지(S1)와 wes 강제 정지(W6)는 둘 다 코드다. 둘이 없거나 고장 나면(W6 배포 전 테스트 기간, 워커 크래시 루프, wes 장애) 2대 상시 running 월 $1,424가 인프라 비용으로 남는다. 알람은 코드 없이 동작하고 월 $0.20 |
 
 ---
@@ -58,8 +58,7 @@
 지우지 **않는** 것과 이유:
 
 - **score Lambda 전체**(함수·ECR·롤·10GB /tmp·동시성 32): 폴백 경로. GPU 풀이 전부 바쁘거나 `InsufficientInstanceCapacity`일 때 wes가 그대로 부른다.
-- **`lambda`·`bedrock-runtime` 인터페이스 엔드포인트**: score 폴백의 자기 재호출·categorize 체인, categorize의 Bedrock 호출이 여전히 DB 서브넷에서 나간다.
-- **embedder 롤 `ReinvokeSelf`**: 결정 K. `tests/analysis_lambdas_static_test.sh`의 존재 검사도 그대로.
+- **`bedrock-runtime` 인터페이스 엔드포인트**: categorize의 Bedrock 호출이 여전히 DB 서브넷에서 나간다. (`lambda` 엔드포인트와 embedder `ReinvokeSelf`는 처음엔 남기기로 했으나 결정 K 해소로 #57에서 제거.)
 - **RDS db.t4g.micro**: 결정 D. `instance_class` 변수는 그대로.
 - **S3 ObjectCreated 트리거를 쓰지 않는다는 주석**: 상위 D4가 같은 결론이다.
 - **`iam_database_authentication_enabled`와 `rds-db:connect` 문장**: SCP 우회 상태 그대로. GPU 워커도 같은 이유로 비밀번호를 쓴다.
@@ -320,4 +319,5 @@ CI는 `terraform fmt -check` · `validate` · `plan` 그대로. Image Builder �
 
 - 2026-09-07 초안. RDS small·embedder 64를 Phase 0에 두고, `ReinvokeSelf` 제거를 Phase 2 PR로 잡았다.
 - 2026-09-08 AI 쪽 검토. RDS small·embedder 64를 Phase 5 뒤로(micro 실측), `ReinvokeSelf` 제거 보류(폴백 가능성), 앱 롤 `StopInstances`·이동 태그 `gpu`·벤치마크 롤 삭제 확정. 쿼터(G)와 서비스 연결 역할(H)은 인프라 판단으로 확정.
+- 2026-09-08 결정 K 해소(#57). AI 쪽이 Lambda 간 호출을 모두 지워 `lambda` 엔드포인트·InvokeFunction 문장 제거, bedrock 엔드포인트 한 AZ. 같은 PR에서 정지 워커의 `associate_public_ip_address` 드리프트(매 plan replace)를 ignore_changes로 막음.
 - 2026-09-08 끄기 책임 정리(결정 L). 코드와 무관한 최후 안전장치로 인스턴스별 CloudWatch 정지 알람을 인프라 소유로 추가. GPU 2대에만 걸리는 근거는 §4.5.

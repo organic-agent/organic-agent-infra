@@ -3,8 +3,8 @@ set -euo pipefail
 
 # AI Lambda 셋(embedder · score · categorize) 배포 인프라(#18)의 회귀 검사.
 #   1. worker 배포 역할은 AI 저장소 main의 immutable sub 하나만 신뢰하고, 세 ECR·세 함수만 다룬다
-#   2. DB 서브넷에 lambda · bedrock-runtime 인터페이스 엔드포인트가 있고 private DNS가 켜져 있다
-#   3. 실행 롤: embedder·score 자기 재호출, score → categorize 체인, categorize → Bedrock(프로필 + 기반 모델)
+#   2. DB 서브넷에 bedrock-runtime 인터페이스 엔드포인트가 있고 private DNS가 켜져 있다. lambda 엔드포인트는 없다(#57)
+#   3. 실행 롤: embedder·score에 lambda:InvokeFunction 없음(재호출·체인은 v2에서 wes 소유), categorize → Bedrock(프로필 + 기반 모델)
 #   4. score·categorize 함수는 임베더와 같은 비동기 규칙(재시도 0·event age)과 수동 DB_PASSWORD 규칙을 따른다
 #   5. wes가 읽는 SSM 파라미터 둘과 앱 인스턴스 롤의 InvokeFunction
 
@@ -61,32 +61,41 @@ rg -Fq '"lambda:GetFunctionConfiguration"' "$oidc_main"
 rg -Fq '"lambda:UpdateFunctionCode"' "$oidc_main"
 
 # --- 2. 인터페이스 엔드포인트 ---
-rg -Fq 'resource "aws_vpc_endpoint" "lambda"' "$network_main"
 rg -Fq 'resource "aws_vpc_endpoint" "bedrock_runtime"' "$network_main"
-rg -Fq 'service_name        = "com.amazonaws.${data.aws_region.current.name}.lambda"' "$network_main"
 rg -Fq 'service_name        = "com.amazonaws.${data.aws_region.current.name}.bedrock-runtime"' "$network_main"
-[ "$(rg -c 'vpc_endpoint_type   = "Interface"' "$network_main")" -eq 2 ]
-[ "$(rg -c 'private_dns_enabled = true' "$network_main")" -eq 2 ]
+[ "$(rg -c 'vpc_endpoint_type   = "Interface"' "$network_main")" -eq 1 ]
+[ "$(rg -c 'private_dns_enabled = true' "$network_main")" -eq 1 ]
 rg -Fq 'resource "aws_security_group" "vpc_endpoints"' "$network_main"
 rg -Fq 'cidr_ipv4         = aws_vpc.this.cidr_block' "$network_main"
 rg -Fq 'from_port         = 443' "$network_main"
 # 함수를 만드는 쪽이 엔드포인트 생성을 기다린다.
-rg -Fq 'aws_vpc_endpoint.lambda,' "$network_outputs"
 rg -Fq 'aws_vpc_endpoint.bedrock_runtime,' "$network_outputs"
+# lambda 엔드포인트(ENI당 시간 과금)는 Lambda 간 호출이 사라진 v2에서 뺐다. 되살아나면 비용 근거를 다시 써야 한다.
+if rg -n '^\s*[^#]*aws_vpc_endpoint"? "?lambda' "$network_main" "$network_outputs" "$root_outputs"; then
+  echo "lambda interface endpoint must stay removed (#57) — Lambda-to-Lambda calls no longer exist" >&2
+  exit 1
+fi
+rg -Fq 'default     = [0]' "$repo_root/modules/network/variables.tf"
 # 게이트웨이 엔드포인트는 그대로 하나, 퍼블릭 라우트 테이블에는 붙지 않는다.
 rg -Fq 'route_table_ids   = [aws_route_table.db.id]' "$network_main"
 
 # --- 3. IAM: 자기 재호출·체인·Bedrock ---
-rg -Fq 'sid       = "ReinvokeSelf"' "$analysis_main"
-rg -Fq 'resources = [local.function_arns.embedder]' "$analysis_main"
 rg -Fq 'sid       = "ConnectAsEmbedder"' "$analysis_main"
-rg -Fq 'sid       = "ReinvokeSelfAndChainCategorize"' "$analysis_main"
-rg -Fq 'resources = [local.function_arns.score, local.function_arns.categorize]' "$analysis_main"
+# embedder·score 실행 롤에는 lambda: 액션이 없다 — 자기 재호출·샤드 팬아웃·categorize 체인은 v2에서 wes가 가져갔다(#57).
+for doc in embedder score; do
+  if sed -n "/data \"aws_iam_policy_document\" \"$doc\"/,/^}/p" "$analysis_main" | rg -q 'lambda:'; then
+    echo "$doc execution role must not invoke Lambda (v2: wes owns reinvoke/chain)" >&2
+    exit 1
+  fi
+done
 rg -Fq 'sid     = "InvokeNamingModel"' "$analysis_main"
 rg -Fq 'actions = ["bedrock:InvokeModel"]' "$analysis_main"
 rg -Fq ':inference-profile/${var.bedrock_model_id}' "$analysis_main"
 rg -Fq 'foundation-model/${local.bedrock_foundation_model_id}' "$analysis_main"
-rg -Fq 'CATEGORIZE_FUNCTION_NAME = local.function_names.categorize' "$analysis_main"
+if rg -n '^\s*[^#]*CATEGORIZE_FUNCTION_NAME' "$analysis_main"; then
+  echo "score no longer chains categorize — CATEGORIZE_FUNCTION_NAME must be gone (#57)" >&2
+  exit 1
+fi
 
 # categorize에는 Lambda 호출 권한이, score에는 Bedrock 권한이 없다.
 if sed -n '/data "aws_iam_policy_document" "categorize"/,/^}/p' "$analysis_main" | rg -q 'lambda:'; then

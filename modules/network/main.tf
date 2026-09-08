@@ -119,9 +119,9 @@ resource "aws_vpc_endpoint" "s3" {
 #
 # 인터페이스 엔드포인트는 게이트웨이와 달리 **시간당 과금**이다(ENI 하나에 약 $0.0147/h,
 # 서브넷 = AZ마다 하나). 두 AZ에 다 두면 엔드포인트 둘 × ENI 둘 ≈ 월 $43, 한 AZ면 절반.
-# 여기서는 Lambda ENI가 두 DB 서브넷 어디에나 생기므로 두 AZ에 다 둔다 — 한 AZ만 두면
-# 다른 AZ의 함수가 AZ를 건너 붙는데 동작은 하지만 그 AZ가 죽으면 같이 죽는다.
-# 비용을 줄이려면 `interface_endpoint_subnet_indexes`로 서브넷 하나만 고른다.
+# Lambda ENI는 두 DB 서브넷 어디에나 생기지만 엔드포인트는 기본 한 AZ([0])만 둔다(#57) — 다른 AZ의
+# 함수는 AZ를 건너 붙어 동작하고, 그 AZ가 죽으면 같이 죽는다. 앱 EC2·RDS도 단일 AZ라 같은 수준이다.
+# 두 AZ로 늘리려면 `interface_endpoint_subnet_indexes = [0, 1]`.
 #
 # private_dns_enabled: 함수 코드는 기본 퍼블릭 호스트네임(boto3 기본값)으로 부른다. 이 옵션이
 # 그 이름을 VPC 안에서 ENI 주소로 풀어 주므로 코드에 엔드포인트 URL을 심을 필요가 없다.
@@ -156,19 +156,8 @@ locals {
   interface_endpoint_subnet_ids = [for i in var.interface_endpoint_subnet_indexes : aws_subnet.db[i].id]
 }
 
-# embedder·score 자기 재호출, score → categorize 체인.
-resource "aws_vpc_endpoint" "lambda" {
-  vpc_id              = aws_vpc.this.id
-  service_name        = "com.amazonaws.${data.aws_region.current.name}.lambda"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = local.interface_endpoint_subnet_ids
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
-
-  tags = {
-    Name = "${var.name_prefix}-lambda"
-  }
-}
+# lambda 인터페이스 엔드포인트는 없다. Lambda가 Lambda를 부르던 경로(embedder 재호출·score 샤드 팬아웃·
+# score → categorize 체인)는 파이프라인 v2에서 wes가 가져갔다(#57). 다시 필요해지면 bedrock_runtime과 같은 모양으로 만든다.
 
 # categorize의 그룹 이름 짓기(Bedrock InvokeModel). `global.` 크로스 리전 프로필도 이 리전의
 # bedrock-runtime으로 들어가고, 다른 리전으로 넘기는 것은 Bedrock 안쪽 일이다.
