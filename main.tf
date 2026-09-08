@@ -117,6 +117,9 @@ module "analysis" {
   categorize_memory_mb                      = var.categorize_memory_mb
   categorize_reserved_concurrent_executions = var.categorize_reserved_concurrent_executions
   bedrock_model_id                          = var.bedrock_model_id
+
+  # wes가 읽는 GPU 워커 스위치(SSM app.analysis.gpu.enabled). 워커 풀(PR-3c) 뒤 true로.
+  gpu_score_enabled = var.gpu_score_enabled
 }
 
 module "database" {

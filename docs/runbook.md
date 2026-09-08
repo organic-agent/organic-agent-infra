@@ -73,7 +73,8 @@ Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
 | `spring.datasource.username` | 테라폼 (apply 시 자동) | 비밀 아님 |
 | `spring.datasource.password` | **수동 등록** (SecureString) | 테라폼은 ephemeral + write-only(`password_wo`)로 전달만 — **state에 비밀번호가 남지 않는다** |
 | `app.storage.bucket` | 테라폼 (apply 시 자동) | 원본 사진 버킷 이름 |
-| `app.embedding.function-name` | 테라폼 (apply 시 자동) | 임베딩 Lambda 이름 |
+| `app.analysis.embedder-function-name` | 테라폼 (apply 시 자동) | 임베딩 Lambda 이름 (wes V16부터 이 키. 옛 `app.embedding.function-name`은 #43에서 제거) |
+| `app.analysis.gpu.enabled` | 테라폼 (변수 `gpu_score_enabled`) | GPU 워커 풀 스위치. 워커 풀(PR-3c) 전에는 `false` |
 | `app.analysis.score-function-name` | 테라폼 (apply 시 자동) | 점수 Lambda 이름 (앱의 분석 오케스트레이터가 읽는다) |
 | `app.analysis.categorize-function-name` | 테라폼 (apply 시 자동) | 카테고리 Lambda 이름 |
 | `app.logging.loki-url` | 테라폼 (apply 시 자동) | Loki push URL(`http://<모니터링 프라이빗 IP>:3100/loki/api/v1/push`). 인스턴스가 재생성되면 값이 바뀌므로 앱 재시작 필요 |
@@ -559,7 +560,7 @@ aws lambda invoke --region ap-northeast-2 --function-name wes-score \
 | score가 `[Errno 28] No space left on device` | `/tmp`가 찼다. 갤러리 미리보기 전부를 내려받으므로 `score_ephemeral_storage_mb`를 올린다 |
 | 호출은 되는데 핸들러 로그가 없다 | VPC 함수의 ENI를 못 만들었다 — 롤에 `AWSLambdaVPCAccessExecutionRole` 확인 |
 | `InvalidParameterValueException: image manifest ... not supported` | buildx가 manifest list를 만들었다 — `--provenance=false --sbom=false` 빠짐 |
-| 앱이 `PHOTO_503_1`로 답한다 | `app.embedding.function-name` 파라미터가 없다 (apply가 만든다) |
+| 앱이 `PHOTO_503_1`로 답한다 | `app.analysis.embedder-function-name` 파라미터가 없다 (apply가 만든다) |
 | 앱이 분석 요청에 503으로 답한다 | `app.analysis.score-function-name`·`categorize-function-name` 파라미터가 없다 (apply가 만든다) |
 | 앱이 `PHOTO_502_1` / 분석 dispatch가 거절된다 | 호출 자체가 거절됐다 — 인스턴스 롤의 `lambda:InvokeFunction`(함수 셋) 확인 |
 | 업로드가 브라우저 프리플라이트에서 죽는다 | S3 버킷 CORS의 오리진 — `cors.allowed-origins` 파라미터를 고치고 apply |

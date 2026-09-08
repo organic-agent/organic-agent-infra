@@ -4,7 +4,7 @@ variable "name_prefix" {
 }
 
 variable "parameter_prefix" {
-  description = "SSM 파라미터 프리픽스 (예: /wes/prod) — app.embedding.function-name, app.analysis.{score,categorize}-function-name을 이 아래에 생성"
+  description = "SSM 파라미터 프리픽스 (예: /wes/prod) — app.analysis.{embedder,score,categorize}-function-name과 app.analysis.gpu.enabled를 이 아래에 생성"
   type        = string
 }
 
@@ -216,4 +216,10 @@ variable "bedrock_model_id" {
     condition     = can(regex("^(global|us|eu|apac|jp|au|ca)\\.[a-z0-9.-]+(:[0-9]+)?$", var.bedrock_model_id))
     error_message = "bedrock_model_id는 `global.`·`apac.` 같은 크로스 리전 프로필 ID여야 합니다 (예: global.anthropic.claude-sonnet-4-6). 기반 모델 ID를 직접 주면 IAM 대상이 맞지 않습니다."
   }
+}
+
+variable "gpu_score_enabled" {
+  description = "SSM app.analysis.gpu.enabled 값. wes가 점수 계산을 GPU 워커 풀에 맡길지(true) score Lambda만 쓸지(false). 워커 풀(PR-3c)이 올라오기 전에는 false"
+  type        = bool
+  default     = false
 }

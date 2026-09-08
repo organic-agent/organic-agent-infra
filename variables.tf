@@ -325,6 +325,12 @@ variable "analysis_db_username" {
   default     = "photoselect"
 }
 
+variable "gpu_score_enabled" {
+  description = "SSM /wes/prod/app.analysis.gpu.enabled 값. true면 wes가 점수 계산을 GPU 워커 풀(modules/score-gpu)에 맡기고 score Lambda는 폴백, false면 Lambda만. 워커 풀이 올라오기 전(PR-3c 이전)에는 false."
+  type        = bool
+  default     = false
+}
+
 variable "lambda_image_tag" {
   description = "ECR에 올라간 Lambda 셋의 이미지 태그. 세 리포지토리에 이 태그가 이미 있어야 함수가 만들어진다 (docs/deploy-order.md)."
   type        = string
