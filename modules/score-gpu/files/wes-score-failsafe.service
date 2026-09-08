@@ -1,0 +1,8 @@
+# wes-score.service 의 OnFailure= 대상. 워커가 기동 제한(StartLimitBurst)에 걸려 failed 가 되면 자기 인스턴스를 정지한다.
+[Unit]
+Description=wes-score failsafe — stop this instance when the worker cannot start
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/wes-score-failsafe.sh

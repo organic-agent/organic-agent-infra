@@ -331,6 +331,18 @@ variable "lambda_image_tag" {
   default     = "latest"
 }
 
+variable "gpu_ami_id" {
+  description = "score GPU 워커 인스턴스의 AMI ID. modules/score-gpu 파이프라인을 수동 실행해 나온 AMI를 사람이 확인해 박는다(docs/runbook.md \"GPU AMI\"). 인스턴스는 PR-3c에서 만들며 그 전에는 null."
+  type        = string
+  default     = null
+}
+
+variable "gpu_worker_idle_stop_seconds" {
+  description = "GPU 워커가 집을 사진이 없을 때 자기 인스턴스를 정지하기까지의 연속 유휴 초. AMI에 구워지므로 바꾸면 AMI 재빌드. 다중 사용자 운영 기준 600(계획 §4.4). AI 쪽 기본값 30은 단일 사용자 테스트용."
+  type        = number
+  default     = 600
+}
+
 variable "embedder_memory_mb" {
   description = "임베딩 Lambda 메모리(= CPU 할당량). 순수 CPU 추론이라 낮추면 몇 배 느려지고 총비용은 그대로다."
   type        = number
