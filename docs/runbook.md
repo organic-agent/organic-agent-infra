@@ -74,7 +74,7 @@ Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
 | `spring.datasource.password` | **수동 등록** (SecureString) | 테라폼은 ephemeral + write-only(`password_wo`)로 전달만 — **state에 비밀번호가 남지 않는다** |
 | `app.storage.bucket` | 테라폼 (apply 시 자동) | 원본 사진 버킷 이름 |
 | `app.analysis.embedder-function-name` | 테라폼 (apply 시 자동) | 임베딩 Lambda 이름 (wes V16부터 이 키. 옛 `app.embedding.function-name`은 #43에서 제거) |
-| `app.analysis.gpu.enabled` | 테라폼 (변수 `gpu_score_enabled`) | GPU 워커 풀 스위치. 워커 풀(PR-3c) 전에는 `false` |
+| `app.analysis.gpu.enabled` | 테라폼 (변수 `gpu_score_enabled`) | GPU 워커 풀 스위치. 워커 풀(PR-3c) 뒤 `true`(2026-09-08) — 바꾼 뒤 wes-app 컨테이너 재시작 |
 | `app.analysis.score-function-name` | 테라폼 (apply 시 자동) | 점수 Lambda 이름 (앱의 분석 오케스트레이터가 읽는다) |
 | `app.analysis.categorize-function-name` | 테라폼 (apply 시 자동) | 카테고리 Lambda 이름 |
 | `app.logging.loki-url` | 테라폼 (apply 시 자동) | Loki push URL(`http://<모니터링 프라이빗 IP>:3100/loki/api/v1/push`). 인스턴스가 재생성되면 값이 바뀌므로 앱 재시작 필요 |
@@ -384,7 +384,7 @@ REVOKE rds_iam FROM embedder;
 
 ```sql
 ALTER ROLE embedder    CONNECTION LIMIT 32;   -- embedder Lambda 예약 동시성과 같은 값 (샤드당 커넥션 1)
-ALTER ROLE photoselect CONNECTION LIMIT  8;   -- score·categorize Lambda + GPU 워커 2대
+ALTER ROLE photoselect CONNECTION LIMIT 24;   -- GPU 워커 2대 + categorize + score Lambda 폴백(미점수 전부를 50장 배치로 한꺼번에 보내 동시성 32까지 뜬다). 8이면 폴백이 10분당 8배치만 통과 (2026-09-08 실측)
 ALTER ROLE wes_admin   CONNECTION LIMIT 40;   -- 앱(마스터). Hikari 풀 + Flyway + 이 psql 세션이 여기 든다
 -- 확인
 SELECT rolname, rolconnlimit FROM pg_roles WHERE rolname IN ('embedder','photoselect','wes_admin');
