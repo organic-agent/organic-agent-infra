@@ -22,3 +22,8 @@ output "monitoring_security_group_id" {
   description = "모니터링 서버(Loki/Grafana/Caddy)용 보안 그룹 ID"
   value       = aws_security_group.monitoring.id
 }
+
+output "score_gpu_security_group_id" {
+  description = "score GPU 워커 인스턴스용 보안 그룹 ID (modules/score-gpu)"
+  value       = aws_security_group.score_gpu.id
+}

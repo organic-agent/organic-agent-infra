@@ -650,6 +650,37 @@ aws ec2 describe-images --owners self --region ap-northeast-2 --filters Name=tag
 자기 인스턴스를 정지한다. 10분 안에 세 번 기동에 실패하면 `wes-score-failsafe`가 인스턴스를 정지한다 — 켜진 채 남아 시간당
 요금을 내는 일이 없게. 점검은 SSM 접속 뒤 `journalctl -u wes-score -u wes-score-failsafe`.
 
+### # GPU 워커 풀 점검 (PR-3c)
+
+워커는 AZ마다 한 대(`ap-northeast-2a`·`2c`), 태그 `Name=wes-score-gpu`, 생성 직후 정지 상태다. 켜고 끄는 주체는 넷이고 순서대로
+1차 → 최후다: wes `GpuController`(점수 없는 UPLOADED 사진이 있으면 Start) → 워커 유휴 30초 자기 정지 → wes 2분 무진행 안전망 Stop →
+CloudWatch 알람(CPU 30분 < 5%) 정지 액션. 인프라가 소유하는 건 마지막 둘(생성 직후 정지·알람)뿐이다.
+
+```bash
+export AWS_PAGER=""
+# 상태 (stopped가 평상시. running인데 잡이 없으면 아래 강제 정지)
+aws ec2 describe-instances --region ap-northeast-2 --filters Name=tag:Name,Values=wes-score-gpu \
+  --query 'Reservations[].Instances[].[InstanceId,Placement.AvailabilityZone,State.Name,LaunchTime]' --output text
+
+# 접속 (SSH 없음) → 유닛·워커 로그
+aws ssm start-session --region ap-northeast-2 --target <instance-id>
+sudo journalctl -u wes-score -u wes-score-failsafe -n 200 --no-pager
+sudo docker logs --tail 200 wes-score
+
+# 강제 정지 / 수동 켜기 (wes를 거치지 않는다)
+aws ec2 stop-instances  --region ap-northeast-2 --instance-ids <instance-id>
+aws ec2 start-instances --region ap-northeast-2 --instance-ids <instance-id>
+```
+
+- **켜기 스위치**: wes는 SSM `/wes/prod/app.analysis.gpu.enabled`(변수 `gpu_score_enabled`)가 `true`일 때만 풀을 쓴다. `false`면
+  score Lambda 폴백만 돈다. 값은 앱이 부팅 때 읽으므로 바꾼 뒤 wes-api 컨테이너를 재시작한다. 첫 실측은 `false` → 수동 Start로
+  워커가 점수를 내는지 확인 → `true` 순서가 안전하다.
+- **인스턴스 0대도 정상**: 워커를 지우거나 Start가 실패(`InsufficientInstanceCapacity`)하면 wes가 Lambda 폴백으로 흐른다.
+  Terraform으로 풀을 없애려면 `modules/score-gpu/workers.tf`와 security의 `score_gpu` SG를 지운다(앱 코드 변경 없음).
+- **AMI 갱신**: `gpu_ami_id`를 바꾸면 워커 2대가 replace 되고 `aws_ec2_instance_state`가 새 인스턴스도 정지시킨다. 워커는 상태가
+  없어 진행 중인 배치는 잠금이 풀려 다른 워커나 Lambda가 다시 집는다.
+- **비용**: 정지 상태는 루트 gp3 30GB × 2 ≈ 월 $5. running은 g6.xlarge 시간당 약 $0.99/대.
+
 ---
 
 ## # 모니터링 (Loki + Grafana)

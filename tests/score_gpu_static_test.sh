@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # score GPU 워커 풀(modules/score-gpu)의 회귀 검사 — 계획 docs/pipeline-v2-infra-plan.md §7.
-# PR-3b(AMI 파이프라인)에 해당하는 항목만 있다. 인스턴스·SG·워커 롤·알람 항목은 PR-3c에서 이 파일에 더한다.
+# 1~9는 PR-3b(AMI 파이프라인), 10~14는 PR-3c(워커 풀·SG·롤·알람·앱 롤).
 #   1. 서비스 연결 역할 둘(imagebuilder · events)이 코드로 있고, tf_apply 문장은 그 두 ARN으로 한정(§7-8)
 #   2. 부모 이미지는 Image Builder 관리 이미지 `x.x.x` — data "aws_ami" most_recent 금지(§7-6의 정신: 빌드마다 replace 금지)
 #   3. 빌드 인스턴스: 실패 시 종료, IMDSv2 강제, 롤 이름은 name_prefix 접두사(tf_apply IAM 울타리·PassRole 범위)
@@ -13,6 +13,12 @@ set -euo pipefail
 #   7. ECR score 라이프사이클에 gpu- 접두사 최근 3개 규칙(§7-7), 이동 태그 gpu는 규칙 밖
 #   8. `arn:aws:automate:` EC2 액션 ARN은 modules/score-gpu 밖 어디에도 없다(§7-10) — 3b에는 아직 안에도 없다
 #   9. 루트 배선: module "score_gpu"가 score 리포지토리 URL을 받고, 파이프라인 ARN 출력이 있다
+#  10. 워커 인스턴스: AZ 맵 for_each, ami = var.gpu_ami_id, IMDSv2 hop 2, key_name 없음, user_data 없음, Name 태그 = local.name(§7-1·6)
+#  11. aws_ec2_instance_state stopped + ignore_changes = [state](§7-2)
+#  12. GPU SG(security 모듈): 인그레스 규칙 0개, RDS SG에 rds_from_score_gpu(§7-3)
+#  13. 워커 롤: S3 previews/* 만, SSM은 세 파라미터 ARN(와일드카드 없음), lambda: 액션 없음, StopInstances 태그 조건(§7-4).
+#      앱 롤(compute): Start/Stop 태그 조건, DescribeInstances만 `*`(§7-5)
+#  14. 유휴 정지 알람: InstanceId dimension, notBreaching, period 300 × 6, 인스턴스와 같은 for_each, 정지 액션은 이 모듈 안에만(§7-9·10)
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 mod="$repo_root/modules/score-gpu"
@@ -28,6 +34,9 @@ oidc_main="$repo_root/modules/github-actions/main.tf"
 analysis_main="$repo_root/modules/analysis/main.tf"
 root_main="$repo_root/main.tf"
 root_outputs="$repo_root/outputs.tf"
+workers="$mod/workers.tf"
+security_main="$repo_root/modules/security/main.tf"
+compute_main="$repo_root/modules/compute/main.tf"
 
 # --- 1. 서비스 연결 역할 ---
 rg -Fq 'resource "aws_iam_service_linked_role" "imagebuilder"' "$mod_main"
@@ -142,5 +151,65 @@ rg -Fq 'module "score_gpu"' "$root_main"
 rg -Fq 'score_repository_url = module.analysis.repository_urls["score"]' "$root_main"
 rg -Fq 'subnet_id            = module.network.public_subnet_ids[0]' "$root_main"
 rg -Fq 'value       = module.score_gpu.image_pipeline_arn' "$root_outputs"
+
+
+# --- 10. 워커 인스턴스 ---
+rg -Fq 'resource "aws_instance" "this"' "$workers"
+rg -Fq 'for_each = var.worker_subnet_ids' "$workers"
+rg -Fq 'ami                         = var.gpu_ami_id' "$workers"
+rg -Fq 'http_put_response_hop_limit = 2' "$workers"
+rg -n -A40 'resource "aws_instance" "this"' "$workers" | rg -Fq 'http_tokens                 = "required"'
+rg -n -A40 'resource "aws_instance" "this"' "$workers" | rg -Fq 'Name = local.name'
+if rg -n '^\s*key_name\s*=|^\s*user_data\s*=|^\s*data "aws_ami"|^\s*most_recent\s*=' "$workers"; then
+  echo "워커 인스턴스에 key_name·user_data·most_recent AMI가 있다 — SSM만, 유닛은 AMI에, AMI는 변수로" >&2
+  exit 1
+fi
+rg -Fq 'default     = "g6.xlarge"' "$mod_vars"
+
+# --- 11. 생성 직후 정지 ---
+rg -Fq 'resource "aws_ec2_instance_state" "stopped"' "$workers"
+rg -Fq 'state       = "stopped"' "$workers"
+rg -n -A8 'resource "aws_ec2_instance_state" "stopped"' "$workers" | rg -Fq 'ignore_changes = [state]'
+
+# --- 12. GPU SG ---
+rg -Fq 'resource "aws_security_group" "score_gpu"' "$security_main"
+rg -Fq 'resource "aws_vpc_security_group_ingress_rule" "rds_from_score_gpu"' "$security_main"
+rg -n -A6 '"rds_from_score_gpu"' "$security_main" | rg -Fq 'referenced_security_group_id = aws_security_group.score_gpu.id'
+if rg -B1 -A6 'aws_vpc_security_group_ingress_rule' "$security_main" | rg -q '^\s*security_group_id\s*=\s*aws_security_group\.score_gpu\.id'; then
+  echo "GPU SG에 인그레스 규칙이 있다 — 인바운드 0, 접속은 SSM만" >&2
+  exit 1
+fi
+
+# --- 13. 워커 롤 · 앱 롤 ---
+rg -Fq 'resources = ["${var.photo_bucket_arn}/previews/*"]' "$workers"
+rg -Fq '${local.ssm_parameter_arn_prefix}/spring.datasource.url' "$workers"
+rg -Fq '${local.ssm_parameter_arn_prefix}/photoselect.db.password' "$workers"
+rg -Fq '${local.ssm_parameter_arn_prefix}/app.storage.bucket' "$workers"
+if rg -n 'ssm_parameter_arn_prefix}/?\*|parameter_prefix}/?\*|"lambda:' "$workers"; then
+  echo "워커 롤에 SSM 프리픽스 와일드카드나 lambda: 액션이 있다(결정 J, 벤치마크 권한 금지)" >&2
+  exit 1
+fi
+rg -n -A10 'sid       = "StopSelf"' "$workers" | rg -Fq 'variable = "ec2:ResourceTag/Name"'
+rg -n -A10 'sid       = "StopSelf"' "$workers" | rg -Fq 'values   = [local.name]'
+rg -Fq 'policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"' "$workers"
+rg -n -A12 'sid = "StartStopScoreGpuWorkers"' "$compute_main" | rg -Fq 'variable = "ec2:ResourceTag/Name"'
+rg -n -A12 'sid = "StartStopScoreGpuWorkers"' "$compute_main" | rg -Fq '"ec2:StartInstances",'
+rg -n -A12 'sid = "StartStopScoreGpuWorkers"' "$compute_main" | rg -Fq '"ec2:StopInstances",'
+rg -n -A4 'sid       = "DescribeScoreGpuWorkers"' "$compute_main" | rg -Fq 'resources = ["*"]'
+if rg -n -A12 'sid = "StartStopScoreGpuWorkers"' "$compute_main" | rg -q 'resources = \["\*"\]'; then
+  echo "앱 롤 Start/Stop 리소스가 *다 — 인스턴스 ARN + 태그 조건이어야 한다" >&2
+  exit 1
+fi
+rg -Fq 'score_gpu_tag_name = "wes-score-gpu"' "$root_main"
+
+# --- 14. 유휴 정지 알람 ---
+rg -Fq 'resource "aws_cloudwatch_metric_alarm" "idle_stop"' "$workers"
+rg -n -A30 'resource "aws_cloudwatch_metric_alarm" "idle_stop"' "$workers" | rg -Fq 'for_each = aws_instance.this'
+rg -Fq 'InstanceId = each.value.id' "$workers"
+rg -Fq 'treat_missing_data  = "notBreaching"' "$workers"
+rg -Fq 'period              = 300' "$workers"
+rg -Fq 'evaluation_periods  = 6' "$workers"
+rg -Fq 'alarm_actions = ["arn:aws:automate:${data.aws_region.current.name}:ec2:stop"]' "$workers"
+rg -Fq 'depends_on = [aws_iam_service_linked_role.cloudwatch_events]' "$workers"
 
 echo "score-gpu static checks passed"

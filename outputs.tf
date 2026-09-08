@@ -186,6 +186,11 @@ output "score_gpu_image" {
 }
 
 output "score_gpu_ami_id" {
-  description = "현재 gpu_ami_id 변수 값(3c 전에는 null)"
+  description = "현재 gpu_ami_id 변수 값"
   value       = module.score_gpu.gpu_ami_id
+}
+
+output "score_gpu_worker_instance_ids" {
+  description = "score GPU 워커 인스턴스 ID (키: AZ). wes는 태그 Name=wes-score-gpu로 찾는다"
+  value       = module.score_gpu.worker_instance_ids
 }

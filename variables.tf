@@ -338,9 +338,15 @@ variable "lambda_image_tag" {
 }
 
 variable "gpu_ami_id" {
-  description = "score GPU 워커 인스턴스의 AMI ID. modules/score-gpu 파이프라인을 수동 실행해 나온 AMI를 사람이 확인해 박는다(docs/runbook.md \"GPU AMI\"). 인스턴스는 PR-3c에서 만들며 그 전에는 null."
+  description = "score GPU 워커 인스턴스의 AMI ID. modules/score-gpu 파이프라인을 수동 실행해 나온 AMI를 사람이 확인해 박는다(docs/runbook.md \"GPU AMI\"). 바꾸면 워커 2대 replace(정지 상태로 다시 생성)."
   type        = string
-  default     = null
+  default     = "ami-0f2e11582fb0a76da"
+}
+
+variable "gpu_instance_type" {
+  description = "score GPU 워커 인스턴스 타입. g6.xlarge(L4 24GB, 4 vCPU, 시간당 약 $0.99 서울). G 쿼터 12 = 빌드 4 + 워커 2 × 4"
+  type        = string
+  default     = "g6.xlarge"
 }
 
 variable "gpu_worker_idle_stop_seconds" {
