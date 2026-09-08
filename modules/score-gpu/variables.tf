@@ -50,19 +50,19 @@ variable "nvidia_driver_min_major" {
 variable "component_version" {
   description = "Image Builder 컴포넌트 버전(semver). 컴포넌트는 불변이라 YAML·files/·변수가 바뀌면 올려야 새 버전이 만들어진다"
   type        = string
-  default     = "1.0.0"
+  default     = "1.0.1"
 }
 
 variable "recipe_version" {
   description = "Image Builder 레시피 버전(semver). 레시피도 불변이라 컴포넌트 버전·블록 디바이스가 바뀌면 함께 올린다"
   type        = string
-  default     = "1.0.0"
+  default     = "1.0.1"
 }
 
 variable "worker_idle_stop_seconds" {
   description = "워커가 집을 사진이 없을 때 자기 인스턴스를 정지하기까지의 연속 유휴 초(WORKER_IDLE_STOP_SECONDS). AMI에 굽히므로 바꾸면 재빌드"
   type        = number
-  default     = 600
+  default     = 30
 }
 
 variable "gpu_ami_id" {
