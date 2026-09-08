@@ -406,6 +406,23 @@ data "aws_iam_policy_document" "tf_apply_iam" {
     }
   }
 
+  # score-gpu 모듈의 aws_iam_service_linked_role 둘(Image Builder · CloudWatch Events 알람 EC2 액션).
+  # PowerUserAccess는 IAM을 뺀다. 리소스는 두 SLR ARN으로만 한정 — 다른 서비스 연결 역할은 못 만든다.
+  # Image Builder infrastructure configuration의 PassRole은 iam:PassedToService = ec2.amazonaws.com으로
+  # 검사되므로(AWSImageBuilderFullAccess 관리형 정책과 동일) 위 PassPrefixedRoles로 충분하다 — 빌더 롤 이름은 접두사를 지킬 것.
+  statement {
+    sid = "ServiceLinkedRolesForScoreGpu"
+    actions = [
+      "iam:CreateServiceLinkedRole",
+      "iam:DeleteServiceLinkedRole",
+      "iam:GetServiceLinkedRoleDeletionStatus",
+    ]
+    resources = [
+      "arn:aws:iam::${local.account_id}:role/aws-service-role/imagebuilder.amazonaws.com/AWSServiceRoleForImageBuilder",
+      "arn:aws:iam::${local.account_id}:role/aws-service-role/events.amazonaws.com/AWSServiceRoleForCloudWatchEvents",
+    ]
+  }
+
   # 위 OIDC 프로바이더(thumbprint·client id 변경).
   statement {
     sid = "OidcProvider"
