@@ -60,9 +60,9 @@ variable "recipe_version" {
 }
 
 variable "worker_idle_stop_seconds" {
-  description = "워커가 집을 사진이 없을 때 자기 인스턴스를 정지하기까지의 연속 유휴 초(WORKER_IDLE_STOP_SECONDS). AMI에 굽히므로 바꾸면 재빌드"
+  description = "워커가 집을 사진이 없을 때 자기 인스턴스를 정지하기까지의 연속 유휴 초(WORKER_IDLE_STOP_SECONDS). 30 = 사용자 결정(2026-09-08, wes HANDOFF: 작업이 끝나면 30초 안에 꺼진다). AMI에 굽히므로 바꾸면 재빌드"
   type        = number
-  default     = 600
+  default     = 30
 }
 
 variable "gpu_ami_id" {

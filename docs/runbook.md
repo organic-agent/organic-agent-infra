@@ -645,7 +645,7 @@ aws ec2 describe-images --owners self --region ap-northeast-2 --filters Name=tag
 - 파이프라인 실행 중 `InsufficientInstanceCapacity`/쿼터 초과면 워커 2대가 켜져 있는지 본다(G 쿼터 12 기준 셋이 같이 돌 수 있다).
 
 **워커 유닛이 하는 일**(AMI 안, `modules/score-gpu/files/`): `wes-score-env.sh`가 SSM 세 파라미터 → `/run/wes-score.env`(tmpfs, 0600),
-`wes-score-pull.sh`가 ECR 로그인·`gpu` pull, 그다음 `docker run --gpus all`. 워커가 유휴 `WORKER_IDLE_STOP_SECONDS`(600)를 넘기면
+`wes-score-pull.sh`가 ECR 로그인·`gpu` pull, 그다음 `docker run --gpus all`. 워커가 유휴 `WORKER_IDLE_STOP_SECONDS`(30 — 작업이 끝나면 30초 안에 꺼진다는 결정, 변수 `gpu_worker_idle_stop_seconds`)를 넘기면
 자기 인스턴스를 정지한다. 10분 안에 세 번 기동에 실패하면 `wes-score-failsafe`가 인스턴스를 정지한다 — 켜진 채 남아 시간당
 요금을 내는 일이 없게. 점검은 SSM 접속 뒤 `journalctl -u wes-score -u wes-score-failsafe`.
 
