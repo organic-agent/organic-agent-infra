@@ -10,6 +10,9 @@ rg -Fq 'sid = "ServiceLinkedRolesForScoreGpu"' "$module_main"
 rg -Fq '"iam:CreateServiceLinkedRole",' "$module_main"
 rg -Fq '"iam:DeleteServiceLinkedRole",' "$module_main"
 rg -Fq '"iam:GetServiceLinkedRoleDeletionStatus",' "$module_main"
+# default_tags 태깅(#47) — SLR ARN에 한정된 문장 안에 있어야 한다
+rg -n -A8 'sid = "ServiceLinkedRolesForScoreGpu"' "$module_main" | rg -Fq '"iam:TagRole",'
+rg -n -A8 'sid = "ServiceLinkedRolesForScoreGpu"' "$module_main" | rg -Fq '"iam:UntagRole",'
 rg -Fq '"arn:aws:iam::${local.account_id}:role/aws-service-role/imagebuilder.amazonaws.com/AWSServiceRoleForImageBuilder",' "$module_main"
 rg -Fq '"arn:aws:iam::${local.account_id}:role/aws-service-role/events.amazonaws.com/AWSServiceRoleForCloudWatchEvents",' "$module_main"
 

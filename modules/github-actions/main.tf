@@ -408,6 +408,8 @@ data "aws_iam_policy_document" "tf_apply_iam" {
 
   # score-gpu 모듈의 aws_iam_service_linked_role 둘(Image Builder · CloudWatch Events 알람 EC2 액션).
   # PowerUserAccess는 IAM을 뺀다. 리소스는 두 SLR ARN으로만 한정 — 다른 서비스 연결 역할은 못 만든다.
+  # TagRole·UntagRole은 provider default_tags 때문이다 — 생성 직후 Project·ManagedBy 태그를 붙이는데,
+  # IamWritePrefixedOnly의 TagRole은 wes-* 리소스라 aws-service-role/ 경로에 닿지 않는다(#47).
   # Image Builder infrastructure configuration의 PassRole은 iam:PassedToService = ec2.amazonaws.com으로
   # 검사되므로(AWSImageBuilderFullAccess 관리형 정책과 동일) 위 PassPrefixedRoles로 충분하다 — 빌더 롤 이름은 접두사를 지킬 것.
   statement {
@@ -416,6 +418,8 @@ data "aws_iam_policy_document" "tf_apply_iam" {
       "iam:CreateServiceLinkedRole",
       "iam:DeleteServiceLinkedRole",
       "iam:GetServiceLinkedRoleDeletionStatus",
+      "iam:TagRole",
+      "iam:UntagRole",
     ]
     resources = [
       "arn:aws:iam::${local.account_id}:role/aws-service-role/imagebuilder.amazonaws.com/AWSServiceRoleForImageBuilder",
