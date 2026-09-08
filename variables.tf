@@ -295,12 +295,12 @@ variable "db_subnet_cidrs" {
 
 variable "interface_endpoint_subnet_indexes" {
   description = <<-EOT
-    lambda·bedrock-runtime 인터페이스 엔드포인트의 ENI를 둘 DB 서브넷 인덱스. 기본은 두 AZ 모두
-    (엔드포인트 둘 × ENI 둘 ≈ 월 $43). [0] 하나로 줄이면 비용이 절반이지만 그 AZ 장애 때 Lambda 셋의
-    재호출·체인·Bedrock 호출이 함께 멈춘다.
+    bedrock-runtime 인터페이스 엔드포인트의 ENI를 둘 DB 서브넷 인덱스. 기본은 한 AZ([0], 월 약 $11).
+    [0, 1]로 늘리면 두 배이고 그 대가는 한 AZ 장애 때 categorize의 Bedrock 호출이 멈추지 않는 것뿐이다 —
+    앱 EC2·RDS가 단일 AZ라 지금은 의미가 없다.
   EOT
   type        = list(number)
-  default     = [0, 1]
+  default     = [0]
 }
 
 # --- AI Lambda 셋 (embedder → score → categorize) ---

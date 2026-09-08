@@ -96,7 +96,7 @@ Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
 모니터링 비용을 더 줄이려면 `monitoring_instance_type`을 `t4g.nano`로 내릴 수 있지만(−$3),
 512MiB에 Grafana+Loki를 같이 올리면 compactor가 돌 때 OOM이 잦다. 스왑이 받아주긴 해도 조회가 느려진다.
 
-AI 파이프라인의 고정비는 **인터페이스 VPC 엔드포인트**가 거의 전부다. `lambda`·`bedrock-runtime` 둘을 두 AZ에 두면 ENI 넷 × 약 $0.0147/h ≈ 월 $43이고, `interface_endpoint_subnet_indexes = [0]`으로 한 AZ만 두면 절반이다. S3 게이트웨이 엔드포인트는 무료고 Lambda는 호출할 때만 과금되므로(embedder 3GB · score 8GB · categorize 3GB × 실행 시간), 그 밖에 늘어나는 것은 S3에 쌓이는 원본·미리보기, ECR의 이미지(embedder·score 각 3-5GB, 월 $1 수준), categorize의 Bedrock 호출(갤러리당 몇 번)이다.
+AI 파이프라인의 고정비는 **인터페이스 VPC 엔드포인트**다. 지금은 `bedrock-runtime` 하나를 한 AZ에만 두어 ENI 하나 × 약 $0.0147/h ≈ 월 $11이다(`interface_endpoint_subnet_indexes = [0]`, 두 AZ면 $21). `lambda` 엔드포인트(월 $21)는 Lambda 간 호출이 v2에서 사라져 #57에서 뺐다. S3 게이트웨이 엔드포인트는 무료고 Lambda는 호출할 때만 과금되므로(embedder 3GB · score 8GB · categorize 3GB × 실행 시간), 그 밖에 늘어나는 것은 S3에 쌓이는 원본·미리보기, ECR의 이미지(embedder·score 각 3-5GB, 월 $1 수준), categorize의 Bedrock 호출(갤러리당 몇 번)이다.
 
 ---
 
@@ -332,7 +332,7 @@ OAuth 클라이언트 ID/시크릿도 `/wes/prod/` 아래 SecureString 파라미
 - **embedder·score는 갤러리를 샤드로 나눠 동시에 돈다.** wes가 부른 실행은 조정자가 되어 사진 150장당 샤드 하나(최대 32)로 자기 함수를 다시 EVENT 하고 끝난다. 샤드는 자기 몫만 처리한다. embedder 샤드는 각자 끝나면 그만이고(앱이 `photo_analysis`를 세어 단계를 닫는다), score는 마지막으로 끝난 샤드가 `wes-categorize`를 부른다. 그래서 두 함수의 예약 동시성은 샤드 상한(32) 이상이어야 한다 — 낮으면 샤드가 스로틀되어 라운드가 늘어난다. 샤드 상한은 RDS 커넥션이 정한다(샤드당 1개를 세션 advisory lock 으로 끝까지 붙든다 — db.t4g.micro 79 개 중 평상시 24 + 샤드 32).
 - **재실행이 안전하다.** embedder는 `embedding IS NULL`, score는 `MODEL_VERSION` + CLIP 유무로 남은 것만 이어서 한다.
 - **재시도 주체는 앱의 오케스트레이터 하나다.** Lambda 서비스 재시도는 셋 다 0회이며, 이벤트 수명은 20분(15분 runtime 상한 + 최대 5분 queue 지연)이다. 오래 적체된 이벤트를 뒤늦게 중복 실행하지 않는다.
-- **DB 서브넷은 인터넷이 없다.** S3는 게이트웨이 엔드포인트, Lambda API(재호출·체인)와 Bedrock(categorize의 이름 짓기)은 `lambda`·`bedrock-runtime` **인터페이스 엔드포인트**로 나간다. 인터페이스 엔드포인트는 ENI당 시간 과금이다([비용](#-비용)).
+- **DB 서브넷은 인터넷이 없다.** S3는 게이트웨이 엔드포인트, Bedrock(categorize의 이름 짓기)은 `bedrock-runtime` **인터페이스 엔드포인트**로 나간다(ENI당 시간 과금, [비용](#-비용)). Lambda가 Lambda를 부르는 경로는 v2에서 wes가 가져가 `lambda` 엔드포인트는 없다(#57) — 함수 코드에 `lambda:Invoke`가 되살아나면 엔드포인트와 IAM 문장을 같이 되살려야 한다.
 - **categorize의 대표 사진은 국외로 나간다.** 서울 온디맨드에 Sonnet이 없어 `global.` 크로스 리전 프로필(`bedrock_model_id`)을 쓴다.
 
 | 함수 | 메모리 | /tmp | 동시 실행 | DB 사용자 | 특이 권한 |
@@ -553,7 +553,7 @@ aws lambda invoke --region ap-northeast-2 --function-name wes-score \
 | `PAM authentication failed` + 비밀번호로 붙는 중 | 사용자가 아직 `rds_iam` 멤버다. pg_hba가 PAM 경로로 보내 비밀번호를 아예 안 본다 — `REVOKE rds_iam FROM …;` |
 | 접속 성공하다가 apply 후 갑자기 실패 | apply가 `DB_PASSWORD` 환경변수를 지웠다. 함수가 재생성되면 `ignore_changes`도 못 지킨다 — 다시 주입 |
 | S3 GET에서 타임아웃 (자격증명 오류처럼 보이지 않는다) | DB 서브넷의 S3 게이트웨이 엔드포인트가 없다 |
-| `reinvoked=false` / `chained=false`, 로그에 `Connect timeout on endpoint URL: "https://lambda…"` | `lambda` 인터페이스 엔드포인트가 없거나 아직 `pending`이다. 잡은 score가 FAILED로 닫는다 — 엔드포인트가 `available`이 된 뒤 앱에서 다시 분석 |
+| 로그에 `Connect timeout on endpoint URL: "https://lambda…"` | 함수가 Lambda API를 부르고 있다 — v2에서는 없어야 할 경로다(`lambda` 엔드포인트·권한은 #57에서 제거). AI 저장소 코드가 옛 재호출·체인으로 돌아갔는지 확인 |
 | 재호출·체인이 `AccessDeniedException` | 실행 롤의 `lambda:InvokeFunction` 대상(자기 함수·categorize) 확인 |
 | categorize 로그에 `Connect timeout on endpoint URL: "https://bedrock-runtime…"` | `bedrock-runtime` 인터페이스 엔드포인트가 없다 |
 | categorize가 Bedrock `AccessDeniedException` | 프로필 ARN과 기반 모델 ARN **둘 다** `bedrock:InvokeModel`이 있어야 한다. `bedrock_model_id`와 `BEDROCK_MODEL_ID`가 같은지, 프로필이 리전에 있는지(`aws bedrock list-inference-profiles`) 확인 |

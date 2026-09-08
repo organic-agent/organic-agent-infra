@@ -4,9 +4,13 @@
 # (organic-agent-ai)의 최상위 디렉토리 하나 = 함수 하나(`embedder/` · `score/` · `categorize/`)이고,
 # 각 디렉토리의 deploy.sh가 같은 이름의 ECR(`wes-<모듈>`)에 밀고 같은 이름의 함수를 갱신한다.
 #
-#   wes ──EVENT {galleryId}──▶ [embedder]  S3 GET(원본) → 미리보기 PUT → DINOv3 → photo_analysis.embedding
-#   wes ──EVENT {galleryId, jobId}──▶ [score]  S3 GET(미리보기) → CLIP·ARNIQA·LAION → photo_analysis 점수
-#                                         └──EVENT(체인)──▶ [categorize]  그룹 묶기 → Bedrock(이름) → DONE
+#   wes ──EVENT {galleryId, jobId, photoIds}──▶ [embedder]  S3 GET(원본) → 미리보기 PUT → DINOv3 → photo_analysis.embedding
+#   wes ──EVENT {galleryId, photoIds}──▶ [score]  S3 GET(미리보기) → CLIP·ARNIQA·LAION → photo_analysis 점수 (GPU 워커 풀의 폴백)
+#   wes ──EVENT {galleryId, jobId}──▶ [categorize]  그룹 묶기 → Bedrock(이름)
+#
+# 파이프라인 v2(2026-09-08)부터 잡 상태·단계 전환·재시도는 전부 wes가 소유한다. Lambda가 Lambda를 부르던
+# 자기 재호출·샤드 팬아웃·categorize 체인은 AI 저장소에서 삭제됐고(#98·#100), 그에 딸린 InvokeFunction 권한과
+# lambda 인터페이스 엔드포인트도 뺐다(#57).
 #
 # 셋은 실행 모양이 같다 — 컨테이너 이미지, RDS와 같은 DB 서브넷, 같은 보안 그룹, 같은 DB_*/S3_BUCKET
 # 환경변수, apply 밖에서 주입하는 DB_PASSWORD. 그래서 공통 골격(ECR·롤·로그·함수·비동기 설정·알람·
@@ -20,7 +24,7 @@
 # **왜 Fargate가 아닌가**: Fargate 태스크는 자기가 뜬 서브넷을 통해 ECR에서 이미지를 당겨온다. NAT 없는
 # 이 DB 서브넷에서는 ecr.api·ecr.dkr·logs 인터페이스 엔드포인트가 더 필요해진다. Lambda의 이미지는
 # Lambda 서비스가 VPC 바깥에서 당겨오므로 이미지 경로에는 네트워크 자원이 들지 않는다. 대가는 15분
-# 상한이고, embedder·score는 그 앞에서 스스로 멈추고 자기 자신을 다시 부른다.
+# 상한이고, wes가 배치(photoIds)를 15분 안에 끝날 크기로 잘라 보낸다.
 
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
@@ -36,8 +40,8 @@ locals {
     categorize = "${var.name_prefix}-categorize"
   }
 
-  # 실행 롤 정책이 함수 ARN을 가리켜야 하는데(자기 재호출·체인), aws_lambda_function.this[*].arn을
-  # 쓰면 함수 → 롤 → 정책 → 함수의 순환이 된다. 이름이 정해져 있으므로 문자열로 조립한다.
+  # 앱 롤의 InvokeFunction 대상 ARN. 함수 이름이 정해져 있으므로 문자열로 조립한다(순환 참조 회피 —
+  # 지금은 실행 롤 정책이 함수 ARN을 가리키지 않지만 모양은 남긴다).
   function_arns = {
     for key, name in local.function_names :
     key => "arn:aws:lambda:${local.region}:${local.account_id}:function:${name}"
@@ -85,11 +89,11 @@ locals {
       reserved_concurrency = var.score_reserved_concurrent_executions
       db_username          = var.analysis_db_username
       parameter_name       = "app.analysis.score-function-name"
-      policy_name          = "read-previews-and-invoke-chain"
+      # 이름은 그대로 둔다(#57에서 체인 권한이 빠졌지만 바꾸면 인라인 정책이 삭제 → 생성으로 교체된다).
+      policy_name = "read-previews-and-invoke-chain"
+      # v2: photoIds 페이로드만 받아 점수만 쓰고 끝난다. categorize는 wes가 직접 부르므로 함수 이름을 넘기지 않는다(#57).
       environment = merge(local.db_env, local.ssl_env, {
         DB_USER = var.analysis_db_username
-        # 끝에서 categorize를 EVENT로 부른다(score/chain.py). 없으면 잡을 시작하기 전에 FAILED.
-        CATEGORIZE_FUNCTION_NAME = local.function_names.categorize
       })
     }
     categorize = {
@@ -197,7 +201,7 @@ resource "aws_iam_role_policy_attachment" "vpc_access" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
-# embedder: 원본 읽기 + 미리보기 쓰기 + (막혀 있는) RDS IAM 인증 + 자기 재호출.
+# embedder: 원본 읽기 + 미리보기 쓰기 + (막혀 있는) RDS IAM 인증.
 data "aws_iam_policy_document" "embedder" {
   # 원본을 가져와 메모리에서 임베딩한다. 벡터는 PostgreSQL로 간다.
   statement {
@@ -217,15 +221,8 @@ data "aws_iam_policy_document" "embedder" {
     resources = ["${var.photo_bucket_arn}/previews/*"]
   }
 
-  # 15분 타임아웃 앞에서 배치 경계에 멈추면 남은 사진을 위해 자기 자신을 EVENT로 다시 부른다
-  # (embedder/handler.py의 reinvoke). 이 권한이 없거나 DB 서브넷에 Lambda 인터페이스 엔드포인트가
-  # 없으면 reinvoked=false로 끝나고, 앱이 다시 불러야 이어진다 — 실패는 아니지만 큰 갤러리가
-  # 매번 앱의 재호출에 기댄다.
-  statement {
-    sid       = "ReinvokeSelf"
-    actions   = ["lambda:InvokeFunction"]
-    resources = [local.function_arns.embedder]
-  }
+  # 자기 재호출 권한(ReinvokeSelf)은 없다. v2부터 wes 스위퍼가 photoIds 배치를 보내고 15분 안에 끝나며,
+  # 갤러리 경로·재호출은 AI 저장소에서 삭제됐다(#100). lambda 인터페이스 엔드포인트도 함께 뺐다(#57).
 
   # 원래 설계는 이 권한으로 15분짜리 접속 토큰을 만들어 비밀번호를 아예 없애는 것이었다.
   # ARN이 인스턴스 이름이 아니라 RDS 리소스 ID(db-XXXX)를 쓰는 점에 주의 — 인스턴스를
@@ -245,22 +242,13 @@ data "aws_iam_policy_document" "embedder" {
   }
 }
 
-# score: 미리보기 읽기 + 자기 재호출 + categorize 체인.
+# score: 미리보기 읽기뿐. 자기 재호출·categorize 체인 권한은 v2에서 뺐다(#57) — wes가 categorize를 직접 부른다.
 data "aws_iam_policy_document" "score" {
   # 임베더가 만든 미리보기 JPEG만 읽는다(previews/ 접두사). 원본은 이 함수가 볼 이유가 없다.
   statement {
     sid       = "ReadPreviews"
     actions   = ["s3:GetObject"]
     resources = ["${var.photo_bucket_arn}/previews/*"]
-  }
-
-  # 15분 앞에서 배치 경계에 멈추면 남은 사진을 위해 자기 자신을 EVENT로 다시 부르고(handler.reinvoke),
-  # 다 끝나면 categorize를 EVENT로 깨운다(chain.invoke_categorize). 체인이 실패하면 잡을 FAILED로 닫는다 —
-  # 그래서 이 권한과 DB 서브넷의 Lambda 인터페이스 엔드포인트가 없으면 분석 잡은 하나도 끝나지 않는다.
-  statement {
-    sid       = "ReinvokeSelfAndChainCategorize"
-    actions   = ["lambda:InvokeFunction"]
-    resources = [local.function_arns.score, local.function_arns.categorize]
   }
 }
 
@@ -330,7 +318,7 @@ resource "aws_lambda_function" "this" {
   # AI 저장소 deploy.sh가 --platform linux/amd64로 빌드한다.
 
   # 최댓값. 콜드 스타트가 수 GB짜리 이미지를 먼저 내려받고, embedder·score는 사진마다 CPU 추론을 해
-  # 갤러리 하나가 15분을 넘기면 스스로 멈추고 재호출한다. categorize는 수 초 + Bedrock 몇 번이라
+  # 배치 하나가 15분을 넘기면 배치 경계에서 멈추고 남은 사진은 다음 스윕이 다시 보낸다. categorize는 수 초 + Bedrock 몇 번이라
   # 보통 1분 안이지만, 상한을 낮춰 얻는 것이 없다.
   timeout = 900
 
@@ -345,7 +333,7 @@ resource "aws_lambda_function" "this" {
     size = each.value.ephemeral_storage_mb
   }
 
-  # 갤러리 하나가 함수 하나를 15분씩 붙들고, 자기 재호출로 이어진다. 소형 RDS와 Lambda 비용이
+  # 배치 하나가 함수 하나를 최대 15분 붙든다. 소형 RDS와 Lambda 비용이
   # 한꺼번에 치솟지 않게 상한을 둔다. 넘치는 EVENT는 큐에서 기다리고, event age를 넘기면 버려진다 —
   # 그때는 wes의 dispatch 재시도(app.analysis.dispatch-retry-after)가 다시 보낸다.
   reserved_concurrent_executions = each.value.reserved_concurrency
