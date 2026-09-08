@@ -254,7 +254,7 @@ Terraform 변경이 없다. 런북 갱신과 수동 작업 셋이다.
 | Image Builder 서비스 연결 역할 | 신규(코드 관리) | — |
 | CloudWatch Events 서비스 연결 역할(`AWSServiceRoleForCloudWatchEvents`) | 신규(코드 관리). 권한은 계정 전체 `ec2:StopInstances`지만 쓰는 주체는 `modules/score-gpu`의 알람 2개뿐(§4.5) | — |
 | embedder Lambda 롤 | — | 없음(`ReinvokeSelf` 보류, 결정 K) |
-| `tf_apply` | 서비스 연결 역할 생성·삭제·삭제상태 조회(imagebuilder·events SLR ARN 두 개 한정, PR-3a 로컬 apply). `iam:PassRole`의 `PassedToService`에 `imagebuilder.amazonaws.com`이 필요한지는 PR-3b의 첫 plan/apply에서 확인(문서상 인프라 구성은 인스턴스 프로파일 **이름**만 받는다) | — |
+| `tf_apply` | 서비스 연결 역할 생성·삭제·삭제상태 조회(imagebuilder·events SLR ARN 두 개 한정, PR-3a 로컬 apply). `iam:PassRole`은 `PassedToService = ec2.amazonaws.com`으로 검사된다(`AWSImageBuilderFullAccess` 관리형 정책의 PassRole 조건과 동일, 2026-09-09 확인) — 기존 `PassPrefixedRoles`로 충분하고 빌더 롤 이름이 `wes-` 접두사를 지키면 된다 | — |
 | `worker_deploy`(AI CD) | 없음 — `wes-score` `PutImage`가 이미 있어 `gpu` 태그 push에 추가 권한 불필요 | — |
 | `tf_plan` | 없음(ReadOnlyAccess에 imagebuilder 읽기 포함) | — |
 
