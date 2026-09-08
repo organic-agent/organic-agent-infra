@@ -132,7 +132,15 @@ if rg -n 'DB_PASSWORD\s*=' "$analysis_main"; then
 fi
 
 # --- 5. wes 연결: 파라미터 이름은 서버의 app.analysis.{score,categorize}-function-name, 앱 롤의 InvokeFunction ---
-rg -Fq 'parameter_name = "app.embedding.function-name"' "$analysis_main"
+rg -Fq 'parameter_name = "app.analysis.embedder-function-name"' "$analysis_main"
+rg -Fq 'name  = "${var.parameter_prefix}/app.analysis.gpu.enabled"' "$analysis_main"
+rg -Fq 'value = var.gpu_score_enabled ? "true" : "false"' "$analysis_main"
+rg -Fq 'app.analysis.embedder-function-name' "$repo_root/admin.tf"
+# wes V16부터 옛 키는 아무도 읽지 않는다 — 남겨 두면 "있는데 왜 503"으로 헷갈린다.
+if rg -n '^\s*[^#]*app\.embedding\.function-name' "$analysis_main" "$repo_root/admin.tf" "$root_main"; then
+  echo "legacy app.embedding.function-name parameter must be gone (wes V16 reads app.analysis.embedder-function-name)" >&2
+  exit 1
+fi
 rg -Fq 'parameter_name       = "app.analysis.score-function-name"' "$analysis_main"
 rg -Fq 'parameter_name       = "app.analysis.categorize-function-name"' "$analysis_main"
 rg -Fq 'name  = "${var.parameter_prefix}/${each.value.parameter_name}"' "$analysis_main"

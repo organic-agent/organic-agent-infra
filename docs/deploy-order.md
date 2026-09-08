@@ -47,8 +47,8 @@ dig NS easyselect.kr +short   # awsdns 4개면 위임 완료
 | `cors.allowed-origins` | String | 쉼표 구분 문자열 (프론트 오리진 목록) |
 | `springdoc.server-url` | String | `https://api.easyselect.kr` |
 
-`spring.datasource.url`·`username`, `app.storage.bucket`, `app.embedding.function-name`,
-`app.analysis.score-function-name`·`app.analysis.categorize-function-name`,
+`spring.datasource.url`·`username`, `app.storage.bucket`, `app.analysis.embedder-function-name`·
+`score-function-name`·`categorize-function-name`, `app.analysis.gpu.enabled`,
 `app.logging.loki-url`은 테라폼이 apply 때 자동 생성하므로 등록하지 않는다.
 파라미터는 destroy와 무관하게 남으므로 최초 1회만 등록하면 된다.
 

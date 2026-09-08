@@ -66,9 +66,9 @@ locals {
       ephemeral_storage_mb = 512
       reserved_concurrency = var.embedder_reserved_concurrent_executions
       db_username          = var.embedder_db_username
-      # 앱이 부팅할 때 읽는 파라미터(app.embedding.function-name). 서버의 EmbeddingProperties가 그대로라
-      # 분석 파라미터와 프리픽스가 다르다 — Parameter Store 키를 옮기지 않기 위해서다.
-      parameter_name = "app.embedding.function-name"
+      # 앱이 부팅할 때 읽는 파라미터. 파이프라인 v2(wes V16, 2026-09-08)부터 AnalysisProperties가 score·categorize와
+      # 같은 프리픽스에서 읽는다 — 옛 EmbeddingProperties의 app.embedding.function-name은 더 읽지 않는다(#43).
+      parameter_name = "app.analysis.embedder-function-name"
       policy_name    = "read-photos-and-connect-db"
       environment = merge(local.db_env, {
         DB_USER = var.embedder_db_username
@@ -462,4 +462,13 @@ resource "aws_ssm_parameter" "function_name" {
   name  = "${var.parameter_prefix}/${each.value.parameter_name}"
   type  = "String"
   value = aws_lambda_function.this[each.key].function_name
+}
+
+# GPU score 워커 풀 스위치. wes(PR-C GpuController)가 읽는다 — true면 점수를 GPU 워커에 맡기고 Lambda는 폴백,
+# false면 지금처럼 score Lambda만 쓴다. 워커 풀(modules/score-gpu, PR-3c)이 올라온 뒤 변수로 true로 바꾼다.
+# 인프라 쪽 스위치라 Terraform이 소유한다 — 콘솔에서 바꾸면 다음 apply가 되돌린다.
+resource "aws_ssm_parameter" "gpu_enabled" {
+  name  = "${var.parameter_prefix}/app.analysis.gpu.enabled"
+  type  = "String"
+  value = var.gpu_score_enabled ? "true" : "false"
 }

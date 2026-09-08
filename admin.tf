@@ -74,7 +74,7 @@ resource "aws_ssm_parameter" "admin_photo_bucket" {
 }
 
 resource "aws_ssm_parameter" "admin_embedding_function" {
-  name  = "${var.admin_parameter_prefix}/app.embedding.function-name"
+  name  = "${var.admin_parameter_prefix}/app.analysis.embedder-function-name" # wes V16 AnalysisProperties 키(#43)
   type  = "String"
   value = module.analysis.function_names["embedder"]
 }
