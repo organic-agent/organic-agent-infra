@@ -326,9 +326,9 @@ variable "analysis_db_username" {
 }
 
 variable "gpu_score_enabled" {
-  description = "SSM /wes/prod/app.analysis.gpu.enabled 값. true면 wes가 점수 계산을 GPU 워커 풀(modules/score-gpu)에 맡기고 score Lambda는 폴백, false면 Lambda만. 워커 풀이 올라오기 전(PR-3c 이전)에는 false."
+  description = "SSM /wes/prod/app.analysis.gpu.enabled 값. true면 wes가 점수 계산을 GPU 워커 풀(modules/score-gpu)에 맡기고 score Lambda는 폴백, false면 Lambda만. 워커 풀(PR-3c)이 올라온 2026-09-08부터 true."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "lambda_image_tag" {
