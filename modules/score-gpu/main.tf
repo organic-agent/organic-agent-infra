@@ -30,7 +30,7 @@ data "aws_caller_identity" "current" {}
 # Image Builder가 빌드 인스턴스를 띄우고 AMI를 만들 때 쓴다.
 resource "aws_iam_service_linked_role" "imagebuilder" {
   aws_service_name = "imagebuilder.amazonaws.com"
-  description      = "wes score GPU AMI 파이프라인 (modules/score-gpu)"
+  description      = "wes score GPU AMI pipeline (modules/score-gpu)"
 }
 
 # CloudWatch 알람의 EC2 정지 액션(PR-3c의 유휴 정지 알람, 결정 L)이 이 역할로 인스턴스를 정지시킨다.
@@ -38,7 +38,7 @@ resource "aws_iam_service_linked_role" "imagebuilder" {
 # GPU 인스턴스 하나씩만 가리킨다(계획 §4.5). 알람보다 먼저 만들어 두면 3c의 첫 apply에서 액션 검증에 걸리지 않는다.
 resource "aws_iam_service_linked_role" "cloudwatch_events" {
   aws_service_name = "events.amazonaws.com"
-  description      = "wes score GPU 유휴 정지 알람의 EC2 액션 (modules/score-gpu)"
+  description      = "EC2 stop action of the wes score GPU idle alarm (modules/score-gpu)"
 }
 
 # --- 빌드 인스턴스 롤 ---
