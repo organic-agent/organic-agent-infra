@@ -184,9 +184,10 @@ resource "aws_imagebuilder_infrastructure_configuration" "this" {
     http_put_response_hop_limit = 1
   }
 
+  # 빌드 인스턴스 태그. `Name`은 Image Builder가 예약해 자기가 붙이므로(#49) 넣으면 400이다.
   resource_tags = {
-    Name = "${local.name}-builder"
-    Role = "score-gpu-ami-build"
+    Role     = "score-gpu-ami-build"
+    Pipeline = local.name
   }
 
   # 서비스 연결 역할이 없으면 CreateInfrastructureConfiguration이 거부된다. 프로파일에 롤이 붙기 전에
