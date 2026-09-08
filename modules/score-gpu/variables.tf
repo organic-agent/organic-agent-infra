@@ -50,13 +50,13 @@ variable "nvidia_driver_min_major" {
 variable "component_version" {
   description = "Image Builder 컴포넌트 버전(semver). 컴포넌트는 불변이라 YAML·files/·변수가 바뀌면 올려야 새 버전이 만들어진다"
   type        = string
-  default     = "1.0.1"
+  default     = "1.0.2"
 }
 
 variable "recipe_version" {
   description = "Image Builder 레시피 버전(semver). 레시피도 불변이라 컴포넌트 버전·블록 디바이스가 바뀌면 함께 올린다"
   type        = string
-  default     = "1.0.1"
+  default     = "1.0.2"
 }
 
 variable "worker_idle_stop_seconds" {
