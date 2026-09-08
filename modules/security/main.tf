@@ -148,6 +148,41 @@ resource "aws_vpc_security_group_ingress_rule" "rds_from_embedder" {
   ip_protocol                  = "tcp"
 }
 
+# --- score GPU 워커 풀 (modules/score-gpu, 계획 pipeline-v2-infra-plan.md §4.2) ---
+#
+# 퍼블릭 서브넷의 EC2지만 인바운드는 0 — 접속은 SSM 세션뿐이다. 이그레스 전부: S3 미리보기·ECR pull·SSM은 IGW 경유,
+# RDS는 VPC 안. RDS 규칙이 이 SG를 참조하므로 embedder처럼 이 모듈에 둔다.
+
+resource "aws_security_group" "score_gpu" {
+  name_prefix = "${var.name_prefix}-score-gpu-"
+  description = "score GPU worker: no inbound (SSM only), S3/ECR/SSM/RDS outbound"
+  vpc_id      = var.vpc_id
+
+  tags = {
+    Name = "${var.name_prefix}-score-gpu"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "score_gpu_all" {
+  security_group_id = aws_security_group.score_gpu.id
+  description       = "All outbound (S3, ECR, SSM via IGW; RDS in VPC)"
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "rds_from_score_gpu" {
+  security_group_id            = aws_security_group.rds.id
+  description                  = "PostgreSQL from the score GPU workers"
+  referenced_security_group_id = aws_security_group.score_gpu.id
+  from_port                    = var.db_port
+  to_port                      = var.db_port
+  ip_protocol                  = "tcp"
+}
+
 # --- 모니터링 (Loki + Grafana + Caddy) ---
 
 # ALB 뒤가 아니라 EIP로 직결된다. 80/443은 Caddy가 받고(Let's Encrypt HTTP-01 챌린지에 80이 필요),

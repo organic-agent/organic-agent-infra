@@ -1,5 +1,7 @@
 locals {
   name_prefix = "wes"
+  # score GPU 워커 인스턴스의 Name 태그 — 앱 롤의 Start/Stop 조건(compute)과 인스턴스 태그(score-gpu)가 같은 값을 쓴다.
+  score_gpu_tag_name = "wes-score-gpu"
 
   # 파라미터 네이밍 컨벤션: /wes/<환경>/<스프링 프로퍼티>, 환경은 local/prod 두 개.
   # url/username은 Terraform이 자동 생성, password는 밖에서 수동 관리 (docs/runbook.md 참고).
@@ -122,9 +124,11 @@ module "analysis" {
   gpu_score_enabled = var.gpu_score_enabled
 }
 
-# score GPU 워커 풀 — 1단계 AMI 파이프라인(Image Builder). 계획 docs/pipeline-v2-infra-plan.md §4, PR-3b.
-# 워커 인스턴스·롤·SG·유휴 정지 알람은 AMI가 나온 뒤 PR-3c에서 이 모듈에 더한다. 코드 이미지는 AMI에 굽지 않고
-# 부팅 때 ECR wes-score:gpu(이동 태그)를 pull 한다 — 그래서 analysis 모듈의 리포지토리 URL을 받는다.
+# score GPU 워커 풀 — AMI 파이프라인(Image Builder, PR-3b) + 워커 인스턴스 2대·롤·유휴 정지 알람(PR-3c).
+# 계획 docs/pipeline-v2-infra-plan.md §4. 코드 이미지는 AMI에 굽지 않고 부팅 때 ECR wes-score:gpu(이동 태그)를 pull 한다 —
+# 그래서 analysis 모듈의 리포지토리 URL·ARN을 받는다. 워커 SG는 RDS SG가 참조해야 해서 security 모듈에 있다.
+# 켜고 끄는 것은 wes(GpuController, 태그 Name=wes-score-gpu)와 워커 자기 정지의 몫이고, 인프라는 생성 직후 정지와
+# 최후 안전장치 알람만 소유한다.
 module "score_gpu" {
   source = "./modules/score-gpu"
 
@@ -132,10 +136,15 @@ module "score_gpu" {
   vpc_id               = module.network.vpc_id
   subnet_id            = module.network.public_subnet_ids[0]
   score_repository_url = module.analysis.repository_urls["score"]
+  score_repository_arn = module.analysis.repository_arns["score"]
+  photo_bucket_arn     = module.storage.bucket_arn
   parameter_prefix     = var.parameter_prefix
 
   worker_idle_stop_seconds = var.gpu_worker_idle_stop_seconds
   gpu_ami_id               = var.gpu_ami_id
+  worker_instance_type     = var.gpu_instance_type
+  worker_subnet_ids        = zipmap(var.azs, module.network.public_subnet_ids)
+  worker_security_group_id = module.security.score_gpu_security_group_id
 }
 
 module "database" {
@@ -161,6 +170,8 @@ module "compute" {
   ssh_public_key           = var.ssh_public_key
   app_parameter_prefix_arn = local.parameter_prefix_arn
   bedrock_model_id         = var.bedrock_model_id
+  # score_gpu 모듈의 worker_tag_name과 같은 값. 모듈 출력을 참조하면 storage → compute → score_gpu 순환이라 문자열로 맞춘다.
+  score_gpu_tag_name = local.score_gpu_tag_name
 }
 
 module "ingress" {

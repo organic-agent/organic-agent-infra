@@ -133,3 +133,36 @@ resource "aws_instance" "this" {
     Name = "${var.name_prefix}-app"
   }
 }
+
+# 앱의 analysis 도메인(GpuController)이 score GPU 워커 풀을 켜고 끈다(계획 pipeline-v2-infra-plan.md 결정 C).
+# 탐색은 태그 `Name=<score_gpu_tag_name>`로 DescribeInstances(리소스 조건을 지원하지 않아 `*`), Start·Stop은 같은 태그를 단
+# 인스턴스로만 좁힌다 — 앱 서버·모니터링·관리자 인스턴스는 태그가 달라 이 롤로 끌 수 없다.
+# Stop은 wes의 무진행 안전망(워커 자기 정지가 1차, 알람이 최후)이다.
+data "aws_iam_policy_document" "control_score_gpu" {
+  statement {
+    sid       = "DescribeScoreGpuWorkers"
+    actions   = ["ec2:DescribeInstances"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "StartStopScoreGpuWorkers"
+    actions = [
+      "ec2:StartInstances",
+      "ec2:StopInstances",
+    ]
+    resources = ["arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:ResourceTag/Name"
+      values   = [var.score_gpu_tag_name]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "control_score_gpu" {
+  name   = "control-score-gpu"
+  role   = aws_iam_role.this.name
+  policy = data.aws_iam_policy_document.control_score_gpu.json
+}

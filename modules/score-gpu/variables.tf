@@ -66,13 +66,38 @@ variable "worker_idle_stop_seconds" {
 }
 
 variable "gpu_ami_id" {
-  description = "워커 인스턴스에 쓸 AMI ID. 파이프라인이 만든 AMI를 사람이 확인해 박는다 — most_recent 데이터 소스는 빌드마다 replace를 만들어 쓰지 않는다. 인스턴스는 PR-3c에서 만든다(여기서는 선언만)"
+  description = "워커 인스턴스에 쓸 AMI ID. 파이프라인이 만든 AMI를 사람이 확인해 박는다 — most_recent 데이터 소스는 빌드마다 replace를 만들어 쓰지 않는다. 바꾸면 인스턴스 replace"
   type        = string
-  default     = null
 }
 
 variable "gpu_root_throughput" {
-  description = "워커 인스턴스 루트 gp3 처리량(MB/s). 기본 125, 미리보기 다운로드가 디스크에 막히면 250. 인스턴스는 PR-3c에서 만든다(여기서는 선언만)"
+  description = "워커 인스턴스 루트 gp3 처리량(MB/s). 기본 125, 미리보기 다운로드가 디스크에 막히면 250"
   type        = number
   default     = 125
+}
+
+variable "worker_subnet_ids" {
+  description = "워커 인스턴스를 둘 퍼블릭 서브넷 — 키는 AZ 이름, 값은 서브넷 ID. AZ마다 한 대씩 만든다(for_each 키가 인스턴스·알람 이름에 들어간다)"
+  type        = map(string)
+}
+
+variable "worker_security_group_id" {
+  description = "워커 인스턴스 SG(modules/security score_gpu — 인바운드 0, RDS SG가 참조)"
+  type        = string
+}
+
+variable "worker_instance_type" {
+  description = "워커 인스턴스 타입. g6.xlarge(L4 24GB, 4 vCPU). G 쿼터: 빌드 4 + 워커 2 × 4 = 12"
+  type        = string
+  default     = "g6.xlarge"
+}
+
+variable "photo_bucket_arn" {
+  description = "사진 버킷 ARN — 워커는 previews/* 만 읽는다"
+  type        = string
+}
+
+variable "score_repository_arn" {
+  description = "wes-score ECR 리포지토리 ARN — 부팅 때 :gpu 태그를 pull 한다"
+  type        = string
 }
