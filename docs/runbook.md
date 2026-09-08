@@ -607,6 +607,48 @@ aws service-quotas list-requested-service-quota-change-history-by-quota --servic
   --quota-code L-DB2E81BA --region ap-northeast-2 --query 'RequestedQuotas[].[Status,DesiredValue,Created]' --output text
 ```
 
+### # GPU AMI (score 워커, Image Builder)
+
+[계획](pipeline-v2-infra-plan.md) §4.1의 AMI 파이프라인(`modules/score-gpu`, PR-3b). AMI에는 NVIDIA 드라이버(브랜치 고정) ·
+Docker · nvidia-container-toolkit · `wes-score` systemd 유닛만 굽는다. 코드 이미지는 워커가 부팅 때 ECR `wes-score:gpu`
+(이동 태그)를 pull 하고, DB 주소·비밀번호·버킷은 기동 때 `/wes/prod/` 파라미터 세 개에서 읽는다 — 코드나 RDS가 바뀌어도
+AMI를 다시 굽지 않는다(결정 B·J). 파이프라인에는 schedule이 없다. **드라이버·베이스를 올릴 때만** 사람이 돌린다.
+
+| 언제 | 무엇을 |
+|---|---|
+| 3b 머지·CI apply 직후 | 첫 실행 → AMI ID를 `gpu_ami_id`에 박는 PR(3c) |
+| 분기 1회 또는 CUDA 하한 변경 | `nvidia_driver_branch`·`component_version`·`recipe_version`을 올리는 PR → apply → 실행 → `gpu_ami_id` 갱신 PR(인스턴스 replace) |
+| `worker_idle_stop_seconds`·env 스크립트·유닛 변경 | 같은 절차(AMI에 구워지는 값이다). `component_version`을 올리지 않으면 apply가 already exists로 실패한다 |
+
+```bash
+export AWS_PAGER=""
+ARN=$(terraform output -raw score_gpu_image_pipeline_arn)
+
+# 실행 (빌드 g6.xlarge → 재부팅 2회 → 테스트 인스턴스 1대, 합쳐 25~35분). 쿼터: 빌드 4 vCPU + 워커 풀 8 vCPU = 12
+aws imagebuilder start-image-pipeline-execution --image-pipeline-arn "$ARN" --region ap-northeast-2 --query imageBuildVersionArn --output text
+
+# 진행 상태 (BUILDING → TESTING → DISTRIBUTING → AVAILABLE. FAILED면 콘솔 Image Builder > Images > 로그 링크)
+aws imagebuilder list-image-pipeline-images --image-pipeline-arn "$ARN" --region ap-northeast-2 \
+  --query 'imageSummaryList[].[version,state.status,dateCreated,outputResources.amis[0].image]' --output text
+
+# 결과 AMI (Name 태그 wes-score-gpu-ami). 이 ID를 variables.tf의 gpu_ami_id 기본값으로
+aws ec2 describe-images --owners self --region ap-northeast-2 --filters Name=tag:Name,Values=wes-score-gpu-ami \
+  --query 'sort_by(Images,&CreationDate)[].[ImageId,Name,CreationDate]' --output text
+```
+
+- 빌드 인스턴스는 SSM으로만 접속되고(인바운드 0) 실패하면 스스로 종료된다(`terminate_instance_on_failure`).
+  빌드 로그는 CloudWatch `/aws/imagebuilder/wes-score-gpu`에 남는다.
+- 테스트 단계는 완성된 AMI로 새 인스턴스를 띄운다. 거기서 `wes-score` 유닛은 빌더 롤이라 SSM 읽기가 실패해
+  세 번 시도 후 멈추는데, 이건 의도된 동작이다(워커 롤이 있는 3c 인스턴스에서만 산다).
+- 만들어진 AMI·스냅샷은 Terraform 밖이다(배포 구성이 만든다). 옛 AMI는 `gpu_ami_id`가 새 것으로 바뀐 뒤
+  `deregister-image` + `delete-snapshot`으로 지운다. 스냅샷 30GB ≈ 월 $1.5.
+- 파이프라인 실행 중 `InsufficientInstanceCapacity`/쿼터 초과면 워커 2대가 켜져 있는지 본다(G 쿼터 12 기준 셋이 같이 돌 수 있다).
+
+**워커 유닛이 하는 일**(AMI 안, `modules/score-gpu/files/`): `wes-score-env.sh`가 SSM 세 파라미터 → `/run/wes-score.env`(tmpfs, 0600),
+`wes-score-pull.sh`가 ECR 로그인·`gpu` pull, 그다음 `docker run --gpus all`. 워커가 유휴 `WORKER_IDLE_STOP_SECONDS`(600)를 넘기면
+자기 인스턴스를 정지한다. 10분 안에 세 번 기동에 실패하면 `wes-score-failsafe`가 인스턴스를 정지한다 — 켜진 채 남아 시간당
+요금을 내는 일이 없게. 점검은 SSM 접속 뒤 `journalctl -u wes-score -u wes-score-failsafe`.
+
 ---
 
 ## # 모니터링 (Loki + Grafana)
