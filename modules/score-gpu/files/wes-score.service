@@ -1,0 +1,40 @@
+# wes-score GPU 워커. photo_analysis에서 점수 없는 사진을 32장씩 집어 CLIP·ARNIQA 점수를 쓰고,
+# 집을 게 없으면 WORKER_IDLE_STOP_SECONDS 뒤 자기 인스턴스를 정지시킨다(AI 저장소 score/gpu_worker.py).
+# 켜는 것은 wes(W6)다. 부팅마다 자동 기동하므로 인스턴스를 Start 하는 것이 곧 워커를 켜는 것이다.
+#
+# 이미지·리전·파라미터 프리픽스는 /etc/wes-score/image.env(AMI 빌드 때 Terraform이 씀)에서,
+# DB 주소·비밀번호·버킷은 기동마다 SSM에서 읽어 /run/wes-score.env(tmpfs)로 넘긴다.
+[Unit]
+Description=wes-score GPU worker
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+# 10분 안에 세 번 실패하면 멈추고 failsafe 가 인스턴스를 정지한다(켜진 채 남지 않게).
+# 워커 롤이 없는 인스턴스(AMI 테스트 인스턴스)에서는 SSM 읽기가 실패해 여기로 오지만 정지 권한도 없어 그대로 끝난다.
+StartLimitIntervalSec=600
+StartLimitBurst=3
+OnFailure=wes-score-failsafe.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/wes-score/image.env
+ExecStartPre=/usr/local/bin/wes-score-env.sh
+ExecStartPre=/usr/local/bin/wes-score-pull.sh
+# 컨테이너 ENTRYPOINT는 `python -m score`, CMD는 `worker --gpu`. DB 비밀번호는 env로 받고 컨테이너는 SSM을 읽지 않는다.
+# RDS CA 번들은 이미지 안(/opt/rds-ca)에 있어 verify-full이 된다.
+ExecStart=/usr/bin/docker run --rm --name wes-score --gpus all \
+  --env-file /run/wes-score.env \
+  -e DB_USER=photoselect \
+  -e DB_SSLMODE=verify-full \
+  -e DB_SSLROOTCERT=/opt/rds-ca/global-bundle.pem \
+  -e WORKER_IDLE_STOP_SECONDS=${WORKER_IDLE_STOP_SECONDS} \
+  ${WES_SCORE_IMAGE}
+ExecStopPost=-/usr/bin/docker rm -f wes-score
+ExecStopPost=-/bin/rm -f /run/wes-score.env
+Restart=on-failure
+RestartSec=15
+# 정지 신호를 받으면 진행 중인 배치가 롤백되고 행은 다른 워커에 돌아간다(SKIP LOCKED). 오래 기다릴 이유가 없다.
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

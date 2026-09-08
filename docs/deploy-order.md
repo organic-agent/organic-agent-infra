@@ -111,6 +111,13 @@ embedder는 DINOv3가 게이트 모델이라 빌드에 Hugging Face 토큰(`--se
 > 해석해서 `wes-embedderatest` 같은 이름을 만들고, 빌드를 다 마친 뒤 푸시 단계에서
 > `repository does not exist`로 실패한다.
 
+**GPU 워커 이미지**(`wes-score:gpu`)는 AI 저장소 GitHub Actions("Build score GPU image")가 push마다 민다 —
+손으로 빌드하지 않는다. 이 태그는 워커 AMI가 아니라 워커 **부팅 때** pull 되므로 apply 순서와 무관하다.
+
+**GPU 워커 AMI**는 [4] apply 뒤 `modules/score-gpu`의 Image Builder 파이프라인을 1회 수동 실행해 만들고,
+나온 AMI ID를 `gpu_ami_id` 변수에 박아 다시 apply 한다(워커 인스턴스는 그때 생긴다). 절차는 runbook "GPU AMI".
+destroy 뒤 재배포 때 옛 AMI가 살아 있으면 그대로 써도 된다(AMI는 Terraform 밖 리소스라 destroy에 지워지지 않는다).
+
 ---
 
 ## # [4] 앱 스택 apply (스택 세울 때마다)

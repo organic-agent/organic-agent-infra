@@ -138,18 +138,33 @@ resource "aws_ecr_lifecycle_policy" "this" {
 
   repository = aws_ecr_repository.this[each.key].name
 
+  # score에는 GPU 워커 이미지의 불변 태그 `gpu-<sha>`가 push마다 4GB씩 쌓이므로 최근 3개만 남긴다(계획 §2.2).
+  # 이동 태그 `gpu`는 접두사가 달라(뒤에 `-`가 없다) 이 규칙에 안 걸리고, `latest`도 마찬가지다.
   policy = jsonencode({
-    rules = [{
-      rulePriority = 1
-      description  = "Expire untagged images after 3 days"
-      selection = {
-        tagStatus   = "untagged"
-        countType   = "sinceImagePushed"
-        countUnit   = "days"
-        countNumber = 3
-      }
-      action = { type = "expire" }
-    }]
+    rules = concat(
+      [{
+        rulePriority = 1
+        description  = "Expire untagged images after 3 days"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = 3
+        }
+        action = { type = "expire" }
+      }],
+      each.key == "score" ? [{
+        rulePriority = 2
+        description  = "Keep only the 3 most recent gpu-<sha> worker images"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["gpu-"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 3
+        }
+        action = { type = "expire" }
+      }] : []
+    )
   })
 }
 

@@ -119,6 +119,22 @@ module "analysis" {
   bedrock_model_id                          = var.bedrock_model_id
 }
 
+# score GPU 워커 풀 — 1단계 AMI 파이프라인(Image Builder). 계획 docs/pipeline-v2-infra-plan.md §4, PR-3b.
+# 워커 인스턴스·롤·SG·유휴 정지 알람은 AMI가 나온 뒤 PR-3c에서 이 모듈에 더한다. 코드 이미지는 AMI에 굽지 않고
+# 부팅 때 ECR wes-score:gpu(이동 태그)를 pull 한다 — 그래서 analysis 모듈의 리포지토리 URL을 받는다.
+module "score_gpu" {
+  source = "./modules/score-gpu"
+
+  name_prefix          = local.name_prefix
+  vpc_id               = module.network.vpc_id
+  subnet_id            = module.network.public_subnet_ids[0]
+  score_repository_url = module.analysis.repository_urls["score"]
+  parameter_prefix     = var.parameter_prefix
+
+  worker_idle_stop_seconds = var.gpu_worker_idle_stop_seconds
+  gpu_ami_id               = var.gpu_ami_id
+}
+
 module "database" {
   source = "./modules/database"
 

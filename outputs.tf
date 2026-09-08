@@ -174,3 +174,18 @@ output "admin_deploy_lock_path" {
   description = "관리자 호스트의 API/BackOffice 배포를 직렬화할 flock 파일"
   value       = module.admin_access.deploy_lock_path
 }
+
+output "score_gpu_image_pipeline_arn" {
+  description = "score GPU AMI 파이프라인 ARN. 수동 실행: aws imagebuilder start-image-pipeline-execution --image-pipeline-arn <this>"
+  value       = module.score_gpu.image_pipeline_arn
+}
+
+output "score_gpu_image" {
+  description = "GPU 워커가 부팅 때 pull 하는 이미지(리포지토리:gpu). AI 저장소 CI가 이 태그를 밀어야 워커가 뜬다"
+  value       = module.score_gpu.score_image
+}
+
+output "score_gpu_ami_id" {
+  description = "현재 gpu_ami_id 변수 값(3c 전에는 null)"
+  value       = module.score_gpu.gpu_ami_id
+}

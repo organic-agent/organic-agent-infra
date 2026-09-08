@@ -1,0 +1,158 @@
+# EC2 Image Builder 컴포넌트 — score GPU 워커 AMI (계획 §4.1 I1, 결정 B).
+#
+# AMI에 굽는 것: NVIDIA 드라이버(브랜치 고정) · Docker · nvidia-container-toolkit · 워커 systemd 유닛과 스크립트.
+# 굽지 않는 것: 코드 이미지(부팅 때 ECR `gpu` 이동 태그 pull) · DB 주소·비밀번호·버킷(기동 때 SSM).
+# 드라이버·베이스는 분기 1회 갱신 주기, 코드는 push마다 — 두 축을 나누기 위해서다(계획 §4.3).
+#
+# Terraform templatefile로 렌더링한다. `{{ }}`는 Image Builder가 체이닝 식으로 해석하므로 docker --format 같은 데 쓰지 않는다.
+name: ${component_name}
+description: AL2023 + NVIDIA driver ${nvidia_driver_branch} + Docker + nvidia-container-toolkit + wes-score worker unit
+schemaVersion: 1.0
+
+phases:
+  - name: build
+    steps:
+      # 최신 커널로 올린 뒤 재부팅해야 kernel-devel-$(uname -r)가 저장소에 있는 버전과 맞는다.
+      - name: UpdateOS
+        action: UpdateOS
+
+      - name: RebootAfterUpdate
+        action: Reboot
+        inputs:
+          delaySeconds: 5
+
+      # AL2023 NVIDIA 저장소(nvidia-release, AWS가 ALAS로 관리)에서 드라이버를 브랜치 고정으로 설치한다.
+      # nvidia-driver-cuda 는 dkms 로 커널 모듈을 빌드하므로 실행 중 커널의 devel·headers 가 먼저 필요하다.
+      - name: InstallNvidiaDriver
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+              dnf install -y "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)"
+              dnf install -y nvidia-release
+              if ! dnf install -y "nvidia-driver-cuda-${nvidia_driver_branch}.*"; then
+                echo "nvidia-driver-cuda ${nvidia_driver_branch} 브랜치를 저장소에서 찾지 못했다. 사용 가능한 버전:" >&2
+                dnf list --showduplicates nvidia-driver-cuda >&2 || true
+                exit 1
+              fi
+              # 드라이버가 오르지 않게 잠근다. AMI 안에서 dnf update 를 돌릴 일은 없지만 사람이 SSM으로 들어가 돌려도 유지된다.
+              dnf install -y python3-dnf-plugin-versionlock || echo "versionlock 플러그인 없음 — 건너뛴다" >&2
+              dnf versionlock add 'nvidia-driver-cuda*' 'nvidia-kmod*' 'kmod-nvidia*' 'nvidia-persistenced' || true
+              systemctl enable nvidia-persistenced || true
+
+      - name: RebootAfterDriver
+        action: Reboot
+        inputs:
+          delaySeconds: 5
+
+      - name: VerifyDriver
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+              nvidia-smi
+              major=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1 | cut -d. -f1)
+              if [ "$major" -lt ${nvidia_driver_min_major} ]; then
+                echo "드라이버 $major 는 컨테이너 CUDA 하한(${nvidia_driver_min_major})보다 낮다" >&2
+                exit 1
+              fi
+
+      # Docker + NVIDIA 컨테이너 툴킷. 툴킷은 NVIDIA 공식 libnvidia-container 저장소(AL2023 저장소에는 없다).
+      - name: InstallDockerAndToolkit
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+              dnf install -y docker
+              curl -fsSL https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
+                -o /etc/yum.repos.d/nvidia-container-toolkit.repo
+              dnf install -y nvidia-container-toolkit
+              nvidia-ctk runtime configure --runtime=docker
+              systemctl enable docker
+              systemctl restart docker
+              docker info 2>/dev/null | grep -Eq '^ *Runtimes:.*nvidia'
+
+      # 워커 유닛·스크립트. 본문은 modules/score-gpu/files/ 에 있고 Terraform 이 여기 끼워 넣는다.
+      - name: InstallWorkerUnit
+        action: CreateFile
+        inputs:
+          - path: /etc/wes-score/image.env
+            permissions: "0644"
+            overwrite: true
+            content: |
+              # AMI 빌드 때 Terraform 이 넣은 값. 기동마다 바뀌는 값(DB·버킷)은 여기 없다 — wes-score-env.sh 가 SSM 에서 읽는다.
+              WES_SCORE_IMAGE=${score_image}
+              AWS_REGION=${aws_region}
+              PARAMETER_PREFIX=${parameter_prefix}
+              WORKER_IDLE_STOP_SECONDS=${worker_idle_stop_seconds}
+          - path: /usr/local/bin/wes-score-env.sh
+            permissions: "0755"
+            overwrite: true
+            content: |
+              ${indent(14, env_script)}
+          - path: /usr/local/bin/wes-score-pull.sh
+            permissions: "0755"
+            overwrite: true
+            content: |
+              ${indent(14, pull_script)}
+          - path: /usr/local/bin/wes-score-failsafe.sh
+            permissions: "0755"
+            overwrite: true
+            content: |
+              ${indent(14, failsafe_script)}
+          - path: /etc/systemd/system/wes-score.service
+            permissions: "0644"
+            overwrite: true
+            content: |
+              ${indent(14, service_unit)}
+          - path: /etc/systemd/system/wes-score-failsafe.service
+            permissions: "0644"
+            overwrite: true
+            content: |
+              ${indent(14, failsafe_unit)}
+
+      - name: EnableWorkerUnit
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+              bash -n /usr/local/bin/wes-score-env.sh /usr/local/bin/wes-score-pull.sh /usr/local/bin/wes-score-failsafe.sh
+              systemctl daemon-reload
+              systemctl enable wes-score.service
+              systemd-analyze verify wes-score.service wes-score-failsafe.service
+              dnf clean all
+              rm -rf /var/cache/dnf
+
+  - name: validate
+    steps:
+      - name: ValidateBuild
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+              nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+              docker info 2>/dev/null | grep -Eq '^ *Runtimes:.*nvidia'
+              systemctl is-enabled docker wes-score
+              test -x /usr/local/bin/wes-score-env.sh
+              test -x /usr/local/bin/wes-score-pull.sh
+              grep -q "^WES_SCORE_IMAGE=${score_image}$" /etc/wes-score/image.env
+
+  # 만들어진 AMI 로 새 인스턴스를 띄워 확인한다(빌드 인스턴스가 아니다). 재부팅 뒤에도 드라이버·런타임이 사는지가 핵심.
+  # 이 인스턴스는 빌더 롤이라 wes-score 유닛의 SSM 읽기가 실패해 세 번 시도 후 멈춘다 — 의도된 동작이고 검사 대상이 아니다.
+  - name: test
+    steps:
+      - name: TestImage
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+              nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+              systemctl is-active docker
+              docker info 2>/dev/null | grep -Eq '^ *Runtimes:.*nvidia'
+              systemctl is-enabled wes-score
