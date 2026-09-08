@@ -344,9 +344,9 @@ variable "gpu_ami_id" {
 }
 
 variable "gpu_worker_idle_stop_seconds" {
-  description = "GPU 워커가 집을 사진이 없을 때 자기 인스턴스를 정지하기까지의 연속 유휴 초. AMI에 구워지므로 바꾸면 AMI 재빌드. 다중 사용자 운영 기준 600(계획 §4.4). AI 쪽 기본값 30은 단일 사용자 테스트용."
+  description = "GPU 워커가 집을 사진이 없을 때 자기 인스턴스를 정지하기까지의 연속 유휴 초. AMI에 구워지므로 바꾸면 AMI 재빌드(component_version·recipe_version도 올린다). 작업이 끝나면 바로 끄기로 해 30(#51) — wes의 2분 무진행 안전망이 뒤를 받친다. 다중 사용자 운영이면 600(계획 §4.4)."
   type        = number
-  default     = 600
+  default     = 30
 }
 
 variable "embedder_memory_mb" {
