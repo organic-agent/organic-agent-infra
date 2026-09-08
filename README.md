@@ -8,9 +8,9 @@ OAuth 로그인과 사진 갤러리(업로드·AI 분석) 테스트용 AWS 인�
 
 현재 Terraform 기본값 기준. 서비스 요청 경로와 배포·설정·state 흐름을 색으로 구분해 표시한다.
 
-![WES 인프라 아키텍처](docs/wes-infrastructure-architecture.png)
+![WES 인프라 아키텍처](docs/architecture/wes-infrastructure-architecture.png)
 
-편집 원본 : [`docs/wes-infrastructure-architecture.drawio`](docs/wes-infrastructure-architecture.drawio)
+편집 원본 : [`docs/architecture/wes-infrastructure-architecture.drawio`](docs/architecture/wes-infrastructure-architecture.drawio)
 
 ---
 
@@ -47,10 +47,8 @@ PR을 열면 CI가 같은 검사와 `plan`을 돌려 요약을 댓글로 달고,
 
 ## # 문서
 
-배포·운영 절차와 Terraform 학습 내용은 별도 문서에서 관리한다.
+`docs/`는 성격별로 나뉜다 — 분류 기준과 전체 목록은 [docs/README.md](docs/README.md).
 
-- [배포 순서](docs/deploy-order.md)
-- [운영 런북](docs/runbook.md)
-- [백오피스 Tailscale 내부 접근](docs/admin-internal-access.md)
-- [분석 파이프라인 v2 인프라 계획](docs/pipeline-v2-infra-plan.md) — GPU score 워커 풀·AMI 파이프라인·Phase 0 커넥션 상한
-- [Terraform 학습 가이드](wes-terraform-learning-guide.md)
+- 운영: [배포 순서](docs/runbooks/deploy-order.md) · [운영 런북](docs/runbooks/runbook.md) · [테스트 프론트](docs/runbooks/frontend-test.md)
+- 아키텍처: [그림 원본](docs/architecture/wes-infrastructure-architecture.drawio) · [백오피스 Tailscale 내부 접근](docs/architecture/admin-internal-access.md) · [Terraform 학습 가이드](docs/architecture/study/wes-terraform-learning-guide.md)
+- 계획: [분석 파이프라인 v2 인프라 계획](docs/plans/pipeline-v2-infra-plan.md) — GPU score 워커 풀·AMI 파이프라인·Phase 0 커넥션 상한

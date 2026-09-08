@@ -595,7 +595,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
 3. 알람: ALB 5xx·헬스체크 실패 / EC2 CPU·메모리·디스크 / RDS CPU·연결 수·스토리지.
 4. SNS → 이메일/슬랙. 수신자는 변수로 (저장소에 직접 X).
    알람 테스트 팁: 임계값을 일시적으로 낮춰 실제 통지가 오는지 1회 확인.
-5. 런북 `docs/runbook.md`: 로그 조회, 재배포, 롤백, DB 복구, State 복구 절차.
+5. 런북 `docs/runbooks/runbook.md`: 로그 조회, 재배포, 롤백, DB 복구, State 복구 절차.
 6. **최종 스모크 테스트** — 5단계 output의 URL 기준:
 
    | # | 시나리오 | Google | Naver | Kakao |

@@ -231,7 +231,7 @@ ALTER ROLE wes_admin   CONNECTION LIMIT 40;   -- 앱(마스터)
 
 상한 값의 근거와 embedder 동시성을 올릴 때 함께 올려야 하는 이유는
 [runbook.md > DB 사용자](runbook.md#-1-db-사용자-db를-새로-만들-때마다)와
-[분석 파이프라인 v2 인프라 계획](pipeline-v2-infra-plan.md) 결정 E.
+[분석 파이프라인 v2 인프라 계획](../plans/pipeline-v2-infra-plan.md) 결정 E.
 
 **7-2. 비밀번호 주입** — 함수를 새로 만들 때마다, 함수 셋 각각. Terraform이 넣으면 state에 평문으로
 남으므로 apply 밖에서 넣고, `ignore_changes`가 이후 apply에서 그 키를 지킨다.
