@@ -1,56 +1,56 @@
-<mxfile host="Electron" agent="Claude">
-  <diagram id="wes-infra-aws" name="WES Infrastructure — 한눈에 보기">
-    <mxGraphModel dx="1184" dy="881" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2140" pageHeight="1450" background="#FFFFFF" math="0" shadow="0">
+<mxfile host="app.diagrams.net" agent="Claude">
+  <diagram id="wes-infra-aws" name="WES Infrastructure — 한눈에 보기 (2026-09-09)">
+    <mxGraphModel dx="4191" dy="1047" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2700" pageHeight="1650" background="#FFFFFF" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="aws-cloud" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud;strokeColor=#232F3E;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=13;fontStyle=0;container=0;pointerEvents=0;collapsible=0;recursiveResize=0;" value="AWS Cloud · ap-northeast-2 (Seoul)" vertex="1">
-          <mxGeometry height="1280" width="1420" x="300" y="120" as="geometry" />
+        <mxCell id="aws-cloud" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud;strokeColor=#232F3E;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=13;fontStyle=0;container=0;pointerEvents=0;collapsible=0;recursiveResize=0;" value="AWS Cloud · ap-northeast-2 (Seoul) · 계정 하나 · Terraform app + dns 스택" vertex="1">
+          <mxGeometry height="1440" width="2130" x="300" y="120" as="geometry" />
         </mxCell>
-        <mxCell id="vpc" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc2;strokeColor=#8C4FFF;fillColor=none;verticalAlign=top;align=right;spacingRight=10;fontColor=#8C4FFF;dashed=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;container=0;pointerEvents=0;collapsible=0;recursiveResize=0;" value="VPC · 10.0.0.0/16" vertex="1">
-          <mxGeometry height="600" width="940" x="560" y="330" as="geometry" />
+        <mxCell id="vpc" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc2;strokeColor=#8C4FFF;fillColor=none;verticalAlign=top;align=right;spacingRight=10;fontColor=#8C4FFF;dashed=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;container=0;pointerEvents=0;collapsible=0;recursiveResize=0;" value="VPC · 10.0.0.0/16 · 2 AZ (2a · 2c) · NAT 없음" vertex="1">
+          <mxGeometry height="780" width="1580" x="560" y="330" as="geometry" />
         </mxCell>
         <mxCell id="public-subnet" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F6E8;strokeColor=#7AA116;dashed=0;pointerEvents=0;" value="" vertex="1">
-          <mxGeometry height="234" width="430" x="650" y="396" as="geometry" />
+          <mxGeometry height="420" width="620" x="650" y="396" as="geometry" />
         </mxCell>
         <mxCell id="db-subnet" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6F6F7;strokeColor=#00A4A6;dashed=0;pointerEvents=0;" value="" vertex="1">
-          <mxGeometry height="234" width="310" x="1130" y="396" as="geometry" />
+          <mxGeometry height="420" width="800" x="1320" y="396" as="geometry" />
+        </mxCell>
+        <mxCell id="admin-ec2-boundary-main" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F6E8;strokeColor=#7AA116;dashed=0;pointerEvents=0;" value="" vertex="1">
+          <mxGeometry height="210" width="840" x="650" y="850" as="geometry" />
         </mxCell>
         <mxCell id="diagram-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#232F3E;fontSize=26;fontStyle=1;" value="WES 인프라" vertex="1">
           <mxGeometry height="36" width="150" x="40" y="20" as="geometry" />
         </mxCell>
-        <mxCell id="diagram-subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#545B64;fontSize=12;" value="api.easyselect.kr 공개 경로 + admin.easyselect.kr Tailscale 전용 경로 · Terraform app + dns 스택 · 세부값은 variables.tf 기준" vertex="1">
-          <mxGeometry height="22" width="980" x="40" y="56" as="geometry" />
+        <mxCell id="diagram-subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#545B64;fontSize=12;" value="api.easyselect.kr 공개 경로 + admin.easyselect.kr Tailscale 전용 경로 + 사진 업로드 → AI 분석 v2 파이프라인 (embedder → score[GPU 워커 풀 / Lambda 폴백] → categorize) · 2026-09-09 main 기준 · 세부값은 variables.tf" vertex="1">
+          <mxGeometry height="22" width="1400" x="40" y="56" as="geometry" />
         </mxCell>
-        <mxCell id="public-subnet-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#248814;fontSize=11;fontStyle=1;" value="Public subnet ×2" vertex="1">
-          <mxGeometry height="20" width="160" x="650" y="364" as="geometry" />
+        <mxCell id="public-subnet-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#248814;fontSize=11;fontStyle=1;" value="Public subnet ×2 · 10.0.0.0/24 (2a) · 10.0.1.0/24 (2c)" vertex="1">
+          <mxGeometry height="20" width="420" x="650" y="364" as="geometry" />
         </mxCell>
-        <mxCell id="db-subnet-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#147EBA;fontSize=11;fontStyle=1;" value="DB subnet ×2 — 인터넷 라우트 없음" vertex="1">
-          <mxGeometry height="20" width="240" x="1130" y="364" as="geometry" />
+        <mxCell id="db-subnet-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#147EBA;fontSize=11;fontStyle=1;" value="DB subnet ×2 · 10.0.10.0/24 · 10.0.11.0/24 — 인터넷 라우트 없음 · Lambda ENI도 여기" vertex="1">
+          <mxGeometry height="20" width="560" x="1320" y="364" as="geometry" />
         </mxCell>
-        <mxCell id="vpc-cidr-caption" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#879196;fontSize=9.5;fontStyle=2;" value="CIDR — public 10.0.0.0/24(2a) · 10.0.1.0/24(2c) / db 10.0.10.0/24 · 10.0.11.0/24" vertex="1">
-          <mxGeometry height="18" width="500" x="580" y="634" as="geometry" />
+        <mxCell id="vpc-cidr-caption" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#879196;fontSize=9.5;" value="인바운드 요약 — RDS :5432 ← EC2 SG · Lambda SG · GPU SG · admin SG / 모니터링 :3100 ← app · admin SG / GPU·admin SG 인바운드 0" vertex="1">
+          <mxGeometry height="18" width="830" x="1300" y="818" as="geometry" />
         </mxCell>
-        <mxCell id="label-route53" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=bottom;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Route 53&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;easyselect.kr 존 · dns/ 스택&lt;br&gt;api → ALB · admin → Tailscale IP&lt;/font&gt;" vertex="1">
-          <mxGeometry height="58" width="210" x="509" y="138" as="geometry" />
+        <mxCell id="label-route53" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=bottom;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Route 53&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;easyselect.kr 존 · dns/ 스택&lt;br&gt;api → ALB · admin → Tailscale IP&lt;br&gt;monitoring · test → EIP 직결&lt;/font&gt;" vertex="1">
+          <mxGeometry height="68" width="230" x="499" y="128" as="geometry" />
         </mxCell>
         <mxCell id="label-acm" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=bottom;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;ACM 인증서&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;api.easyselect.kr&lt;br&gt;DNS 검증&lt;/font&gt;" vertex="1">
           <mxGeometry height="48" width="160" x="764" y="148" as="geometry" />
         </mxCell>
-        <mxCell id="label-parameter-store" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=bottom;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Parameter Store (SSM)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;/wes/prod/* · 공개 API&lt;br&gt;/wes/admin-api/prod/* · 관리자 API&lt;br&gt;/wes/admin/* · Tailscale bootstrap&lt;/font&gt;" vertex="1">
-          <mxGeometry height="68" width="280" x="914" y="128" as="geometry" />
+        <mxCell id="label-parameter-store" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=bottom;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Parameter Store (SSM)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;/wes/prod/* · 공개 API (+ analysis 함수 이름 3 · gpu.enabled · loki-url)&lt;br&gt;/wes/admin-api/prod/* · 관리자 API&lt;br&gt;/wes/admin/* Tailscale · /wes/monitoring/* Grafana · /wes/local/* dev&lt;/font&gt;" vertex="1">
+          <mxGeometry height="78" width="320" x="894" y="118" as="geometry" />
         </mxCell>
-        <mxCell id="note-parameter-store" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;fontColor=#879196;fontSize=9;" value="공개·관리자 DB 계정과 설정 prefix 분리&lt;br&gt;password·CORS·auth key → SecureString 수동 등록&lt;br&gt;(비밀값은 코드·Terraform state에 넣지 않음)" vertex="1">
-          <mxGeometry height="52" width="270" x="1104" y="210" as="geometry" />
+        <mxCell id="note-parameter-store" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;fontColor=#879196;fontSize=9;" value="계정·설정 prefix를 서비스별로 분리&lt;br&gt;password · CORS · auth key → SecureString 수동 등록&lt;br&gt;(비밀값은 코드·Terraform state에 넣지 않음)&lt;br&gt;GPU 워커는 datasource.url · bucket · 비밀번호 3개 키만" vertex="1">
+          <mxGeometry height="60" width="290" x="1104" y="206" as="geometry" />
         </mxCell>
-        <mxCell id="deploy-header" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#D97706;fontSize=12.5;fontStyle=1;" value="배포 — 커밋 한 번이 운영에 반영되는 길 (SSH 없음)" vertex="1">
-          <mxGeometry height="20" width="274" x="320" y="970" as="geometry" />
+        <mxCell id="label-ecr" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=bottom;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;ECR ×3&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;wes-embedder · wes-score · wes-categorize&lt;br&gt;Lambda 컨테이너 이미지 (x86_64)&lt;br&gt;GPU 워커는 wes-score:gpu 태그 · gpu-&amp;lt;sha&amp;gt; 최근 3개 보관&lt;/font&gt;" vertex="1">
+          <mxGeometry height="68" width="330" x="1470" y="128" as="geometry" />
         </mxCell>
-        <mxCell id="iac-header" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#545B64;fontSize=12.5;fontStyle=1;" value="프로비저닝 · 원격 상태" vertex="1">
-          <mxGeometry height="20" width="120" x="320" y="1170" as="geometry" />
-        </mxCell>
-        <mxCell id="client" parent="1" style="shape=mxgraph.aws4.user;fillColor=#879196;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="70" y="476" as="geometry" />
+        <mxCell id="label-bedrock" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=bottom;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Bedrock&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;global.anthropic.claude-sonnet-4-6&lt;br&gt;categorize 그룹 이름 짓기&lt;br&gt;앱(wes-app) 추천 이유 · 비교샷 판정 InvokeModel&lt;/font&gt;" vertex="1">
+          <mxGeometry height="68" width="310" x="1880" y="128" as="geometry" />
         </mxCell>
         <mxCell id="route53" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.route_53;fillColor=#8C4FFF;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
           <mxGeometry height="68" width="68" x="580" y="200" as="geometry" />
@@ -61,206 +61,202 @@
         <mxCell id="parameter-store" parent="1" style="shape=mxgraph.aws4.parameter_store;fillColor=#E7157B;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
           <mxGeometry height="68" width="68" x="1020" y="200" as="geometry" />
         </mxCell>
-        <mxCell id="igw" parent="1" style="shape=mxgraph.aws4.internet_gateway;fillColor=#8C4FFF;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="526" y="476" as="geometry" />
+        <mxCell id="ecr" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ecr;fillColor=#ED7100;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1600" y="200" as="geometry" />
         </mxCell>
-        <mxCell id="alb" parent="1" style="shape=mxgraph.aws4.application_load_balancer;fillColor=#8C4FFF;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="700" y="476" as="geometry" />
+        <mxCell id="bedrock" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;fillColor=#01A88D;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="2000" y="200" as="geometry" />
         </mxCell>
-        <mxCell id="ec2" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;fillColor=#ED7100;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="960" y="476" as="geometry" />
-        </mxCell>
-        <mxCell id="rds" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.postgresql_instance;fillColor=#527FFF;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="1180" y="476" as="geometry" />
-        </mxCell>
-        <mxCell id="lambda" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;fillColor=#ED7100;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="1330" y="476" as="geometry" />
-        </mxCell>
-        <mxCell id="s3-photos" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fillColor=#7AA116;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="1580" y="476" as="geometry" />
-        </mxCell>
-        <mxCell id="github-actions" parent="1" style="dashed=0;outlineConnect=0;html=1;align=center;shape=mxgraph.weblogos.github;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="70" y="1020" as="geometry" />
-        </mxCell>
-        <mxCell id="deploy-role" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.identity_and_access_management;fillColor=#DD344C;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="560" y="1020" as="geometry" />
-        </mxCell>
-        <mxCell id="run-command" parent="1" style="shape=mxgraph.aws4.run_command;fillColor=#E7157B;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="860" y="1020" as="geometry" />
-        </mxCell>
-        <mxCell id="terraform" parent="1" style="shape=mxgraph.aws4.external_toolkit;fillColor=#879196;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="70" y="1210" as="geometry" />
-        </mxCell>
-        <mxCell id="state-backend" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fillColor=#7AA116;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="1280" y="1210" as="geometry" />
+        <mxCell id="client" parent="1" style="shape=mxgraph.aws4.user;fillColor=#879196;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="70" y="440" as="geometry" />
         </mxCell>
         <mxCell id="label-client" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;사용자 / 클라이언트&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;앱 · OAuth 브라우저&lt;/font&gt;" vertex="1">
-          <mxGeometry height="40" width="150" x="29" y="548" as="geometry" />
+          <mxGeometry height="40" width="150" x="29" y="512" as="geometry" />
+        </mxCell>
+        <mxCell id="igw" parent="1" style="shape=mxgraph.aws4.internet_gateway;fillColor=#8C4FFF;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="526" y="440" as="geometry" />
         </mxCell>
         <mxCell id="label-igw" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10;" value="Internet Gateway" vertex="1">
-          <mxGeometry height="20" width="140" x="490" y="548" as="geometry" />
+          <mxGeometry height="20" width="140" x="490" y="512" as="geometry" />
         </mxCell>
-        <mxCell id="label-alb" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Application Load Balancer&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;:80 → :443 리다이렉트&lt;br&gt;헬스체크 /actuator/health&lt;br&gt;두 AZ 퍼블릭 서브넷에 걸침&lt;/font&gt;" vertex="1">
-          <mxGeometry height="70" width="190" x="639" y="550" as="geometry" />
+        <mxCell id="alb" parent="1" style="shape=mxgraph.aws4.application_load_balancer;fillColor=#8C4FFF;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="690" y="440" as="geometry" />
         </mxCell>
-        <mxCell id="label-ec2" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;EC2 · wes-app&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;t4g.micro (arm64) · 1대&lt;br&gt;wes-api · Flyway migration owner&lt;/font&gt;" vertex="1">
-          <mxGeometry height="56" width="170" x="909" y="550" as="geometry" />
+        <mxCell id="label-alb" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Application Load Balancer&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;:80 → :443 리다이렉트 · ACM&lt;br&gt;헬스체크 /actuator/health&lt;br&gt;/internal/admin* → 404 고정&lt;br&gt;두 AZ 퍼블릭 서브넷에 걸침&lt;/font&gt;" vertex="1">
+          <mxGeometry height="76" width="190" x="629" y="512" as="geometry" />
         </mxCell>
-        <mxCell id="label-rds" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;RDS PostgreSQL&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Single-AZ · 비공개&lt;br&gt;IAM DB 인증 켬&lt;/font&gt;" vertex="1">
-          <mxGeometry height="56" width="150" x="1139" y="550" as="geometry" />
+        <mxCell id="ec2" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;fillColor=#ED7100;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="920" y="440" as="geometry" />
         </mxCell>
-        <mxCell id="label-lambda" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Lambda · wes-embedder&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;DINOv2 컨테이너 (ECR)&lt;br&gt;15분 상한 · 갤러리 단위&lt;/font&gt;" vertex="1">
-          <mxGeometry height="56" width="140" x="1294" y="550" as="geometry" />
+        <mxCell id="label-ec2" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;EC2 · wes-app&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;t4g.micro (arm64) · 1대 · wes-api :8080&lt;br&gt;Flyway migration owner&lt;br&gt;분석 오케스트레이터 · 잡 상태·단계·재시도 소유&lt;br&gt;Bedrock 추천 이유 · 비교샷 판정&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="200" x="854" y="512" as="geometry" />
         </mxCell>
-        <mxCell id="label-s3-photos" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;S3 · 사진 원본&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;wes-photos-* · 완전 비공개&lt;br&gt;앱은 서명 URL 발급·삭제만&lt;/font&gt;" vertex="1">
-          <mxGeometry height="56" width="160" x="1534" y="550" as="geometry" />
+        <mxCell id="frontend-test" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;fillColor=#7AA116;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="700" y="640" as="geometry" />
         </mxCell>
-        <mxCell id="label-github" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;GitHub Actions (CD)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;WES-Server + WES-BackOffice&lt;br&gt;커밋 SHA 이미지&lt;/font&gt;" vertex="1">
-          <mxGeometry height="52" width="220" x="-6" y="1092" as="geometry" />
+        <mxCell id="label-frontend-test" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;EC2 · wes-frontend-test&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;t4g.small + EIP · test.easyselect.kr&lt;br&gt;Caddy 정적 · :80/:443 공개&lt;br&gt;릴리스 zip S3 → 고정 SSM 문서만 실행&lt;br&gt;StatusCheckFailed 알람&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="180" x="644" y="712" as="geometry" />
         </mxCell>
-        <mxCell id="label-iam" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;전용 IAM 배포 롤 ×3&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;공개 API · 관리자 API · BackOffice&lt;br&gt;각 대상 Name tag만 허용&lt;/font&gt;" vertex="1">
-          <mxGeometry height="52" width="230" x="479" y="1092" as="geometry" />
+        <mxCell id="monitoring" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;fillColor=#5B5FB0;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="900" y="640" as="geometry" />
         </mxCell>
-        <mxCell id="label-run-command" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;SSM Run Command&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;wes-app · wes-admin 대상&lt;br&gt;관리자 host lock 공유&lt;/font&gt;" vertex="1">
-          <mxGeometry height="52" width="210" x="789" y="1092" as="geometry" />
+        <mxCell id="label-monitoring" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;EC2 · wes-monitoring&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;t4g.micro + EIP · Loki 3.5 :3100 · Grafana 12 · Caddy&lt;br&gt;monitoring.easyselect.kr → EIP (ALB 아님)&lt;br&gt;앱·관리자 API가 사설 IP :3100으로 push&lt;br&gt;보존 168h&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="200" x="834" y="712" as="geometry" />
         </mxCell>
-        <mxCell id="label-terraform" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Terraform CLI&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;운영자 로컬 · 이 그림의&lt;br&gt;AWS 리소스 전부를 생성&lt;/font&gt;" vertex="1">
-          <mxGeometry height="52" width="170" x="19" y="1282" as="geometry" />
+        <mxCell id="gpu-workers" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;fillColor=#C2410C;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1120" y="640" as="geometry" />
         </mxCell>
-        <mxCell id="label-s3" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;S3 원격 state&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;wes-tf-state-* · app/·dns/ 키&lt;/font&gt;" vertex="1">
-          <mxGeometry height="40" width="200" x="1214" y="1282" as="geometry" />
+        <mxCell id="label-gpu-workers" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;EC2 · wes-score-gpu ×2&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;g6.xlarge (L4 24GB) · AZ마다 1대 · 기본 정지&lt;br&gt;SG 인바운드 0 · SSM만 · 부팅 시 ECR wes-score:gpu pull&lt;br&gt;previews/ GET → CLIP·ARNIQA·LAION 점수 → RDS&lt;br&gt;유휴 30초 자기 정지 · CPU&amp;lt;5% 30분 알람 정지(최후)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="88" width="220" x="1044" y="712" as="geometry" />
         </mxCell>
-        <mxCell id="admin-lane-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#155E75;fontSize=12.5;fontStyle=1;" value="BackOffice + 비공개 관리자 API · admin.easyselect.kr · 공개 경로/ALB 우회" vertex="1">
-          <mxGeometry height="22" width="580" x="40" y="682" as="geometry" />
+        <mxCell id="lambda-embedder" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;fillColor=#ED7100;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1400" y="440" as="geometry" />
         </mxCell>
-        <mxCell id="admin-ec2-boundary-main" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F6E8;strokeColor=#7AA116;dashed=0;pointerEvents=0;" value="" vertex="1">
-          <mxGeometry height="210" width="840" x="650" y="700" as="geometry" />
+        <mxCell id="label-lambda-embedder" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Lambda · wes-embedder&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;DINOv3 컨테이너 · 3008MB · 동시 32 · 900s&lt;br&gt;원본 GET → previews/ PUT&lt;br&gt;임베딩 768d → photo_analysis&lt;/font&gt;" vertex="1">
+          <mxGeometry height="66" width="190" x="1339" y="512" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda-score" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;fillColor=#ED7100;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1600" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="label-lambda-score" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Lambda · wes-score&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;CLIP·ARNIQA·LAION · 8192MB · /tmp 10GB · 동시 32&lt;br&gt;&lt;b&gt;폴백 전용&lt;/b&gt; — gpu.enabled=true라 평소엔 GPU 워커가 처리&lt;br&gt;previews/ GET → 점수 → photo_analysis&lt;/font&gt;" vertex="1">
+          <mxGeometry height="66" width="190" x="1539" y="512" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda-categorize" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;fillColor=#ED7100;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1800" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="label-lambda-categorize" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Lambda · wes-categorize&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;3008MB · 동시 2 · 갤러리 단위&lt;br&gt;거리행렬로 그룹 묶기 → Bedrock 이름&lt;br&gt;→ ai_concept_assignments&lt;/font&gt;" vertex="1">
+          <mxGeometry height="66" width="190" x="1739" y="512" as="geometry" />
+        </mxCell>
+        <mxCell id="rds" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.postgresql_instance;fillColor=#527FFF;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1370" y="640" as="geometry" />
+        </mxCell>
+        <mxCell id="label-rds" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;RDS PostgreSQL 16.14&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;db.t4g.micro · 20GB · Single-AZ · 비공개&lt;br&gt;IAM DB 인증 켬&lt;br&gt;계정 wes_admin(40) · embedder(32)&lt;br&gt;photoselect(24) · wes_admin_api&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="160" x="1324" y="712" as="geometry" />
+        </mxCell>
+        <mxCell id="s3-endpoint" parent="1" style="shape=mxgraph.aws4.endpoint;fillColor=#8C4FFF;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1600" y="640" as="geometry" />
+        </mxCell>
+        <mxCell id="label-s3-endpoint" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;S3 게이트웨이 EP&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;DB 라우트 테이블에만&lt;br&gt;Lambda의 S3 경로&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="170" x="1549" y="712" as="geometry" />
+        </mxCell>
+        <mxCell id="bedrock-endpoint" parent="1" style="shape=mxgraph.aws4.endpoint;fillColor=#8C4FFF;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="2000" y="640" as="geometry" />
+        </mxCell>
+        <mxCell id="label-bedrock-endpoint" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;bedrock-runtime 인터페이스 EP&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;2a 한 AZ만&lt;br&gt;categorize → Bedrock&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="210" x="1929" y="712" as="geometry" />
+        </mxCell>
+        <mxCell id="s3-photos" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fillColor=#7AA116;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="2220" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="label-s3-photos" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;S3 · 사진 원본 + previews/&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;wes-photos-* · 완전 비공개&lt;br&gt;앱은 서명 URL 발급·삭제만&lt;br&gt;CORS = 공개 오리진 + admin 오리진&lt;/font&gt;" vertex="1">
+          <mxGeometry height="66" width="170" x="2170" y="512" as="geometry" />
+        </mxCell>
+        <mxCell id="note-pipeline" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#FDBA74;align=left;verticalAlign=top;spacing=8;fontColor=#9A3412;fontSize=9.5;" value="&lt;b&gt;AI 분석 v2 (2026-09-08~)&lt;/b&gt;&lt;br&gt;wes 스위퍼가 photoIds 배치를 EVENT로 보내고, 각 단계는 RDS에 쓰고 끝난다. 단계 순서·잡 상태·재시도는 전부 wes 소유.&lt;br&gt;Lambda 간 호출·자기 재호출 폐지(#57) → lambda 인터페이스 EP 제거.&lt;br&gt;Lambda 재시도 0 · 이벤트 age 20분 · AsyncEventAge / AsyncEventsDropped 알람.&lt;br&gt;score는 gpu.enabled=true면 GPU 워커, Lambda는 폴백.&lt;br&gt;S3 ObjectCreated 트리거를 쓰지 않는 이유: 수천 장 업로드 = Lambda 수천 개 = RDS 커넥션 고갈." vertex="1">
+          <mxGeometry height="190" width="250" x="2160" y="830" as="geometry" />
+        </mxCell>
+        <mxCell id="admin-lane-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#155E75;fontSize=12.5;fontStyle=1;" value="BackOffice + 비공개 관리자 API · admin.easyselect.kr · 공개 경로/ALB 우회 (ALB는 /internal/admin* → 404)" vertex="1">
+          <mxGeometry height="22" width="600" x="40" y="832" as="geometry" />
         </mxCell>
         <mxCell id="admin-ec2-title-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#248814;fontSize=11;fontStyle=1;" value="Public subnet · wes-admin t4g.small · SG 인바운드 0개 · 격리 Docker 네트워크 2개" vertex="1">
-          <mxGeometry height="20" width="620" x="650" y="680" as="geometry" />
+          <mxGeometry height="20" width="620" x="650" y="830" as="geometry" />
         </mxCell>
         <mxCell id="admin-super-admin-main" parent="1" style="shape=mxgraph.aws4.user;fillColor=#0F766E;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="70" y="730" as="geometry" />
+          <mxGeometry height="68" width="68" x="70" y="880" as="geometry" />
         </mxCell>
         <mxCell id="admin-grant-main" parent="1" style="shape=image;html=1;imageAspect=0;aspect=fixed;image=data:image/svg+xml,PHN2ZyB3aWR0aD0iMjUyIiBoZWlnaHQ9IjI1MiIgdmlld0JveD0iMCAwIDI1MiAyNTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyNTIiIGhlaWdodD0iMjUyIiByeD0iNjMiIGZpbGw9IiMxRjFFMUUiLz4KPHBhdGggZD0iTTcyIDE0NEM4MS45NDExIDE0NCA5MCAxMzUuOTQxIDkwIDEyNkM5MCAxMTYuMDU5IDgxLjk0MTEgMTA4IDcyIDEwOEM2Mi4wNTg5IDEwOCA1NCAxMTYuMDU5IDU0IDEyNkM1NCAxMzUuOTQxIDYyLjA1ODkgMTQ0IDcyIDE0NFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMjYgMTQ0QzEzNS45NDEgMTQ0IDE0NCAxMzUuOTQxIDE0NCAxMjZDMTQ0IDExNi4wNTkgMTM1Ljk0MSAxMDggMTI2IDEwOEMxMTYuMDU5IDEwOCAxMDggMTE2LjA1OSAxMDggMTI2QzEwOCAxMzUuOTQxIDExNi4wNTkgMTQ0IDEyNiAxNDRaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTI2IDE5OEMxMzUuOTQxIDE5OCAxNDQgMTg5Ljk0MSAxNDQgMTgwQzE0NCAxNzAuMDU5IDEzNS45NDEgMTYyIDEyNiAxNjJDMTE2LjA1OSAxNjIgMTA4IDE3MC4wNTkgMTA4IDE4MEMxMDggMTg5Ljk0MSAxMTYuMDU5IDE5OCAxMjYgMTk4WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE4MCAxNDRDMTg5Ljk0MSAxNDQgMTk4IDEzNS45NDEgMTk4IDEyNkMxOTggMTE2LjA1OSAxODkuOTQxIDEwOCAxODAgMTA4QzE3MC4wNTkgMTA4IDE2MiAxMTYuMDU5IDE2MiAxMjZDMTYyIDEzNS45NDEgMTcwLjA1OSAxNDQgMTgwIDE0NFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik03MiAxOThDODEuOTQxMSAxOTggOTAgMTg5Ljk0MSA5MCAxODBDOTAgMTcwLjA1OSA4MS45NDExIDE2MiA3MiAxNjJDNjIuMDU4OSAxNjIgNTQgMTcwLjA1OSA1NCAxODBDNTQgMTg5Ljk0MSA2Mi4wNTg5IDE5OCA3MiAxOThaIiBmaWxsPSJ3aGl0ZSIgZmlsbC1vcGFjaXR5PSIwLjQiLz4KPHBhdGggZD0iTTE4MCAxOThDMTg5Ljk0MSAxOTggMTk4IDE4OS45NDEgMTk4IDE4MEMxOTggMTcwLjA1OSAxODkuOTQxIDE2MiAxODAgMTYyQzE3MC4wNTkgMTYyIDE2MiAxNzAuMDU5IDE2MiAxODBDMTYyIDE4OS45NDEgMTcwLjA1OSAxOTggMTgwIDE5OFoiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuNCIvPgo8cGF0aCBkPSJNNzIgOTBDODEuOTQxMSA5MCA5MCA4MS45NDExIDkwIDcyQzkwIDYyLjA1ODkgODEuOTQxMSA1NCA3MiA1NEM2Mi4wNTg5IDU0IDU0IDYyLjA1ODkgNTQgNzJDNTQgODEuOTQxMSA2Mi4wNTg5IDkwIDcyIDkwWiIgZmlsbD0id2hpdGUiIGZpbGwtb3BhY2l0eT0iMC40Ii8+CjxwYXRoIGQ9Ik0xMjYgOTBDMTM1Ljk0MSA5MCAxNDQgODEuOTQxMSAxNDQgNzJDMTQ0IDYyLjA1ODkgMTM1Ljk0MSA1NCAxMjYgNTRDMTE2LjA1OSA1NCAxMDggNjIuMDU4OSAxMDggNzJDMTA4IDgxLjk0MTEgMTE2LjA1OSA5MCAxMjYgOTBaIiBmaWxsPSJ3aGl0ZSIgZmlsbC1vcGFjaXR5PSIwLjQiLz4KPHBhdGggZD0iTTE4MCA5MEMxODkuOTQxIDkwIDE5OCA4MS45NDExIDE5OCA3MkMxOTggNjIuMDU4OSAxODkuOTQxIDU0IDE4MCA1NEMxNzAuMDU5IDU0IDE2MiA2Mi4wNTg5IDE2MiA3MkMxNjIgODEuOTQxMSAxNzAuMDU5IDkwIDE4MCA5MFoiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuNCIvPgo8L3N2Zz4K;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="390" y="730" as="geometry" />
+          <mxGeometry height="68" width="68" x="390" y="880" as="geometry" />
         </mxCell>
         <mxCell id="admin-serve-main" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;fillColor=#ED7100;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="690" y="730" as="geometry" />
+          <mxGeometry height="68" width="68" x="690" y="880" as="geometry" />
         </mxCell>
         <mxCell id="admin-caddy-main" parent="1" style="shape=image;html=1;imageAspect=0;aspect=fixed;image=data:image/png,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;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="880" y="730" as="geometry" />
+          <mxGeometry height="68" width="68" x="880" y="880" as="geometry" />
         </mxCell>
         <mxCell id="admin-app-main" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.container_1;fillColor=#ED7100;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="1080" y="730" as="geometry" />
+          <mxGeometry height="68" width="68" x="1080" y="880" as="geometry" />
         </mxCell>
         <mxCell id="admin-api-main" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.container_1;fillColor=#0F766E;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
-          <mxGeometry height="68" width="68" x="1320" y="730" as="geometry" />
+          <mxGeometry height="68" width="68" x="1320" y="880" as="geometry" />
         </mxCell>
         <mxCell id="label-admin-super-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;tailnet 등록 기기&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;사용자 소유 기기&lt;br&gt;tag 기반 노드&lt;/font&gt;" vertex="1">
-          <mxGeometry height="50" width="180" x="14" y="802" as="geometry" />
+          <mxGeometry height="50" width="180" x="14" y="952" as="geometry" />
         </mxCell>
         <mxCell id="label-admin-grant-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;Tailscale grant&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;member + tagged&lt;br&gt;→ tag:wes-admin · tcp:443만&lt;/font&gt;" vertex="1">
-          <mxGeometry height="50" width="210" x="319" y="802" as="geometry" />
+          <mxGeometry height="50" width="210" x="319" y="952" as="geometry" />
         </mxCell>
         <mxCell id="label-admin-serve-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;EC2 · wes-admin&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Tailscale Serve :443&lt;br&gt;SSM auth key는 최초 가입만&lt;/font&gt;" vertex="1">
-          <mxGeometry height="56" width="180" x="634" y="802" as="geometry" />
+          <mxGeometry height="56" width="180" x="634" y="952" as="geometry" />
         </mxCell>
-        <mxCell id="label-admin-caddy-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;Caddy · TLS 종료&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;127.0.0.1:8443&lt;br&gt;Let's Encrypt + Route53 DNS-01&lt;/font&gt;" vertex="1">
-          <mxGeometry height="56" width="190" x="819" y="802" as="geometry" />
+        <mxCell id="label-admin-caddy-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;Caddy · TLS 종료&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;127.0.0.1:8443&lt;br&gt;Let&#39;s Encrypt + Route53 DNS-01&lt;/font&gt;" vertex="1">
+          <mxGeometry height="56" width="190" x="819" y="952" as="geometry" />
         </mxCell>
         <mxCell id="label-admin-app-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;WES-BackOffice · Next BFF&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;internal 고정 IP 172.30.0.10&lt;br&gt;host 포트 공개 없음 · AWS 자격증명 없음&lt;/font&gt;" vertex="1">
-          <mxGeometry height="56" width="210" x="1009" y="802" as="geometry" />
+          <mxGeometry height="56" width="210" x="1009" y="952" as="geometry" />
         </mxCell>
-        <mxCell id="label-admin-api-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;wes-admin-api · Spring Boot&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;127.0.0.1:8081 · Flyway OFF&lt;br&gt;전용 DB 계정 · 내부 DNS만&lt;/font&gt;" vertex="1">
-          <mxGeometry height="56" width="220" x="1244" y="802" as="geometry" />
+        <mxCell id="label-admin-api-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=10.5;" value="&lt;b&gt;wes-admin-api · Spring Boot&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;127.0.0.1:8081 · Flyway OFF&lt;br&gt;전용 DB 계정 · 내부 DNS만 · trace → Loki :3100&lt;/font&gt;" vertex="1">
+          <mxGeometry height="56" width="220" x="1244" y="952" as="geometry" />
         </mxCell>
         <mxCell id="admin-networks-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;fontColor=#155E75;fontSize=9;" value="&lt;b&gt;wes-admin-internal&lt;/b&gt; 172.30.0.0/24 · 외부 라우팅 없음 · BFF ↔ API&lt;br&gt;&lt;b&gt;wes-admin-runtime&lt;/b&gt; 172.30.1.0/24 · API만 RDS·SSM·S3·Lambda 접근" vertex="1">
-          <mxGeometry height="40" width="520" x="930" y="866" as="geometry" />
+          <mxGeometry height="40" width="520" x="930" y="1016" as="geometry" />
         </mxCell>
-        <mxCell id="admin-security-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;fontColor=#92400E;fontSize=9.5;" value="&lt;b&gt;ALB · ACM · Funnel 미사용&lt;/b&gt;&lt;br&gt;public IP는 outbound 전용 · SG ingress 0&lt;br&gt;tailnet 등록 기기는 :443 허용&lt;br&gt;공유 기기·off-tailnet 거부" vertex="1">
-          <mxGeometry height="90" width="350" x="1740" y="742" as="geometry" />
+        <mxCell id="admin-security-main" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;fontColor=#92400E;fontSize=9.5;" value="&lt;b&gt;ALB · ACM · Funnel 미사용&lt;/b&gt;&lt;br&gt;public IP는 outbound 전용 · SG ingress 0&lt;br&gt;tailnet 등록 기기는 :443 허용&lt;br&gt;공유 기기 · off-tailnet 거부" vertex="1">
+          <mxGeometry height="80" width="350" x="1560" y="872" as="geometry" />
         </mxCell>
-        <mxCell id="edge-admin-super-grant-main" edge="1" parent="1" source="admin-super-admin-main" target="admin-grant-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;fontStyle=1;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="① tailnet">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="deploy-header" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#D97706;fontSize=12.5;fontStyle=1;" value="배포 — 커밋 한 번이 운영에 반영되는 길 (SSH 없음 · 장기 액세스 키 없음)" vertex="1">
+          <mxGeometry height="20" width="420" x="320" y="1150" as="geometry" />
         </mxCell>
-        <mxCell id="edge-admin-grant-serve-main" edge="1" parent="1" source="admin-grant-main" target="admin-serve-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;fontStyle=1;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="② :443만">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="github-actions" parent="1" style="dashed=0;outlineConnect=0;html=1;align=center;shape=mxgraph.weblogos.github;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="70" y="1200" as="geometry" />
         </mxCell>
-        <mxCell id="edge-admin-serve-caddy-main" edge="1" parent="1" source="admin-serve-main" target="admin-caddy-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;fontStyle=1;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="③ TCP :8443">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="deploy-role" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.identity_and_access_management;fillColor=#DD344C;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="560" y="1200" as="geometry" />
         </mxCell>
-        <mxCell id="edge-admin-caddy-app-main" edge="1" parent="1" source="admin-caddy-main" target="admin-app-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;fontStyle=1;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="④ HTTP :8080">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="run-command" parent="1" style="shape=mxgraph.aws4.run_command;fillColor=#E7157B;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="860" y="1200" as="geometry" />
         </mxCell>
-        <mxCell id="edge-admin-app-api-main" edge="1" parent="1" source="admin-app-main" target="admin-api-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;fontStyle=1;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="⑤ BFF · HTTP :8081">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="label-github" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;GitHub Actions (CD + IaC)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;WES-Server · WES-BackOffice · organic-agent-ai&lt;br&gt;organic-agent-test-web · 이 저장소(Terraform)&lt;br&gt;커밋 SHA 이미지&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="240" x="-16" y="1272" as="geometry" />
         </mxCell>
-        <mxCell id="edge-admin-api-rds-main" edge="1" parent="1" source="admin-api-main" target="rds" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" value="⑥ runtime · PostgreSQL :5432">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="1354" y="665" />
-              <mxPoint x="1214" y="665" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="label-iam" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;전용 OIDC 롤 ×7&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;server · admin-api · backoffice · ai-worker&lt;br&gt;test-web · tf_plan(PR) · tf_apply(main)&lt;br&gt;각 대상 Name tag · 리소스만 허용&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="270" x="459" y="1272" as="geometry" />
         </mxCell>
-        <mxCell id="edge-client-igw" edge="1" parent="1" source="client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=9;fontColor=#075985;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="igw" value="② HTTPS :443">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint y="-13" as="offset" />
-          </mxGeometry>
+        <mxCell id="label-run-command" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;SSM Run Command&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;wes-app · wes-admin · wes-frontend-test 대상&lt;br&gt;관리자 host lock 공유&lt;/font&gt;" vertex="1">
+          <mxGeometry height="52" width="210" x="789" y="1272" as="geometry" />
         </mxCell>
-        <mxCell id="edge-igw-alb" edge="1" parent="1" source="igw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=9;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="alb" value="">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="admin-deploy-order-note-main" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#FDBA74;align=left;verticalAlign=middle;spacing=8;fontColor=#92400E;fontSize=9.5;" value="&lt;b&gt;WES-Server&lt;/b&gt; wes-domain 빌드 전용 · wes-api 성공 → wes-admin-api · &lt;b&gt;WES-BackOffice&lt;/b&gt; 별도 SHA 배포 · 같은 host lock&lt;br&gt;&lt;b&gt;organic-agent-ai&lt;/b&gt; ai-worker 롤 → ECR push + lambda:UpdateFunctionCode ×3 · GPU 워커용 wes-score:gpu 태그도 push&lt;br&gt;&lt;b&gt;test-web&lt;/b&gt; 릴리스 zip → 전용 S3 → wes-frontend-test에 고정 SSM 문서만 · &lt;b&gt;Terraform&lt;/b&gt; PR plan → main 머지 apply" vertex="1">
+          <mxGeometry height="70" width="620" x="1000" y="1150" as="geometry" />
         </mxCell>
-        <mxCell id="edge-alb-ec2" edge="1" parent="1" source="alb" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=9;fontColor=#075985;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="ec2" value="&lt;b&gt;③ HTTP :8080&lt;/b&gt;&lt;br&gt;ALB SG만 허용">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint y="-20" as="offset" />
-          </mxGeometry>
+        <mxCell id="iac-header" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#545B64;fontSize=12.5;fontStyle=1;" value="프로비저닝 · 원격 상태 · AMI" vertex="1">
+          <mxGeometry height="20" width="200" x="320" y="1340" as="geometry" />
         </mxCell>
-        <mxCell id="edge-ec2-rds" edge="1" parent="1" source="ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=9;fontColor=#075985;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="rds" value="&lt;b&gt;④ PostgreSQL :5432&lt;/b&gt;&lt;br&gt;EC2·Lambda SG만 허용">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint y="-20" as="offset" />
-          </mxGeometry>
+        <mxCell id="terraform" parent="1" style="shape=mxgraph.aws4.external_toolkit;fillColor=#879196;strokeColor=none;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="70" y="1390" as="geometry" />
         </mxCell>
-        <mxCell id="edge-client-s3" edge="1" parent="1" source="client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;jumpStyle=arc;jumpSize=10;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=9;fontColor=#075985;fontSize=10;fontStyle=1;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.2;entryX=0.5;entryY=0;" target="s3-photos" value="⑤ 사진 업로드·조회 — 서명 URL로 브라우저가 S3에 직접 PUT/GET (앱 경유 없음)">
-          <mxGeometry relative="1" x="0.0003" y="11" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="160.04" y="490.04" />
-              <mxPoint x="160.04" y="100.04" />
-              <mxPoint x="1614.04" y="100.04" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="label-terraform" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;Terraform&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;CI: tf_plan(PR) · tf_apply(main 머지)&lt;br&gt;운영자 로컬은 bootstrap · modules/github-actions 변경만&lt;br&gt;이 그림의 AWS 리소스 전부를 생성&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="220" x="-6" y="1462" as="geometry" />
         </mxCell>
-        <mxCell id="edge-ec2-lambda" edge="1" parent="1" source="ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#075985;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.7;exitY=0;entryX=0.5;entryY=0;" target="lambda" value="⑥ 임베딩 실행 — 비동기 invoke">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint y="-11" as="offset" />
-            <Array as="points">
-              <mxPoint x="1008" y="452" />
-              <mxPoint x="1364" y="452" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="state-backend" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fillColor=#7AA116;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1280" y="1390" as="geometry" />
         </mxCell>
-        <mxCell id="edge-lambda-s3" edge="1" parent="1" source="lambda" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#075985;fontSize=9.5;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="s3-photos" value="⑦ 원본 GET · previews/ PUT">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint y="26" as="offset" />
-          </mxGeometry>
+        <mxCell id="label-s3" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;S3 원격 state&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;wes-tf-state-* · app/ · dns/ 키&lt;br&gt;암호화 · S3 네이티브 락&lt;/font&gt;" vertex="1">
+          <mxGeometry height="44" width="200" x="1214" y="1462" as="geometry" />
         </mxCell>
-        <mxCell id="SMNcJ2VcS20CQlLQ6j4o-2" connectable="0" parent="edge-lambda-s3" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#075985;fontSize=9;" value="S3 게이트웨이 엔드포인트" vertex="1">
-          <mxGeometry relative="1" x="0.2574" y="3" as="geometry">
-            <mxPoint x="-22" y="3" as="offset" />
-          </mxGeometry>
+        <mxCell id="image-builder" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2_image_builder;fillColor=#ED7100;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1600" y="1390" as="geometry" />
         </mxCell>
-        <mxCell id="edge-lambda-rds" edge="1" parent="1" source="lambda" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#147EBA;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#075985;fontSize=9;labelBackgroundColor=#FFFFFF;" target="rds" value="⑧ :5432&lt;br&gt;벡터 UPDATE">
-          <mxGeometry relative="1" x="0.0038" y="-16" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="1290.03" y="510" />
-              <mxPoint x="1290.03" y="510" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="label-image-builder" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;EC2 Image Builder&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;score GPU AMI 파이프라인 · schedule 없음(수동)&lt;br&gt;AL2023 + NVIDIA + Docker + wes-score 유닛 · g6.xlarge 빌드&lt;br&gt;AMI ID → gpu_ami_id 변수 PR → 워커 2대 replace&lt;br&gt;서비스 연결 역할 2 (imagebuilder · events)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="64" width="280" x="1494" y="1462" as="geometry" />
         </mxCell>
-        <mxCell id="edge-client-dns" edge="1" parent="1" source="client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;jumpStyle=arc;jumpSize=10;html=1;dashed=1;dashPattern=6 4;strokeColor=#8C4FFF;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#6D28D9;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;entryX=0;entryY=0.5;" target="route53" value="&lt;b&gt;① DNS 조회&lt;/b&gt; — api.easyselect.kr">
+        <mxCell id="s3-other" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fillColor=#7AA116;strokeColor=#FFFFFF;gradientColor=none;outlineConnect=0;html=1;aspect=fixed;pointerEvents=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="1900" y="1390" as="geometry" />
+        </mxCell>
+        <mxCell id="label-s3-other" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;fontColor=#232F3E;fontSize=11;" value="&lt;b&gt;S3 · 기타 버킷&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;wes-dev-photos-* · 로컬 개발 (/wes/local/*)&lt;br&gt;wes-frontend-test-artifacts-* · 릴리스 zip&lt;/font&gt;" vertex="1">
+          <mxGeometry height="44" width="260" x="1804" y="1462" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D5DBDB;align=left;verticalAlign=top;spacing=14;fontColor=#545B64;fontSize=10.5;" value="&lt;font color=&quot;#147EBA&quot;&gt;&lt;b&gt;━━▶&lt;/b&gt;&lt;/font&gt; 공개 서비스 요청&lt;br&gt;&lt;font color=&quot;#0F766E&quot;&gt;&lt;b&gt;━━▶&lt;/b&gt;&lt;/font&gt; 관리자 요청&lt;br&gt;&lt;font color=&quot;#C2410C&quot;&gt;&lt;b&gt;━━▶&lt;/b&gt;&lt;/font&gt; 사진 업로드 → AI 분석 v2&lt;br&gt;&lt;font color=&quot;#C2410C&quot;&gt;┈┈▷&lt;/font&gt; score Lambda 폴백 — GPU 워커 가동 불가 시에만&lt;br&gt;&lt;font color=&quot;#5B5FB0&quot;&gt;&lt;b&gt;━━▶&lt;/b&gt;&lt;/font&gt; 로그 · 모니터링&lt;br&gt;&lt;font color=&quot;#8C4FFF&quot;&gt;┅┅▶&lt;/font&gt; DNS · TLS 인증서&lt;br&gt;&lt;font color=&quot;#E7157B&quot;&gt;┅┅▶&lt;/font&gt; 앱 설정 · bootstrap&lt;br&gt;&lt;font color=&quot;#D97706&quot;&gt;┅┅▶&lt;/font&gt; 배포 (GitHub → SSM)&lt;br&gt;&lt;font color=&quot;#545B64&quot;&gt;┅┅▶&lt;/font&gt; Terraform state" vertex="1">
+          <mxGeometry height="185" width="250" x="2130" y="1350" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-client-dns" edge="1" parent="1" source="client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#8C4FFF;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#6D28D9;fontSize=10;labelBackgroundColor=#FFFFFF;jumpStyle=arc;jumpSize=10;exitX=0.5;exitY=0;entryX=0;entryY=0.5;" target="route53" value="&lt;b&gt;① DNS 조회&lt;/b&gt; — api.easyselect.kr">
           <mxGeometry relative="1" as="geometry">
             <mxPoint y="18" as="offset" />
             <Array as="points">
@@ -268,69 +264,229 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="edge-route53-alb" edge="1" parent="1" source="route53" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=6 4;strokeColor=#8C4FFF;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#6D28D9;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0;entryY=0.15;" target="alb" value="A 별칭 레코드">
+        <mxCell id="edge-route53-alb" edge="1" parent="1" source="route53" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#8C4FFF;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#6D28D9;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0;entryY=0.15;" target="alb" value="A 별칭 레코드">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="-46" as="offset" />
             <Array as="points">
-              <mxPoint x="614" y="486" />
+              <mxPoint x="614" y="450" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="edge-acm-alb" edge="1" parent="1" source="acm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=6 4;strokeColor=#8C4FFF;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#6D28D9;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.75;entryY=0;" target="alb" value="TLS 인증서">
-          <mxGeometry relative="1" x="0.01" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="844" y="440" />
-              <mxPoint x="751" y="440" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="edge-ps-ec2" edge="1" parent="1" source="parameter-store" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#E7157B;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#A30D59;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;entryX=0.5;entryY=0;" target="ec2" value="부팅 시 설정 조회&lt;br&gt;/wes/prod/*">
+        <mxCell id="edge-acm-alb" edge="1" parent="1" source="acm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#8C4FFF;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#6D28D9;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.75;entryY=0;" target="alb" value="TLS 인증서">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="994" y="234" />
+              <mxPoint x="844" y="405" />
+              <mxPoint x="741" y="405" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="edge-github-iam" edge="1" parent="1" source="github-actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=6 4;strokeColor=#D97706;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#92400E;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="deploy-role" value="OIDC로 임시 자격증명 획득&lt;br&gt;(장기 액세스 키 없음)">
+        <mxCell id="edge-client-igw" edge="1" parent="1" source="client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#075985;fontSize=11;labelBackgroundColor=#FFFFFF;fontStyle=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="igw" value="② HTTPS :443">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint y="-20" as="offset" />
+            <mxPoint y="-13" as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="edge-iam-runcmd" edge="1" parent="1" source="deploy-role" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=6 4;strokeColor=#D97706;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#92400E;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="run-command" value="ssm:SendCommand&lt;br&gt;(역할별 Name tag 한정)">
+        <mxCell id="edge-igw-alb" edge="1" parent="1" source="igw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#075985;fontSize=9;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="alb" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-alb-ec2" edge="1" parent="1" source="alb" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#075985;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="ec2" value="&lt;b&gt;③ HTTP :8080&lt;/b&gt;&lt;br&gt;ALB SG만 허용">
           <mxGeometry relative="1" as="geometry">
             <mxPoint y="-20" as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="edge-runcmd-ec2" edge="1" parent="1" source="run-command" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;jumpStyle=arc;jumpSize=10;html=1;dashed=1;dashPattern=6 4;strokeColor=#D97706;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#92400E;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0.5;entryY=1;" target="ec2" value="① wes-api · Flyway + health">
-          <mxGeometry relative="1" x="-0.7059" y="24" as="geometry">
-            <mxPoint as="offset" />
+        <mxCell id="edge-ec2-rds" edge="1" parent="1" source="ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#147EBA;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#075985;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.75;entryX=0.15;entryY=0;" target="rds" value="&lt;b&gt;④ PostgreSQL :5432&lt;/b&gt;&lt;br&gt;EC2 SG · 잡 상태 · 결과 조회">
+          <mxGeometry relative="1" x="-0.55" as="geometry">
+            <mxPoint y="-20" as="offset" />
             <Array as="points">
-              <mxPoint x="960" y="1054" />
-              <mxPoint x="1510" y="1054" />
-              <mxPoint x="1510" y="650" />
-              <mxPoint x="994" y="650" />
+              <mxPoint x="1296" y="491" />
+              <mxPoint x="1296" y="620" />
+              <mxPoint x="1380" y="620" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="edge-runcmd-admin-main" edge="1" parent="1" source="run-command" target="admin-ec2-boundary-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#D97706;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#92400E;fontSize=9.5;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;entryX=0.25;entryY=1;" value="wes-admin 대상 · 관리자 API / BackOffice">
+        <mxCell id="edge-ps-ec2" edge="1" parent="1" source="parameter-store" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#E7157B;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#A30D59;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;entryX=0.3;entryY=0;" target="ec2" value="부팅 시 설정 조회&lt;br&gt;/wes/prod/*">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="894" y="940" />
-              <mxPoint x="860" y="940" />
+              <mxPoint x="940" y="234" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="admin-deploy-order-note-main" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#FDBA74;align=left;verticalAlign=middle;spacing=8;fontColor=#92400E;fontSize=9.5;" value="&lt;b&gt;WES-Server&lt;/b&gt; wes-domain 빌드 전용 · wes-api 성공 → wes-admin-api&lt;br&gt;&lt;b&gt;WES-BackOffice&lt;/b&gt; 별도 SHA 배포 · 같은 host lock" vertex="1">
-          <mxGeometry height="48" width="380" x="990" y="970" as="geometry" />
+        <mxCell id="edge-client-s3" edge="1" parent="1" source="client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C2410C;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#9A3412;fontSize=10;labelBackgroundColor=#FFFFFF;fontStyle=1;jumpStyle=arc;jumpSize=10;exitX=1;exitY=0.2;entryX=0.5;entryY=0;" target="s3-photos" value="⑤ 사진 업로드·조회 — 서명 URL로 브라우저가 S3에 직접 PUT/GET (앱 경유 없음) → 완료 통보 POST /complete → wes 스위퍼가 배치 구성">
+          <mxGeometry relative="1" x="0.0003" y="11" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="160" y="454" />
+              <mxPoint x="160" y="100" />
+              <mxPoint x="2254" y="100" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-ec2-embedder" edge="1" parent="1" source="ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C2410C;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#9A3412;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.25;entryX=0;entryY=0.25;" target="lambda-embedder" value="&lt;b&gt;⑥ EVENT invoke&lt;/b&gt; {galleryId, jobId, photoIds} · 15분 안에 끝날 배치 크기">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="40" y="-11" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-ec2-score" edge="1" parent="1" source="ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=1 3;strokeColor=#C2410C;strokeWidth=1.5;endArrow=open;endFill=0;endSize=8;fontColor=#9A3412;fontSize=9.5;labelBackgroundColor=#FFFFFF;exitX=0.7;exitY=0;entryX=0.3;entryY=0;" target="lambda-score" value="⑧ 폴백 — GPU 워커 가동 불가(Start 실패 · 인스턴스 0대)일 때만 score Lambda EVENT">
+          <mxGeometry relative="1" x="-0.2" as="geometry">
+            <mxPoint y="11" as="offset" />
+            <Array as="points">
+              <mxPoint x="968" y="416" />
+              <mxPoint x="1620" y="416" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-ec2-categorize" edge="1" parent="1" source="ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C2410C;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#9A3412;fontSize=9.5;labelBackgroundColor=#FFFFFF;jumpStyle=arc;jumpSize=8;exitX=0.9;exitY=0;entryX=0.3;entryY=0;" target="lambda-categorize" value="⑨ EVENT · {galleryId, jobId} 갤러리 단위">
+          <mxGeometry relative="1" x="0.25" as="geometry">
+            <mxPoint y="-9" as="offset" />
+            <Array as="points">
+              <mxPoint x="981" y="406" />
+              <mxPoint x="1820" y="406" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-embedder-s3ep" edge="1" parent="1" source="lambda-embedder" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C2410C;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#9A3412;fontSize=9.5;labelBackgroundColor=#FFFFFF;exitX=0.8;exitY=1;entryX=0.3;entryY=0;" target="s3-endpoint" value="⑦ 원본 GET · previews/ PUT (previews/만 쓰기)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="10" as="offset" />
+            <Array as="points">
+              <mxPoint x="1454" y="585" />
+              <mxPoint x="1620" y="585" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-embedder-rds" edge="1" parent="1" source="lambda-embedder" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C2410C;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#9A3412;fontSize=9;labelBackgroundColor=#FFFFFF;exitX=0.2;exitY=1;entryX=0.65;entryY=0;" target="rds" value="임베딩 → :5432&lt;br&gt;(Lambda SG · 세 함수 공통)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="52" y="46" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-score-s3ep" edge="1" parent="1" source="lambda-score" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=1 3;strokeColor=#C2410C;strokeWidth=1.5;endArrow=open;endFill=0;endSize=8;fontColor=#9A3412;fontSize=9;labelBackgroundColor=#FFFFFF;exitX=0.7;exitY=1;entryX=0.7;entryY=0;" target="s3-endpoint" value="previews/ GET (폴백 시)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="40" y="44" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-s3ep-s3" edge="1" parent="1" source="s3-endpoint" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C2410C;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#9A3412;fontSize=9;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="s3-photos" value="S3 게이트웨이 EP 경유 · NAT 없음">
+          <mxGeometry relative="1" x="0.35" as="geometry">
+            <mxPoint y="10" as="offset" />
+            <Array as="points">
+              <mxPoint x="1940" y="674" />
+              <mxPoint x="1940" y="778" />
+              <mxPoint x="2170" y="778" />
+              <mxPoint x="2170" y="474" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-categorize-bedrockep" edge="1" parent="1" source="lambda-categorize" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C2410C;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#9A3412;fontSize=9.5;labelBackgroundColor=#FFFFFF;exitX=0.8;exitY=1;entryX=0.5;entryY=0;" target="bedrock-endpoint" value="⑩ 그룹 이름 짓기 · InvokeModel">
+          <mxGeometry relative="1" x="0.3" as="geometry">
+            <mxPoint y="-9" as="offset" />
+            <Array as="points">
+              <mxPoint x="1888" y="600" />
+              <mxPoint x="2034" y="600" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-bedrockep-bedrock" edge="1" parent="1" source="bedrock-endpoint" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C2410C;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#9A3412;fontSize=9;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=1;entryY=0.5;" target="bedrock" value="bedrock-runtime · 사설 경로">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="52" as="offset" />
+            <Array as="points">
+              <mxPoint x="2100" y="674" />
+              <mxPoint x="2100" y="234" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-ec2-gpu" edge="1" parent="1" source="ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C2410C;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#9A3412;fontSize=9.5;labelBackgroundColor=#FFFFFF;exitX=0.85;exitY=1;entryX=0.3;entryY=0;" target="gpu-workers" value="&lt;b&gt;⑧ score — GPU 워커 풀이 본경로&lt;/b&gt; · ec2:Start/Stop · 태그 Name=wes-score-gpu · backlog면 Start · 2분 무진행 안전망 Stop">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="30" y="22" as="offset" />
+            <Array as="points">
+              <mxPoint x="978" y="575" />
+              <mxPoint x="1140" y="575" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-gpu-rds" edge="1" parent="1" source="gpu-workers" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C2410C;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#9A3412;fontSize=9;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="rds" value="점수 → :5432 (GPU SG)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-ecr-embedder" edge="1" parent="1" source="ecr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#E7157B;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#A30D59;fontSize=9.5;labelBackgroundColor=#FFFFFF;jumpStyle=arc;jumpSize=8;exitX=0.5;exitY=1;entryX=0.8;entryY=0;" target="lambda-embedder" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1634" y="310" />
+              <mxPoint x="1454" y="310" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-ecr-score" edge="1" parent="1" source="ecr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#E7157B;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#A30D59;fontSize=9;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.6;entryY=0;" target="lambda-score" value="컨테이너 이미지 · 함수마다 같은 이름의 ECR · deploy 시 pull">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-56" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-ecr-categorize" edge="1" parent="1" source="ecr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#E7157B;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#A30D59;fontSize=9.5;labelBackgroundColor=#FFFFFF;jumpStyle=arc;jumpSize=8;exitX=0.5;exitY=1;entryX=0.8;entryY=0;" target="lambda-categorize" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1634" y="310" />
+              <mxPoint x="1854" y="310" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-ec2-monitoring" edge="1" parent="1" source="ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#5B5FB0;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#3F3F8F;fontSize=9;labelBackgroundColor=#FFFFFF;exitX=0.15;exitY=1;entryX=0.44;entryY=0;" target="monitoring" value="logback → Loki :3100">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-58" y="44" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-admin-super-grant-main" edge="1" parent="1" source="admin-super-admin-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;labelBackgroundColor=#FFFFFF;fontStyle=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="admin-grant-main" value="① tailnet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-admin-grant-serve-main" edge="1" parent="1" source="admin-grant-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;labelBackgroundColor=#FFFFFF;fontStyle=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="admin-serve-main" value="② :443만">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-admin-serve-caddy-main" edge="1" parent="1" source="admin-serve-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;labelBackgroundColor=#FFFFFF;fontStyle=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="admin-caddy-main" value="③ TCP :8443">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-admin-caddy-app-main" edge="1" parent="1" source="admin-caddy-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;labelBackgroundColor=#FFFFFF;fontStyle=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="admin-app-main" value="④ HTTP :8080">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-admin-app-api-main" edge="1" parent="1" source="admin-app-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2.5;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9.5;labelBackgroundColor=#FFFFFF;fontStyle=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="admin-api-main" value="⑤ BFF · HTTP :8081">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-admin-api-rds-main" edge="1" parent="1" source="admin-api-main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0F766E;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#115E59;fontSize=9;labelBackgroundColor=#FFFFFF;exitX=0.2;exitY=0;entryX=0;entryY=0.8;" target="rds" value="⑥ runtime · PostgreSQL :5432 (admin SG)">
+          <mxGeometry relative="1" x="-0.7" as="geometry">
+            <mxPoint x="84" as="offset" />
+            <Array as="points">
+              <mxPoint x="1334" y="694" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-github-iam" edge="1" parent="1" source="github-actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#D97706;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#92400E;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="deploy-role" value="OIDC로 임시 자격증명 획득&lt;br&gt;(장기 액세스 키 없음)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-20" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-iam-runcmd" edge="1" parent="1" source="deploy-role" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#D97706;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#92400E;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="run-command" value="ssm:SendCommand&lt;br&gt;(역할별 Name tag 한정)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-20" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-runcmd-ec2" edge="1" parent="1" source="run-command" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#D97706;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#92400E;fontSize=10;labelBackgroundColor=#FFFFFF;jumpStyle=arc;jumpSize=10;exitX=0.2;exitY=0;entryX=0.1;entryY=0;" target="ec2" value="① wes-api · Flyway + health">
+          <mxGeometry relative="1" x="-0.55" as="geometry">
+            <mxPoint x="-40" as="offset" />
+            <Array as="points">
+              <mxPoint x="874" y="1130" />
+              <mxPoint x="640" y="1130" />
+              <mxPoint x="640" y="420" />
+              <mxPoint x="927" y="420" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-runcmd-admin-main" edge="1" parent="1" source="run-command" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#D97706;strokeWidth=2;endArrow=block;endFill=1;endSize=8;fontColor=#92400E;fontSize=9.5;labelBackgroundColor=#FFFFFF;exitX=0.7;exitY=0;entryX=0.25;entryY=1;" target="admin-ec2-boundary-main" value="wes-admin 대상 · 관리자 API / BackOffice">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="908" y="1110" />
+              <mxPoint x="860" y="1110" />
+            </Array>
+          </mxGeometry>
         </mxCell>
         <mxCell id="edge-terraform-s3" edge="1" parent="1" source="terraform" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=3 3;strokeColor=#545B64;strokeWidth=2;startArrow=block;startFill=1;endArrow=block;endFill=1;endSize=8;fontColor=#414750;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="state-backend" value="plan / apply — state 읽기·쓰기 (암호화 · S3 네이티브 락)">
           <mxGeometry relative="1" as="geometry">
             <mxPoint y="-13" as="offset" />
           </mxGeometry>
-        </mxCell>
-        <mxCell id="legend" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D5DBDB;align=left;verticalAlign=top;spacing=14;fontColor=#545B64;fontSize=10.5;" value="&lt;font color=&quot;#147EBA&quot;&gt;&lt;b&gt;━━▶&lt;/b&gt;&lt;/font&gt; 공개 서비스 요청&lt;br&gt;&lt;font color=&quot;#0F766E&quot;&gt;&lt;b&gt;━━▶&lt;/b&gt;&lt;/font&gt; 관리자 요청&lt;br&gt;&lt;font color=&quot;#8C4FFF&quot;&gt;┅┅▶&lt;/font&gt; DNS · TLS 인증서&lt;br&gt;&lt;font color=&quot;#E7157B&quot;&gt;┅┅▶&lt;/font&gt; 앱 설정 · bootstrap&lt;br&gt;&lt;font color=&quot;#D97706&quot;&gt;┅┅▶&lt;/font&gt; 배포 (GitHub → SSM)&lt;br&gt;&lt;font color=&quot;#545B64&quot;&gt;┅┅▶&lt;/font&gt; Terraform state" vertex="1">
-          <mxGeometry height="132" width="220" x="1480" y="1200" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

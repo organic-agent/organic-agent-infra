@@ -1,0 +1,672 @@
+<title>WES 인프라 구성도</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #F4F6F8;
+    --surface: #FFFFFF;
+    --surface-2: #EDF0F3;
+    --ink: #17202B;
+    --ink-2: #4C5A69;
+    --ink-3: #7B8794;
+    --line: #D3DAE1;
+    --line-2: #E4E9EE;
+    --public: #1F5FB4;
+    --admin: #0E7C72;
+    --ai: #B5651D;
+    --deploy: #A6216B;
+    --mon: #5B5FB0;
+    --cfg: #7A8595;
+    --state: #4B5563;
+    --zone-cloud: #FBFCFD;
+    --zone-vpc: #F3F5FA;
+    --zone-public: #EEF6EC;
+    --zone-db: #E9F3F6;
+    --warn-bg: #FFF4E5;
+    --warn-line: #E8B86C;
+    --ok-bg: #E8F5EE;
+    --ok-line: #79C297;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #11161C; --surface: #1A2129; --surface-2: #222B35; --ink: #E8EDF2; --ink-2: #AAB6C2; --ink-3: #7E8A97;
+      --line: #33404C; --line-2: #2A3540;
+      --public: #6FA6F0; --admin: #46C2B4; --ai: #E7A05B; --deploy: #E273B0; --mon: #9C9FE6; --cfg: #9AA5B3; --state: #B6BEC8;
+      --zone-cloud: #151B22; --zone-vpc: #182028; --zone-public: #182619; --zone-db: #14262C;
+      --warn-bg: #2E2416; --warn-line: #9A6F2A; --ok-bg: #16281E; --ok-line: #3E7F58;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #11161C; --surface: #1A2129; --surface-2: #222B35; --ink: #E8EDF2; --ink-2: #AAB6C2; --ink-3: #7E8A97;
+    --line: #33404C; --line-2: #2A3540;
+    --public: #6FA6F0; --admin: #46C2B4; --ai: #E7A05B; --deploy: #E273B0; --mon: #9C9FE6; --cfg: #9AA5B3; --state: #B6BEC8;
+    --zone-cloud: #151B22; --zone-vpc: #182028; --zone-public: #182619; --zone-db: #14262C;
+    --warn-bg: #2E2416; --warn-line: #9A6F2A; --ok-bg: #16281E; --ok-line: #3E7F58;
+  }
+
+  body { background: var(--bg); color: var(--ink); font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; font-size: 15px; line-height: 1.6; }
+  code, .mono { font-family: "IBM Plex Mono", "SF Mono", Menlo, monospace; font-size: 0.9em; }
+  code { background: var(--surface-2); padding: 1px 5px; border-radius: 3px; }
+  a { color: var(--public); }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 28px 80px; }
+  header { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; border-bottom: 1px solid var(--line); padding-bottom: 22px; margin-bottom: 30px; }
+  .eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; margin: 0 0 8px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 10px; font-weight: 700; text-wrap: balance; letter-spacing: -0.01em; }
+  .lede { max-width: 66ch; color: var(--ink-2); margin: 0; }
+  .meta { display: grid; grid-template-columns: auto auto; gap: 4px 14px; font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+  .meta dt { color: var(--ink-3); }
+  .meta dd { margin: 0; }
+
+  h2 { font-size: 20px; margin: 44px 0 12px; font-weight: 600; letter-spacing: -0.005em; }
+  h3 { font-size: 15.5px; margin: 26px 0 8px; font-weight: 600; }
+  p { max-width: 72ch; }
+  ul { padding-left: 20px; max-width: 78ch; }
+  li { margin: 4px 0; }
+  li b { font-weight: 600; }
+
+  figure { margin: 18px 0 8px; }
+  .fig-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .fig-scroll svg { display: block; min-width: 1100px; max-width: 100%; height: auto; }
+  .fig-scroll.small svg { min-width: 720px; }
+  figcaption { font-size: 13px; color: var(--ink-2); margin-top: 10px; max-width: 90ch; }
+
+  /* ---- diagram styling ---- */
+  svg text { font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif; fill: var(--ink); }
+  .zone-cloud { fill: var(--zone-cloud); stroke: var(--line); stroke-width: 1.2; }
+  .zone-vpc { fill: var(--zone-vpc); stroke: var(--line); stroke-width: 1; stroke-dasharray: 6 4; }
+  .zone-public { fill: var(--zone-public); stroke: var(--line-2); stroke-width: 1; }
+  .zone-db { fill: var(--zone-db); stroke: var(--line-2); stroke-width: 1; }
+  .zone-label { font-size: 11.5px; font-weight: 600; fill: var(--ink-2); letter-spacing: 0.01em; }
+  .legend-box { fill: var(--surface); stroke: var(--line-2); }
+  .legend-text { font-size: 11px; fill: var(--ink-2); }
+  .node-box { fill: var(--surface); stroke: var(--line); stroke-width: 1; }
+  .node-title { font-size: 11.5px; font-weight: 600; }
+  .node-line { font-size: 9.6px; fill: var(--ink-2); }
+  .chip { fill: var(--cfg); }
+  .g-public .chip { fill: var(--public); } .g-admin .chip { fill: var(--admin); } .g-ai .chip { fill: var(--ai); }
+  .g-deploy .chip { fill: var(--deploy); } .g-mon .chip { fill: var(--mon); } .g-state .chip { fill: var(--state); }
+  .edge { fill: none; stroke-width: 1.6; stroke-linejoin: round; }
+  .e-public { stroke: var(--public); } .e-admin { stroke: var(--admin); } .e-ai { stroke: var(--ai); }
+  .e-deploy { stroke: var(--deploy); } .e-cfg { stroke: var(--cfg); } .e-state { stroke: var(--state); } .e-mon { stroke: var(--mon); }
+  .mk-public { fill: var(--public); } .mk-admin { fill: var(--admin); } .mk-ai { fill: var(--ai); }
+  .mk-deploy { fill: var(--deploy); } .mk-cfg { fill: var(--cfg); } .mk-state { fill: var(--state); } .mk-mon { fill: var(--mon); }
+  .edge-label { font-size: 10px; font-weight: 500; }
+  .l-public { fill: var(--public); } .l-admin { fill: var(--admin); } .l-ai { fill: var(--ai); }
+  .l-deploy { fill: var(--deploy); } .l-cfg { fill: var(--cfg); } .l-state { fill: var(--state); } .l-mon { fill: var(--mon); }
+  .st-box { fill: var(--surface); stroke: var(--line); }
+  .st-title { font-size: 12px; font-weight: 600; }
+  .st-line { font-size: 10px; fill: var(--ink-2); }
+  .st-off .st-box { fill: var(--surface-2); }
+  .seq-lane { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 4; }
+  .seq-head { font-size: 11.5px; font-weight: 600; }
+  .seq-note { font-size: 9.6px; fill: var(--ink-2); }
+  .seq-act { fill: var(--surface-2); stroke: var(--line); }
+
+  /* ---- tables ---- */
+  .tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+  th { font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; background: var(--surface-2); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.k { white-space: nowrap; font-weight: 500; }
+  td .mono { font-size: 12px; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid; vertical-align: 1px; white-space: nowrap; }
+  .pill.miss { color: var(--ai); border-color: var(--ai); background: var(--warn-bg); }
+  .pill.stale { color: var(--deploy); border-color: var(--deploy); background: transparent; }
+  .pill.ok { color: var(--admin); border-color: var(--admin); background: var(--ok-bg); }
+
+  .callout { border-left: 3px solid var(--warn-line); background: var(--warn-bg); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; max-width: 80ch; font-size: 14px; }
+  .callout.ok { border-color: var(--ok-line); background: var(--ok-bg); }
+  .src { font-size: 12.5px; color: var(--ink-3); }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px 28px; }
+  @media (max-width: 720px) { header { grid-template-columns: 1fr; } h1 { font-size: 24px; } }
+</style>
+
+<div class="wrap">
+<header>
+  <div>
+    <p class="eyebrow">organic-agent-infra · docs</p>
+    <h1>WES 인프라 구성도</h1>
+    <p class="lede">사진 갤러리 API·백오피스·AI 분석 파이프라인 v2·GPU 워커 풀·모니터링·테스트 프론트를 하나의 AWS 계정에 Terraform으로 올린 현재 구성. 값은 <code>variables.tf</code> 기본값과 모듈 코드 기준이다.</p>
+  </div>
+  <dl class="meta">
+    <dt>기준일</dt><dd>2026-09-09</dd>
+    <dt>기준 커밋</dt><dd class="mono">main · 42b33c6</dd>
+    <dt>리전</dt><dd>ap-northeast-2</dd>
+    <dt>대체 대상</dt><dd class="mono">docs/architecture/wes-infrastructure-architecture.drawio</dd>
+  </dl>
+</header>
+
+<h2>전체 구성</h2>
+<p>색은 흐름의 종류다. 실선은 런타임 트래픽, 점선은 설정·배포·state처럼 요청이 없을 때 흐르는 것. 원 숫자는 각 경로 안의 순서다.</p>
+<figure>
+  <div class="fig-scroll">
+    <svg viewBox="0 0 1520 990" role="img" aria-label="WES 인프라 전체 구성도: 공개 API·관리자·AI 분석·GPU 워커·모니터링·테스트 프론트·배포·Terraform state 경로" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<marker id="ar-public" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk-public"/></marker>
+<marker id="ar-admin" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk-admin"/></marker>
+<marker id="ar-ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk-ai"/></marker>
+<marker id="ar-deploy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk-deploy"/></marker>
+<marker id="ar-cfg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk-cfg"/></marker>
+<marker id="ar-state" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk-state"/></marker>
+<marker id="ar-mon" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk-mon"/></marker>
+</defs>
+<rect x="220" y="62" width="1290" height="916" rx="8" class="zone-cloud" />
+<text x="230" y="79" class="zone-label">AWS Cloud · ap-northeast-2 (Seoul) · 계정 하나 · Terraform app 스택 + dns 스택</text>
+<rect x="250" y="178" width="1062" height="494" rx="8" class="zone-vpc" />
+<text x="260" y="664" class="zone-label">VPC 10.0.0.0/16 · AZ ap-northeast-2a / 2c</text>
+<rect x="270" y="208" width="630" height="442" rx="6" class="zone-public" />
+<text x="280" y="225" class="zone-label">Public subnet ×2 · 10.0.0.0/24(2a) · 10.0.1.0/24(2c) · IGW 라우트</text>
+<rect x="920" y="208" width="380" height="442" rx="6" class="zone-db" />
+<text x="930" y="225" class="zone-label">DB subnet ×2 · 인터넷 라우트 없음</text>
+<g class="node g-public">
+<rect x="40" y="315" width="150" height="60" rx="5" class="node-box"/>
+<rect x="49" y="324" width="6" height="10" rx="1" class="chip"/>
+<text x="61" y="332" class="node-title">사용자 · 브라우저</text>
+<text x="50" y="347" class="node-line">앱 · OAuth · 테스트웹</text>
+<text x="50" y="360" class="node-line">api / test.easyselect.kr</text>
+</g>
+<g class="node g-admin">
+<rect x="40" y="445" width="150" height="60" rx="5" class="node-box"/>
+<rect x="49" y="454" width="6" height="10" rx="1" class="chip"/>
+<text x="61" y="462" class="node-title">tailnet 등록 기기</text>
+<text x="50" y="477" class="node-line">사용자 소유 기기 · tag 기반</text>
+<text x="50" y="490" class="node-line">member + tagged → tcp:443</text>
+</g>
+<g class="node g-deploy">
+<rect x="40" y="740" width="150" height="64" rx="5" class="node-box"/>
+<rect x="49" y="749" width="6" height="10" rx="1" class="chip"/>
+<text x="61" y="757" class="node-title">GitHub Actions</text>
+<text x="50" y="772" class="node-line">server · backoffice · ai</text>
+<text x="50" y="785" class="node-line">test-web · infra (plan/apply)</text>
+</g>
+<g class="node g-state">
+<rect x="40" y="900" width="150" height="56" rx="5" class="node-box"/>
+<rect x="49" y="909" width="6" height="10" rx="1" class="chip"/>
+<text x="61" y="917" class="node-title">Terraform CLI (로컬)</text>
+<text x="50" y="932" class="node-line">bootstrap · github-actions</text>
+<text x="50" y="945" class="node-line">모듈 변경 때만 apply</text>
+</g>
+<g class="node g-cfg">
+<rect x="250" y="85" width="170" height="64" rx="5" class="node-box"/>
+<rect x="259" y="94" width="6" height="10" rx="1" class="chip"/>
+<text x="271" y="102" class="node-title">Route 53 · easyselect.kr</text>
+<text x="260" y="117" class="node-line">dns/ 스택 소유 (존 보존)</text>
+<text x="260" y="130" class="node-line">api→ALB · admin→Tailscale IP</text>
+<text x="260" y="143" class="node-line">monitoring·test→EIP</text>
+</g>
+<g class="node g-cfg">
+<rect x="440" y="85" width="150" height="64" rx="5" class="node-box"/>
+<rect x="449" y="94" width="6" height="10" rx="1" class="chip"/>
+<text x="461" y="102" class="node-title">ACM 인증서</text>
+<text x="450" y="117" class="node-line">api.easyselect.kr</text>
+<text x="450" y="130" class="node-line">DNS 검증 (Route 53)</text>
+</g>
+<g class="node g-cfg">
+<rect x="630" y="85" width="170" height="64" rx="5" class="node-box"/>
+<rect x="639" y="94" width="6" height="10" rx="1" class="chip"/>
+<text x="651" y="102" class="node-title">SSM Parameter Store</text>
+<text x="640" y="117" class="node-line">/wes/prod · /wes/admin-api/prod</text>
+<text x="640" y="130" class="node-line">/wes/admin · /wes/monitoring</text>
+<text x="640" y="143" class="node-line">/wes/local · 비밀은 수동 SecureString</text>
+</g>
+<g class="node g-deploy">
+<rect x="820" y="85" width="200" height="64" rx="5" class="node-box"/>
+<rect x="829" y="94" width="6" height="10" rx="1" class="chip"/>
+<text x="841" y="102" class="node-title">ECR ×3</text>
+<text x="830" y="117" class="node-line">wes-embedder · wes-score · wes-categorize</text>
+<text x="830" y="130" class="node-line">score: latest(Lambda) + gpu(워커) 태그</text>
+<text x="830" y="143" class="node-line">untagged 3일·gpu-&lt;sha&gt; 3개 만료</text>
+</g>
+<g class="node g-mon">
+<rect x="1040" y="85" width="240" height="64" rx="5" class="node-box"/>
+<rect x="1049" y="94" width="6" height="10" rx="1" class="chip"/>
+<text x="1061" y="102" class="node-title">CloudWatch 알람</text>
+<text x="1050" y="117" class="node-line">Lambda ×3: AsyncEventAge · Dropped</text>
+<text x="1050" y="130" class="node-line">GPU 워커 ×2: 30분 CPU&lt;5% → 정지</text>
+<text x="1050" y="143" class="node-line">테스트웹: StatusCheckFailed</text>
+</g>
+<g class="node g-public">
+<rect x="285" y="240" width="120" height="44" rx="5" class="node-box"/>
+<text x="295" y="257" class="node-title">Internet Gateway</text>
+<text x="295" y="272" class="node-line">public 라우트 0.0.0.0/0</text>
+</g>
+<g class="node g-public">
+<rect x="285" y="310" width="175" height="70" rx="5" class="node-box"/>
+<rect x="294" y="319" width="6" height="10" rx="1" class="chip"/>
+<text x="306" y="327" class="node-title">ALB · api.easyselect.kr</text>
+<text x="295" y="342" class="node-line">:80 → :443 리다이렉트</text>
+<text x="295" y="355" class="node-line">헬스 /actuator/health</text>
+<text x="295" y="368" class="node-line">/internal/admin* → 404 고정</text>
+</g>
+<g class="node g-public">
+<rect x="520" y="310" width="160" height="70" rx="5" class="node-box"/>
+<rect x="529" y="319" width="6" height="10" rx="1" class="chip"/>
+<text x="541" y="327" class="node-title">EC2 wes-app · t4g.micro</text>
+<text x="530" y="342" class="node-line">wes-api :8080 · Flyway owner</text>
+<text x="530" y="355" class="node-line">S3 서명 URL 발급 · Bedrock 추천</text>
+<text x="530" y="368" class="node-line">분석 오케스트레이터 (v2)</text>
+</g>
+<g class="node g-admin">
+<rect x="285" y="440" width="220" height="70" rx="5" class="node-box"/>
+<rect x="294" y="449" width="6" height="10" rx="1" class="chip"/>
+<text x="306" y="457" class="node-title">EC2 wes-admin · t4g.small</text>
+<text x="295" y="472" class="node-line">Tailscale Serve :443 → Caddy :8443</text>
+<text x="295" y="485" class="node-line">→ BackOffice(BFF) → admin-api :8081</text>
+<text x="295" y="498" class="node-line">SG 인바운드 0 · 격리 Docker net 2개</text>
+</g>
+<g class="node g-mon">
+<rect x="535" y="440" width="170" height="70" rx="5" class="node-box"/>
+<rect x="544" y="449" width="6" height="10" rx="1" class="chip"/>
+<text x="556" y="457" class="node-title">EC2 wes-monitoring</text>
+<text x="545" y="472" class="node-line">t4g.micro + EIP · monitoring.*</text>
+<text x="545" y="485" class="node-line">Loki :3100 ← app·admin-api</text>
+<text x="545" y="498" class="node-line">Caddy(LE) → Grafana</text>
+</g>
+<g class="node g-deploy">
+<rect x="285" y="560" width="220" height="60" rx="5" class="node-box"/>
+<rect x="294" y="569" width="6" height="10" rx="1" class="chip"/>
+<text x="306" y="577" class="node-title">EC2 wes-frontend-test</text>
+<text x="295" y="592" class="node-line">t4g.small + EIP · test.easyselect.kr</text>
+<text x="295" y="605" class="node-line">Caddy 정적 · S3 아티팩트 → SSM 문서</text>
+</g>
+<g class="node g-ai">
+<rect x="725" y="560" width="165" height="60" rx="5" class="node-box"/>
+<rect x="734" y="569" width="6" height="10" rx="1" class="chip"/>
+<text x="746" y="577" class="node-title">GPU 워커 ×2 · g6.xlarge</text>
+<text x="735" y="592" class="node-line">AZ마다 1대 · 기본 정지 · SSM만</text>
+<text x="735" y="605" class="node-line">부팅 시 ECR wes-score:gpu pull</text>
+</g>
+<g class="node g-ai">
+<rect x="1100" y="220" width="150" height="60" rx="5" class="node-box"/>
+<rect x="1109" y="229" width="6" height="10" rx="1" class="chip"/>
+<text x="1121" y="237" class="node-title">Lambda wes-embedder</text>
+<text x="1110" y="252" class="node-line">DINOv3 · 미리보기 + 임베딩</text>
+<text x="1110" y="265" class="node-line">3008MB · 동시 32 · 15분</text>
+</g>
+<g class="node g-ai">
+<rect x="1100" y="290" width="150" height="60" rx="5" class="node-box"/>
+<rect x="1109" y="299" width="6" height="10" rx="1" class="chip"/>
+<text x="1121" y="307" class="node-title">Lambda wes-score</text>
+<text x="1110" y="322" class="node-line">CLIP·ARNIQA·LAION 점수</text>
+<text x="1110" y="335" class="node-line">8192MB · 동시 32 · GPU 폴백</text>
+</g>
+<g class="node g-ai">
+<rect x="1100" y="360" width="150" height="60" rx="5" class="node-box"/>
+<rect x="1109" y="369" width="6" height="10" rx="1" class="chip"/>
+<text x="1121" y="377" class="node-title">Lambda wes-categorize</text>
+<text x="1110" y="392" class="node-line">그룹 묶기 + Bedrock 이름</text>
+<text x="1110" y="405" class="node-line">3008MB · 동시 2</text>
+</g>
+<g class="node g-public">
+<rect x="935" y="440" width="170" height="70" rx="5" class="node-box"/>
+<rect x="944" y="449" width="6" height="10" rx="1" class="chip"/>
+<text x="956" y="457" class="node-title">RDS PostgreSQL 16.14</text>
+<text x="945" y="472" class="node-line">db.t4g.micro · Single-AZ · 20GB</text>
+<text x="945" y="485" class="node-line">비공개 · IAM 인증 켬(SCP로 미사용)</text>
+<text x="945" y="498" class="node-line">계정: wes_admin·embedder·photoselect·admin</text>
+</g>
+<g class="node g-ai">
+<rect x="1100" y="560" width="150" height="52" rx="5" class="node-box"/>
+<rect x="1109" y="569" width="6" height="10" rx="1" class="chip"/>
+<text x="1121" y="577" class="node-title">bedrock-runtime 엔드포인트</text>
+<text x="1110" y="592" class="node-line">인터페이스 · 한 AZ(2a)</text>
+<text x="1110" y="605" class="node-line">private DNS · 시간당 과금</text>
+</g>
+<g class="node g-cfg"><rect x="1262" y="220" width="30" height="200" rx="4" class="node-box"/><text transform="translate(1281 320) rotate(-90)" text-anchor="middle" class="node-title">S3 게이트웨이 EP · DB RT만 · 무료</text></g>
+<g class="node g-public">
+<rect x="1340" y="310" width="150" height="70" rx="5" class="node-box"/>
+<rect x="1349" y="319" width="6" height="10" rx="1" class="chip"/>
+<text x="1361" y="327" class="node-title">S3 wes-photos-*</text>
+<text x="1350" y="342" class="node-line">원본 + previews/ · 완전 비공개</text>
+<text x="1350" y="355" class="node-line">CORS: 공개 오리진 + admin</text>
+<text x="1350" y="368" class="node-line">앱은 서명·삭제만</text>
+</g>
+<g class="node g-ai">
+<rect x="1340" y="560" width="150" height="60" rx="5" class="node-box"/>
+<rect x="1349" y="569" width="6" height="10" rx="1" class="chip"/>
+<text x="1361" y="577" class="node-title">Bedrock</text>
+<text x="1350" y="592" class="node-line">global.anthropic.claude-sonnet-4-6</text>
+<text x="1350" y="605" class="node-line">categorize 이름 · 앱 추천</text>
+</g>
+<g class="node g-cfg">
+<rect x="1340" y="740" width="150" height="52" rx="5" class="node-box"/>
+<rect x="1349" y="749" width="6" height="10" rx="1" class="chip"/>
+<text x="1361" y="757" class="node-title">S3 wes-dev-photos-*</text>
+<text x="1350" y="772" class="node-line">로컬 개발 · /wes/local</text>
+<text x="1350" y="785" class="node-line">인스턴스 롤 정책 없음</text>
+</g>
+<g class="node g-deploy">
+<rect x="1340" y="810" width="150" height="52" rx="5" class="node-box"/>
+<rect x="1349" y="819" width="6" height="10" rx="1" class="chip"/>
+<text x="1361" y="827" class="node-title">S3 테스트웹 아티팩트</text>
+<text x="1350" y="842" class="node-line">릴리스 zip · 만료 수명주기</text>
+</g>
+<g class="node g-state">
+<rect x="1340" y="900" width="150" height="56" rx="5" class="node-box"/>
+<rect x="1349" y="909" width="6" height="10" rx="1" class="chip"/>
+<text x="1361" y="917" class="node-title">S3 wes-tf-state-*</text>
+<text x="1350" y="932" class="node-line">app/ · dns/ 키 · 버저닝</text>
+<text x="1350" y="945" class="node-line">S3 native lock · 사전 생성</text>
+</g>
+<g class="node g-ai">
+<rect x="250" y="826" width="230" height="64" rx="5" class="node-box"/>
+<rect x="259" y="835" width="6" height="10" rx="1" class="chip"/>
+<text x="271" y="843" class="node-title">EC2 Image Builder 파이프라인</text>
+<text x="260" y="858" class="node-line">AL2023 + NVIDIA + Docker + 워커 유닛</text>
+<text x="260" y="871" class="node-line">수동 실행 · 빌드는 public subnet(SSM)</text>
+<text x="260" y="884" class="node-line">AMI ID → gpu_ami_id 변수 PR</text>
+</g>
+<g class="node g-deploy">
+<rect x="500" y="740" width="280" height="64" rx="5" class="node-box"/>
+<rect x="509" y="749" width="6" height="10" rx="1" class="chip"/>
+<text x="521" y="757" class="node-title">IAM OIDC 롤 ×7 (GitHub)</text>
+<text x="510" y="772" class="node-line">server-deploy · admin-api-deploy · admin-deploy</text>
+<text x="510" y="785" class="node-line">ai-worker(ECR push+함수 갱신) · test-web-deploy</text>
+<text x="510" y="798" class="node-line">tf_plan(PR) · tf_apply(main 머지) · 장기 키 없음</text>
+</g>
+<g class="node g-deploy">
+<rect x="820" y="740" width="200" height="64" rx="5" class="node-box"/>
+<rect x="829" y="749" width="6" height="10" rx="1" class="chip"/>
+<text x="841" y="757" class="node-title">SSM Run Command</text>
+<text x="830" y="772" class="node-line">wes-app · wes-admin · frontend-test</text>
+<text x="830" y="785" class="node-line">역할별 Name tag 한정</text>
+<text x="830" y="798" class="node-line">관리자 host는 flock 직렬화</text>
+</g>
+<path d="M190,345 H285" class="edge e-public " marker-end="url(#ar-public)"/>
+<text x="237" y="338" class="edge-label l-public" text-anchor="middle">① HTTPS :443 (IGW)</text>
+<path d="M460,345 H520" class="edge e-public " marker-end="url(#ar-public)"/>
+<text x="490" y="336" class="edge-label l-public" text-anchor="middle">② :8080 · ALB SG만</text>
+<path d="M680,345 H760 V460 H935" class="edge e-public " marker-end="url(#ar-public)"/>
+<text x="770" y="455" class="edge-label l-public" text-anchor="start">③ :5432 (EC2 SG)</text>
+<path d="M345,284 V310" class="edge e-public " marker-end="url(#ar-public)"/>
+<path d="M115,315 V40 H1470 V310" class="edge e-public " marker-end="url(#ar-public)"/>
+<text x="760" y="33" class="edge-label l-public" text-anchor="middle">④ 사진 업로드·조회 — 브라우저가 서명 URL로 S3에 직접 PUT/GET (앱 경유 없음)</text>
+<path d="M335,149 V310" class="edge e-cfg " marker-end="url(#ar-cfg)" stroke-dasharray="5 4"/>
+<text x="340" y="200" class="edge-label l-cfg" text-anchor="start">A 별칭</text>
+<path d="M455,149 V310" class="edge e-cfg " marker-end="url(#ar-cfg)" stroke-dasharray="5 4"/>
+<text x="460" y="200" class="edge-label l-cfg" text-anchor="start">TLS</text>
+<path d="M640,149 V160 H560 V310" class="edge e-cfg " marker-end="url(#ar-cfg)" stroke-dasharray="5 4"/>
+<text x="566" y="186" class="edge-label l-cfg" text-anchor="start">부팅 시 /wes/prod/*</text>
+<path d="M190,475 H285" class="edge e-admin " marker-end="url(#ar-admin)"/>
+<text x="237" y="468" class="edge-label l-admin" text-anchor="middle">① tailnet :443만</text>
+<path d="M285,500 H262 V638 H925 V475 H935" class="edge e-admin " marker-end="url(#ar-admin)"/>
+<text x="600" y="632" class="edge-label l-admin" text-anchor="middle">admin-api → :5432 (admin SG) · trace → Loki :3100</text>
+<path d="M505,455 H535" class="edge e-admin " marker-end="url(#ar-admin)"/>
+<path d="M600,380 V440" class="edge e-mon " marker-end="url(#ar-mon)"/>
+<text x="606" y="414" class="edge-label l-mon" text-anchor="start">logback → Loki :3100</text>
+<path d="M600,310 V195 H1085 V390" class="edge e-ai "/>
+<text x="700" y="189" class="edge-label l-ai" text-anchor="start">⑤ 단계마다 EVENT invoke · 순서·재시도·샤딩은 wes 소유 (Lambda → Lambda 호출 없음)</text>
+<path d="M1085,250 H1100" class="edge e-ai " marker-end="url(#ar-ai)"/>
+<path d="M1085,320 H1100" class="edge e-ai " marker-end="url(#ar-ai)"/>
+<path d="M1085,390 H1100" class="edge e-ai " marker-end="url(#ar-ai)"/>
+<path d="M1250,250 H1262" class="edge e-ai " marker-end="url(#ar-ai)"/>
+<path d="M1250,320 H1262" class="edge e-ai " marker-end="url(#ar-ai)"/>
+<path d="M1250,390 H1262" class="edge e-ai " marker-end="url(#ar-ai)"/>
+<path d="M1292,345 H1340" class="edge e-ai " marker-end="url(#ar-ai)"/>
+<text x="1316" y="338" class="edge-label l-ai" text-anchor="middle">GET/PUT</text>
+<path d="M1175,420 V475 H1105" class="edge e-ai " marker-end="url(#ar-ai)"/>
+<text x="1112" y="468" class="edge-label l-ai" text-anchor="start">:5432 ×3</text>
+<path d="M1220,420 V560" class="edge e-ai " marker-end="url(#ar-ai)"/>
+<text x="1226" y="500" class="edge-label l-ai" text-anchor="start">InvokeModel</text>
+<path d="M1250,586 H1340" class="edge e-ai " marker-end="url(#ar-ai)"/>
+<text x="1295" y="580" class="edge-label l-ai" text-anchor="middle">global. 프로필</text>
+<path d="M680,368 H745 V560" class="edge e-ai " marker-end="url(#ar-ai)" stroke-dasharray="5 4"/>
+<text x="752" y="548" class="edge-label l-ai" text-anchor="start">wes GpuController Start/Stop</text>
+<path d="M890,590 H910 V490 H935" class="edge e-ai " marker-end="url(#ar-ai)"/>
+<text x="918" y="540" class="edge-label l-ai" text-anchor="start">:5432 (GPU SG)</text>
+<path d="M190,772 H500" class="edge e-deploy " marker-end="url(#ar-deploy)" stroke-dasharray="5 4"/>
+<text x="345" y="764" class="edge-label l-deploy" text-anchor="middle">OIDC 임시 자격증명 (장기 키 없음)</text>
+<path d="M780,772 H820" class="edge e-deploy " marker-end="url(#ar-deploy)" stroke-dasharray="5 4"/>
+<path d="M920,740 V700 H700 V650" class="edge e-deploy " marker-end="url(#ar-deploy)" stroke-dasharray="5 4"/>
+<text x="710" y="694" class="edge-label l-deploy" text-anchor="start">ssm:SendCommand → 컨테이너 교체 (SSH 없음)</text>
+<path d="M190,928 H1340" class="edge e-state " marker-end="url(#ar-state)" stroke-dasharray="5 4"/>
+<text x="760" y="921" class="edge-label l-state" text-anchor="middle">plan / apply · state 읽기·쓰기 (암호화 · S3 native lock) · PR plan → main apply는 tf_plan/tf_apply 롤</text>
+<path d="M640,804 V928" class="edge e-state " stroke-dasharray="5 4"/>
+<rect x="760" y="830" width="470" height="58" rx="5" class="legend-box" />
+<path d="M774,850 H800" class="edge e-public" marker-end="url(#ar-public)"/>
+<text x="806" y="854" class="legend-text">공개 서비스 요청</text>
+<path d="M889,850 H915" class="edge e-admin" marker-end="url(#ar-admin)"/>
+<text x="921" y="854" class="legend-text">관리자 요청 (tailnet)</text>
+<path d="M1004,850 H1030" class="edge e-ai" marker-end="url(#ar-ai)"/>
+<text x="1036" y="854" class="legend-text">AI 분석 · GPU</text>
+<path d="M1119,850 H1145" class="edge e-mon" marker-end="url(#ar-mon)"/>
+<text x="1151" y="854" class="legend-text">로그</text>
+<path d="M774,874 H800" class="edge e-deploy" stroke-dasharray="5 4" marker-end="url(#ar-deploy)"/>
+<text x="806" y="878" class="legend-text">배포 (GitHub → SSM)</text>
+<path d="M889,874 H915" class="edge e-cfg" stroke-dasharray="5 4" marker-end="url(#ar-cfg)"/>
+<text x="921" y="878" class="legend-text">DNS · TLS · 설정</text>
+<path d="M1004,874 H1030" class="edge e-state" stroke-dasharray="5 4" marker-end="url(#ar-state)"/>
+<text x="1036" y="878" class="legend-text">Terraform state</text>
+</svg>
+  </div>
+  <figcaption>AWS 계정 하나 안의 VPC(public/DB subnet 각 2 AZ)와 리전 서비스. 공개 API는 ALB → wes-app → RDS, 사진 바이트는 브라우저 ↔ S3 직접, AI 분석은 wes-app이 Lambda 셋과 GPU 워커를 단계마다 부른다. 관리자는 tailnet으로만 들어오고, 배포는 GitHub OIDC 롤 → SSM Run Command로 SSH 없이 끝난다.</figcaption>
+</figure>
+
+<h2>요청·데이터 경로</h2>
+<div class="grid2">
+  <div>
+    <h3>공개 API</h3>
+    <ul>
+      <li><b>api.easyselect.kr</b> → ALB(:80→:443, ACM) → wes-app <code>:8080</code>(ALB SG만) → RDS <code>:5432</code>(EC2 SG).</li>
+      <li>ALB 리스너 규칙이 <code>/internal/admin*</code>을 404로 고정해 공개 경로에서 관리자 API가 노출되지 않는다.</li>
+      <li>사진 바이트는 앱을 거치지 않는다. 앱이 서명 URL을 발급하고 브라우저가 S3에 직접 PUT/GET 한다. 버킷 CORS는 공개 오리진(SSM <code>cors.allowed-origins</code>)에 admin 오리진을 합친 한 목록을 쓴다.</li>
+      <li>앱 롤은 Bedrock InvokeModel(추천)·Lambda 셋 invoke·GPU 워커 Start/Stop(태그 <code>Name=wes-score-gpu</code>만)을 가진다.</li>
+    </ul>
+    <h3>관리자 (BackOffice)</h3>
+    <ul>
+      <li><b>admin.easyselect.kr</b> → Route 53이 Tailscale IP를 가리킨다. tailnet grant는 member + tagged 노드에 <code>tag:wes-admin tcp:443</code>만.</li>
+      <li>wes-admin(t4g.small) 안: Tailscale Serve :443 → Caddy :8443(Let's Encrypt, Route 53 DNS-01) → BackOffice BFF → wes-admin-api :8081. SG 인바운드 0, 두 Docker 네트워크로 격리.</li>
+      <li>admin-api는 전용 DB 계정(Flyway OFF, ddl validate)으로 RDS에 붙고, trace를 같은 Loki로 보낸다. Grafana/Loki 조회 URL은 <code>/wes/admin-api/prod/*</code>에만 있다.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>모니터링</h3>
+    <ul>
+      <li>wes-monitoring(t4g.micro + EIP)에 Loki 3.5.3·Grafana 12.1.1·Caddy를 compose로 띄운다. ALB 뒤가 아니라 <b>monitoring.easyselect.kr</b> → EIP 직결.</li>
+      <li>앱·관리자 API는 사설 IP <code>:3100</code>으로 push 한다(SG 참조 규칙은 VPC 내부 경로에서만 매칭). 보존 168h.</li>
+      <li>Grafana 비밀번호는 <code>/wes/monitoring/*</code>에 분리한다. 앱이 <code>/wes/prod/</code>를 통째로 읽기 때문이다.</li>
+    </ul>
+    <h3>테스트 프론트</h3>
+    <ul>
+      <li>wes-frontend-test(t4g.small + EIP, Ubuntu arm64) → <b>test.easyselect.kr</b>, Caddy가 정적 파일을 서빙. 관리자 API로 가는 경로·권한은 없다.</li>
+      <li>배포는 test-web 저장소의 OIDC 롤이 릴리스 zip을 전용 S3에 올리고 고정 SSM 문서 하나만 실행한다. StatusCheckFailed 알람이 있다.</li>
+    </ul>
+    <h3>배포·State</h3>
+    <ul>
+      <li>GitHub OIDC 롤 7개, 장기 키 없음. 서버·관리자 API·BackOffice는 대상 <code>Name</code> 태그 한정 <code>ssm:SendCommand</code>, AI는 ECR push + <code>update-function-code</code>만.</li>
+      <li>이 저장소는 PR에서 <code>tf_plan</code>, main 머지에서 <code>tf_apply</code>가 돈다. bootstrap과 <code>modules/github-actions</code> 변경만 로컬 apply.</li>
+      <li>state는 사전 생성 S3 버킷의 <code>app/</code>·<code>dns/</code> 키, S3 native lock. DB 비밀번호는 state에 넣지 않고 수동 SecureString이다.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>AI 분석 파이프라인 v2</h2>
+<p>2026-09-08부터 잡 상태·단계 전환·재시도·샤딩은 전부 wes가 소유한다. Lambda가 Lambda를 부르던 자기 재호출·팬아웃·categorize 체인은 삭제됐고, 그에 딸린 InvokeFunction 권한과 lambda 인터페이스 엔드포인트도 뺐다.</p>
+<figure>
+  <div class="fig-scroll small">
+    <svg viewBox="0 0 1000 330" role="img" aria-label="분석 파이프라인 v2 순서: wes 스위퍼가 embedder, score(GPU 워커 또는 Lambda), categorize를 차례로 EVENT로 부르고 각 단계는 RDS에 결과를 쓴다" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="sq-ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk-ai"/></marker><marker id="sq-pub" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk-public"/></marker></defs>
+<text x="90" y="22" text-anchor="middle" class="seq-head">wes-app (스위퍼)</text>
+<line x1="90" y1="32" x2="90" y2="320" class="seq-lane"/>
+<text x="290" y="22" text-anchor="middle" class="seq-head">wes-embedder</text>
+<line x1="290" y1="32" x2="290" y2="320" class="seq-lane"/>
+<text x="490" y="22" text-anchor="middle" class="seq-head">GPU 워커 / wes-score</text>
+<line x1="490" y1="32" x2="490" y2="320" class="seq-lane"/>
+<text x="690" y="22" text-anchor="middle" class="seq-head">wes-categorize</text>
+<line x1="690" y1="32" x2="690" y2="320" class="seq-lane"/>
+<text x="890" y="22" text-anchor="middle" class="seq-head">RDS · S3 · Bedrock</text>
+<line x1="890" y1="32" x2="890" y2="320" class="seq-lane"/>
+<rect x="85" y="40" width="10" height="275" rx="2" class="seq-act"/>
+<path d="M95,60 H285" class="edge e-ai" marker-end="url(#sq-ai)"/>
+<text x="190.0" y="54" text-anchor="middle" class="edge-label l-ai">EVENT {galleryId, jobId, photoIds ≤ 15분치}</text>
+<rect x="285" y="60" width="10" height="50" rx="2" class="seq-act"/>
+<path d="M295,80 H885" class="edge e-ai" marker-end="url(#sq-ai)"/>
+<text x="590.0" y="74" text-anchor="middle" class="edge-label l-ai">원본 GET → previews/ PUT (S3 GW EP)</text>
+<path d="M295,100 H885" class="edge e-ai" marker-end="url(#sq-ai)"/>
+<text x="590.0" y="94" text-anchor="middle" class="edge-label l-ai">embedding UPDATE :5432</text>
+<text x="190" y="124" text-anchor="middle" class="seq-note">상태는 DB에서 읽는다 · 재시도·하트비트·max-attempts는 wes</text>
+<path d="M95,145 H485" class="edge e-ai" marker-end="url(#sq-ai)"/>
+<text x="290.0" y="139" text-anchor="middle" class="edge-label l-ai">gpu.enabled=true → 워커 Start(tag) · 폴백은 score Lambda EVENT</text>
+<rect x="485" y="145" width="10" height="60" rx="2" class="seq-act"/>
+<path d="M495,165 H885" class="edge e-ai" marker-end="url(#sq-ai)"/>
+<text x="690.0" y="159" text-anchor="middle" class="edge-label l-ai">previews GET · 점수 UPDATE :5432</text>
+<text x="490" y="192" text-anchor="middle" class="seq-note">워커: 부팅 시 ECR gpu 태그 pull · 유휴 30초 → 자기 정지</text>
+<text x="490" y="204" text-anchor="middle" class="seq-note">Lambda: 동시 32 · 15분 상한 · 임시 저장소 10GB</text>
+<path d="M95,235 H685" class="edge e-ai" marker-end="url(#sq-ai)"/>
+<text x="390.0" y="229" text-anchor="middle" class="edge-label l-ai">EVENT {galleryId, jobId}</text>
+<rect x="685" y="235" width="10" height="65" rx="2" class="seq-act"/>
+<path d="M695,255 H885" class="edge e-ai" marker-end="url(#sq-ai)"/>
+<text x="790.0" y="249" text-anchor="middle" class="edge-label l-ai">previews GET (대표 몇 장)</text>
+<path d="M695,275 H885" class="edge e-ai" marker-end="url(#sq-ai)"/>
+<text x="790.0" y="269" text-anchor="middle" class="edge-label l-ai">Bedrock InvokeModel (bedrock-runtime EP · global. Sonnet)</text>
+<path d="M695,295 H885" class="edge e-ai" marker-end="url(#sq-ai)"/>
+<text x="790.0" y="289" text-anchor="middle" class="edge-label l-ai">그룹·이름 UPDATE :5432</text>
+<text x="500" y="322" text-anchor="middle" class="seq-note">Lambda 자체 재시도 0 · 이벤트 age 상한 20분 · AsyncEventAge/Dropped 알람 → 다시 보내는 것은 wes dispatch</text>
+</svg>
+  </div>
+  <figcaption>갤러리 하나의 분석. wes 스위퍼가 photoIds 배치를 EVENT로 보내고, 각 단계는 결과를 RDS에 쓰고 끝난다. score는 GPU 스위치가 켜져 있으면 워커에 맡기고 Lambda는 폴백이다. Lambda 자체 재시도는 0, 이벤트 최대 age 20분이며 그 뒤 재시도는 wes dispatch 몫이다.</figcaption>
+</figure>
+
+<div class="tbl"><table>
+  <thead><tr><th>함수</th><th>하는 일</th><th>메모리 · 임시 저장소</th><th>예약 동시성</th><th>DB 계정</th><th>IAM 범위</th></tr></thead>
+  <tbody>
+    <tr><td class="k">wes-embedder</td><td>원본 GET → previews/ PUT → DINOv3 임베딩(768) → <code>photo_analysis.embedding</code></td><td class="num">3008 MB · 512 MB</td><td class="num">32</td><td class="mono">embedder</td><td>S3 원본 Get · previews Put · rds-db:connect(SCP로 무효)</td></tr>
+    <tr><td class="k">wes-score</td><td>미리보기 → CLIP·ARNIQA·LAION 점수. GPU 워커 풀의 폴백</td><td class="num">8192 MB · 10240 MB</td><td class="num">32</td><td class="mono">photoselect</td><td>previews Get만</td></tr>
+    <tr><td class="k">wes-categorize</td><td>그룹 묶기 → Bedrock으로 이름</td><td class="num">3008 MB · 512 MB</td><td class="num">2</td><td class="mono">photoselect</td><td>previews Get · bedrock:InvokeModel(프로필 + 기반 모델 ARN)</td></tr>
+  </tbody>
+</table></div>
+<p class="src">셋 다 컨테이너 이미지(x86_64), timeout 900s, DB subnet + 공용 Lambda SG, <code>DB_PASSWORD</code>는 apply 밖에서 주입(ignore_changes). score·categorize는 <code>verify-full</code> SSL.</p>
+
+<h2>GPU score 워커 풀</h2>
+<p>g6.xlarge 두 대가 AZ마다 한 대씩 public subnet에 있고 생성 직후 정지된다. 켜고 끄는 주체는 세 겹이다.</p>
+<figure>
+  <div class="fig-scroll small">
+    <svg viewBox="0 0 980 258" role="img" aria-label="GPU 워커 상태 전이: 생성 직후 정지, wes가 backlog를 보고 Start, 워커가 유휴 30초면 자기 정지, wes 무진행 안전망 Stop, CloudWatch 30분 CPU 5% 미만 알람이 최후 정지" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="st-ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk-ai"/></marker><marker id="st-cfg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk-cfg"/></marker></defs>
+<g class=""><rect x="30" y="60" width="170" height="70" rx="6" class="st-box"/>
+<text x="115.0" y="80" text-anchor="middle" class="st-title">AMI (Image Builder)</text>
+<text x="115.0" y="97" text-anchor="middle" class="st-line">수동 빌드 · gpu_ami_id PR</text>
+<text x="115.0" y="110" text-anchor="middle" class="st-line">바뀌면 인스턴스 replace</text>
+</g>
+<g class="st-off"><rect x="260" y="60" width="190" height="70" rx="6" class="st-box"/>
+<text x="355.0" y="80" text-anchor="middle" class="st-title">stopped (기본)</text>
+<text x="355.0" y="97" text-anchor="middle" class="st-line">생성 직후 aws_ec2_instance_state</text>
+<text x="355.0" y="110" text-anchor="middle" class="st-line">시간당 요금 없음</text>
+</g>
+<g class=""><rect x="560" y="60" width="190" height="70" rx="6" class="st-box"/>
+<text x="655.0" y="80" text-anchor="middle" class="st-title">running</text>
+<text x="655.0" y="97" text-anchor="middle" class="st-line">ECR wes-score:gpu pull → 컨테이너</text>
+<text x="655.0" y="110" text-anchor="middle" class="st-line">photoselect 계정으로 :5432</text>
+</g>
+<g class=""><rect x="760" y="150" width="190" height="70" rx="6" class="st-box"/>
+<text x="855.0" y="170" text-anchor="middle" class="st-title">CloudWatch 알람 (최후)</text>
+<text x="855.0" y="187" text-anchor="middle" class="st-line">30분 연속 CPU &lt; 5% → ec2:stop</text>
+<text x="855.0" y="200" text-anchor="middle" class="st-line">InstanceId 하나씩 · events SLR</text>
+</g>
+<path d="M200,95 H260" class="edge e-cfg" stroke-dasharray="5 4" marker-end="url(#st-cfg)"/>
+<text x="230" y="88" text-anchor="middle" class="edge-label l-cfg">replace</text>
+<path d="M450,80 H560" class="edge e-ai" marker-end="url(#st-ai)"/>
+<text x="505" y="72" text-anchor="middle" class="edge-label l-ai">① wes GpuController Start — backlog 있음 · tag Name=wes-score-gpu</text>
+<path d="M560,110 H450" class="edge e-ai" marker-end="url(#st-ai)"/>
+<text x="505" y="124" text-anchor="middle" class="edge-label l-ai">② 워커 자기 정지 — 유휴 30초 (WORKER_IDLE_STOP_SECONDS)</text>
+<path d="M600,130 V170 H420 V130" class="edge e-ai" marker-end="url(#st-ai)"/>
+<text x="510" y="184" text-anchor="middle" class="edge-label l-ai">③ wes 무진행 안전망 Stop</text>
+<path d="M655,120 H700 V185 H760" class="edge e-cfg" stroke-dasharray="5 4" marker-end="url(#st-cfg)"/>
+<text x="712" y="178" text-anchor="start" class="edge-label l-cfg">CPU 지표</text>
+<path d="M760,205 H340 V130" class="edge e-ai" marker-end="url(#st-ai)"/>
+<text x="550" y="219" text-anchor="middle" class="edge-label l-ai">④ 알람 정지 (최후)</text>
+<text x="30" y="243" class="seq-note">정지된 인스턴스는 루트 볼륨을 유지하므로 Start는 AMI와 무관하다. 워커에는 상태가 없다. 정지 중엔 지표가 없어 알람은 notBreaching.</text>
+</svg>
+  </div>
+  <figcaption>워커 인스턴스 상태 전이. 인프라는 생성 직후 정지와 최후 안전장치 알람만 소유하고, 그 사이의 Start/Stop은 wes와 워커 자신이 결정한다. AMI를 바꾸면 인스턴스가 교체되지만 워커는 상태가 없어 안전하다.</figcaption>
+</figure>
+<ul>
+  <li><b>AMI</b>: EC2 Image Builder가 AL2023 x86 위에 NVIDIA 드라이버·Docker·nvidia-container-toolkit·워커 systemd 유닛을 굽는다. 스케줄 없이 수동 실행, 결과 AMI ID를 <code>gpu_ami_id</code>에 박는 PR을 낸다. 서비스 연결 역할 둘(imagebuilder, events)은 코드로 만든다.</li>
+  <li><b>코드 이미지</b>: AMI에 굽지 않고 부팅 때 ECR <code>wes-score:gpu</code>(이동 태그)를 pull 한다. 불변 태그 <code>gpu-&lt;sha&gt;</code>는 최근 3개만 남긴다.</li>
+  <li><b>워커 롤</b>: previews Get · ECR pull · SSM 파라미터 3개(<code>spring.datasource.url</code>, <code>photoselect.db.password</code>, <code>app.storage.bucket</code>)만 · 자기 풀 태그 한정 StopInstances. 접속은 SSM만, key pair 없음.</li>
+  <li><b>스위치</b>: SSM <code>app.analysis.gpu.enabled</code>는 Terraform 소유(<code>gpu_score_enabled</code>, 현재 true). 콘솔에서 바꾸면 다음 apply가 되돌린다.</li>
+  <li><b>알려진 드리프트</b>: 정지된 인스턴스는 퍼블릭 IP가 회수돼 <code>associate_public_ip_address</code>가 매 plan마다 replace를 만들었다. #57에서 ignore_changes로 막았다.</li>
+</ul>
+
+<h2>인벤토리</h2>
+<h3>컴퓨트</h3>
+<div class="tbl"><table>
+  <thead><tr><th>이름</th><th>타입</th><th>위치</th><th>도메인</th><th>인바운드</th><th>역할</th></tr></thead>
+  <tbody>
+    <tr><td class="k">wes-app</td><td>t4g.micro (arm64)</td><td>public 2a</td><td>api.easyselect.kr (ALB)</td><td>:8080 ← ALB SG · :22 ← 운영자 CIDR(기본 없음)</td><td>wes-api · Flyway owner · 분석 오케스트레이터</td></tr>
+    <tr><td class="k">wes-admin</td><td>t4g.small</td><td>public 2a</td><td>admin.easyselect.kr (Tailscale IP)</td><td>SG 0 · tailnet tcp:443만</td><td>Caddy · BackOffice · wes-admin-api</td></tr>
+    <tr><td class="k">wes-monitoring</td><td>t4g.micro + EIP</td><td>public 2a</td><td>monitoring.easyselect.kr</td><td>:80/:443 공개 · :3100 ← app·admin SG · :22 ← 운영자</td><td>Loki · Grafana · Caddy</td></tr>
+    <tr><td class="k">wes-frontend-test</td><td>t4g.small + EIP</td><td>public 2a</td><td>test.easyselect.kr</td><td>:80/:443 공개</td><td>Caddy 정적 테스트 프론트</td></tr>
+    <tr><td class="k">wes-score-gpu ×2</td><td>g6.xlarge (x86, GPU) · 기본 정지</td><td>public 2a · 2c</td><td>없음</td><td>SG 0 · SSM만</td><td>score GPU 워커</td></tr>
+    <tr><td class="k">wes-db</td><td>RDS db.t4g.micro · PostgreSQL 16.14 · 20 GB · Single-AZ</td><td>DB subnet</td><td>없음(비공개)</td><td>:5432 ← EC2 SG · Lambda SG · GPU SG · admin SG</td><td>계정 wes_admin · embedder · photoselect · wes_admin_api</td></tr>
+    <tr><td class="k">wes-embedder · score · categorize</td><td>Lambda 컨테이너 (x86_64)</td><td>DB subnet</td><td>없음</td><td>인바운드 없음</td><td>AI 분석 셋</td></tr>
+  </tbody>
+</table></div>
+
+<h3>네트워크 · 엔드포인트</h3>
+<div class="tbl"><table>
+  <thead><tr><th>항목</th><th>값</th><th>비고</th></tr></thead>
+  <tbody>
+    <tr><td class="k">VPC</td><td class="mono">10.0.0.0/16</td><td>AZ ap-northeast-2a · 2c</td></tr>
+    <tr><td class="k">Public subnet</td><td class="mono">10.0.0.0/24 · 10.0.1.0/24</td><td>IGW 라우트, map_public_ip_on_launch</td></tr>
+    <tr><td class="k">DB subnet</td><td class="mono">10.0.10.0/24 · 10.0.11.0/24</td><td>인터넷 라우트 없음, NAT 없음</td></tr>
+    <tr><td class="k">S3 게이트웨이 엔드포인트</td><td>DB 라우트 테이블만</td><td>무료. public 라우트에는 붙이지 않음</td></tr>
+    <tr><td class="k">bedrock-runtime 인터페이스 엔드포인트</td><td>DB subnet 2a 한 곳</td><td>private DNS, 시간당 과금. <code>interface_endpoint_subnet_indexes=[0,1]</code>로 두 AZ 확장 가능</td></tr>
+    <tr><td class="k">lambda 인터페이스 엔드포인트</td><td>없음</td><td>#57에서 제거(Lambda 간 호출 폐지)</td></tr>
+  </tbody>
+</table></div>
+
+<h3>GitHub OIDC 롤</h3>
+<div class="tbl"><table>
+  <thead><tr><th>롤</th><th>Assume 주체</th><th>권한</th></tr></thead>
+  <tbody>
+    <tr><td class="k">deploy (server)</td><td>organic-agent-server</td><td>wes-app 대상 SendCommand · DescribeInstances · GetCommandInvocation</td></tr>
+    <tr><td class="k">admin_api_deploy</td><td>organic-agent-server</td><td>wes-admin 대상 SendCommand(관리자 API)</td></tr>
+    <tr><td class="k">admin_deploy</td><td>organic-agent-backoffice main</td><td>wes-admin 대상 SendCommand(BackOffice) · 같은 host flock</td></tr>
+    <tr><td class="k">worker_deploy</td><td>organic-agent-ai main</td><td>ECR 3개 push · Lambda 3개 update-function-code</td></tr>
+    <tr><td class="k">frontend_test_deploy</td><td>organic-agent-test-web main</td><td>아티팩트 S3 PutObject · 고정 SSM 문서 · frontend-test 인스턴스만</td></tr>
+    <tr><td class="k">tf_plan</td><td>organic-agent-infra PR</td><td>ReadOnlyAccess + SSM SecureString 복호화</td></tr>
+    <tr><td class="k">tf_apply</td><td>organic-agent-infra main</td><td>PowerUserAccess + <code>wes-*</code> 접두사 IAM 쓰기 · PassRole · score-gpu 서비스 연결 역할 둘</td></tr>
+  </tbody>
+</table></div>
+
+<h3>SSM Parameter Store 프리픽스</h3>
+<div class="tbl"><table>
+  <thead><tr><th>프리픽스</th><th>읽는 주체</th><th>내용</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">/wes/prod/*</td><td>wes-app · GPU 워커(3개만)</td><td>datasource url/username · storage.bucket · analysis 함수 이름 3개 · gpu.enabled · loki-url · 수동: password · cors · OAuth/JWT · photoselect.db.password</td></tr>
+    <tr><td class="mono">/wes/admin-api/prod/*</td><td>wes-admin-api</td><td>datasource · bucket · embedder 함수 이름 · loki/grafana URL · server.port 8081 · flyway false · ddl validate · 수동 password</td></tr>
+    <tr><td class="mono">/wes/admin/*</td><td>wes-admin 부팅</td><td>Tailscale auth key(최초 가입만)</td></tr>
+    <tr><td class="mono">/wes/monitoring/*</td><td>wes-monitoring</td><td>Grafana 관리자 비밀번호</td></tr>
+    <tr><td class="mono">/wes/local/*</td><td>개발자 노트북</td><td>dev 버킷 이름(<code>bootRun --spring.profiles.active=local</code>)</td></tr>
+  </tbody>
+</table></div>
+
+<h2>기존 문서와의 차이</h2>
+<p>README의 글은 대체로 현재 구성을 따라왔지만, 그림 <code>docs/architecture/wes-infrastructure-architecture.drawio/.png</code>는 2026-09-05 관리자 경로 갱신에서 멈춰 있었다. 그 뒤 9월 5~8일 사이의 변경은 #65에서 반영했고, 아래는 그 전 그림과의 차이 기록이다.</p>
+<div class="tbl"><table>
+  <thead><tr><th>항목</th><th>drawio / PNG</th><th>현재</th><th>상태</th></tr></thead>
+  <tbody>
+    <tr><td class="k">AI Lambda</td><td>wes-embedder 하나, DINOv2</td><td>embedder(DINOv3) · score · categorize 셋, ECR 3개, 동시성 32/32/2</td><td><span class="pill stale">낡음</span></td></tr>
+    <tr><td class="k">GPU 워커 풀</td><td>없음</td><td>g6.xlarge ×2 · SG · 롤 · 유휴 정지 알람 · 앱 롤 Start/Stop · gpu.enabled=true</td><td><span class="pill miss">누락</span></td></tr>
+    <tr><td class="k">Image Builder AMI 파이프라인</td><td>없음</td><td>수동 파이프라인 · 빌더 롤/SG · 서비스 연결 역할 2</td><td><span class="pill miss">누락</span></td></tr>
+    <tr><td class="k">Bedrock</td><td>없음</td><td>bedrock-runtime 엔드포인트(한 AZ) · categorize 이름 짓기 · 앱 롤 InvokeModel</td><td><span class="pill miss">누락</span></td></tr>
+    <tr><td class="k">모니터링</td><td>없음</td><td>wes-monitoring(Loki·Grafana·Caddy) · app/admin → :3100 · monitoring.easyselect.kr</td><td><span class="pill miss">누락</span></td></tr>
+    <tr><td class="k">테스트 프론트</td><td>없음</td><td>wes-frontend-test · test.easyselect.kr · 아티팩트 S3 · 전용 OIDC 롤 · SSM 문서</td><td><span class="pill miss">누락</span></td></tr>
+    <tr><td class="k">배포 롤</td><td>×3 (공개 API · 관리자 API · BackOffice)</td><td>×7 (+ AI worker · test-web · tf_plan · tf_apply)</td><td><span class="pill stale">낡음</span></td></tr>
+    <tr><td class="k">SSM 프리픽스</td><td>/wes/prod · /wes/admin-api/prod · /wes/admin</td><td>+ /wes/monitoring · /wes/local · analysis 함수 이름 3개 · gpu.enabled</td><td><span class="pill stale">낡음</span></td></tr>
+    <tr><td class="k">S3 버킷</td><td>wes-photos 하나</td><td>+ wes-dev-photos(로컬) · 테스트웹 아티팩트</td><td><span class="pill stale">낡음</span></td></tr>
+    <tr><td class="k">ALB 리스너 규칙</td><td>없음</td><td><code>/internal/admin*</code> → 404 고정 응답</td><td><span class="pill miss">누락</span></td></tr>
+    <tr><td class="k">RDS 인바운드</td><td>EC2·Lambda·admin</td><td>+ GPU 워커 SG. CONNECTION LIMIT embedder 32 · photoselect 24 · wes_admin 40</td><td><span class="pill stale">낡음</span></td></tr>
+    <tr><td class="k">Lambda 간 호출</td><td>표기 없음</td><td>폐지됨. lambda 인터페이스 엔드포인트도 제거(#57)</td><td><span class="pill ok">일치</span></td></tr>
+    <tr><td class="k">공개·관리자·Tailscale 경로, state 분리</td><td>있음</td><td>변화 없음</td><td><span class="pill ok">일치</span></td></tr>
+  </tbody>
+</table></div>
+<div class="callout">README 본문에서도 빠진 것: 테스트 프론트 머신, dev 사진 버킷, GPU 워커 풀의 구체(대수·기본 정지·알람·AMI 파이프라인), OIDC 롤이 7개라는 점. <code>docs/plans/pipeline-v2-infra-plan.md</code> §5가 README·drawio 갱신을 PR-5로 예약해 두었다.</div>
+
+<h2>출처</h2>
+<p class="src">루트 <code>main.tf</code> · <code>admin.tf</code> · <code>frontend-test.tf</code> · <code>variables.tf</code>, 모듈 <code>network</code> · <code>security</code> · <code>compute</code> · <code>database</code> · <code>ingress</code> · <code>storage</code> · <code>analysis</code> · <code>score-gpu</code> · <code>monitoring</code> · <code>frontend-test</code> · <code>admin-access</code> · <code>github-actions</code>, 그리고 <code>README.md</code> · <code>docs/plans/pipeline-v2-infra-plan.md</code>. 커밋 42b33c6(2026-09-08) 기준.</p>
+</div>
