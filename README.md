@@ -52,3 +52,4 @@ PR을 열면 CI가 같은 검사와 `plan`을 돌려 요약을 댓글로 달고,
 - 운영: [배포 순서](docs/runbooks/deploy-order.md) · [운영 런북](docs/runbooks/runbook.md) · [테스트 프론트](docs/runbooks/frontend-test.md)
 - 아키텍처: [그림 원본](docs/architecture/wes-infrastructure-architecture.drawio) · [백오피스 Tailscale 내부 접근](docs/architecture/admin-internal-access.md) · [Terraform 학습 가이드](docs/architecture/study/wes-terraform-learning-guide.md)
 - 계획: [분석 파이프라인 v2 인프라 계획](docs/plans/pipeline-v2-infra-plan.md) — GPU score 워커 풀·AMI 파이프라인·Phase 0 커넥션 상한
+- 개선: [score Lambda → GPU 워커 풀 전환](docs/improvements/score-lambda-to-gpu-worker-pool-2026-09-08.md) — 인프라 변경 전/후·성능·비용·트레이드오프
