@@ -1,6 +1,6 @@
 # WES 인프라 구성 (2026-09-09 · main 42b33c6 기준)
 
-`variables.tf` 기본값과 모듈 코드 기준의 현재 구성. 그림 원본은 claude.ai 아티팩트(README 링크)이고, 이 문서는 GitHub에서 바로 읽히도록 Mermaid로 요약한다. `docs/wes-infrastructure-architecture.drawio/.png`도 같은 기준으로 갱신했고(#65), 아래 "기존 그림과의 차이"는 그 전 그림(2026-09-05)에서 무엇이 바뀌었는지의 기록이다.
+`variables.tf` 기본값과 모듈 코드 기준의 현재 구성. 그림 원본은 claude.ai 아티팩트(README 링크)이고, 이 문서는 GitHub에서 바로 읽히도록 Mermaid로 요약한다. `docs/architecture/wes-infrastructure-architecture.drawio/.png`도 같은 기준으로 갱신했고(#65), 아래 "기존 그림과의 차이"는 그 전 그림(2026-09-05)에서 무엇이 바뀌었는지의 기록이다.
 
 ## 전체 구성
 
@@ -112,4 +112,4 @@ SSM 프리픽스: `/wes/prod/*`(앱 · GPU 워커는 3개 키만) · `/wes/admin
 | ALB 규칙 | 없음 | `/internal/admin*` → 404 |
 | RDS 인바운드 | EC2·Lambda·admin | + GPU SG |
 
-README 본문에도 테스트 프론트·dev 버킷·GPU 워커 풀 구체·OIDC 롤 7개가 없다. `docs/pipeline-v2-infra-plan.md` §5가 README·drawio 갱신을 PR-5로 잡아 두었다.
+README 본문에도 테스트 프론트·dev 버킷·GPU 워커 풀 구체·OIDC 롤 7개가 없다. `docs/plans/pipeline-v2-infra-plan.md` §5가 README·drawio 갱신을 PR-5로 잡아 두었다.

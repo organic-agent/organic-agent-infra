@@ -135,7 +135,7 @@
     <dt>기준일</dt><dd>2026-09-09</dd>
     <dt>기준 커밋</dt><dd class="mono">main · 42b33c6</dd>
     <dt>리전</dt><dd>ap-northeast-2</dd>
-    <dt>대체 대상</dt><dd class="mono">docs/wes-infrastructure-architecture.drawio</dd>
+    <dt>대체 대상</dt><dd class="mono">docs/architecture/wes-infrastructure-architecture.drawio</dd>
   </dl>
 </header>
 
@@ -646,7 +646,7 @@
 </table></div>
 
 <h2>기존 문서와의 차이</h2>
-<p>README의 글은 대체로 현재 구성을 따라왔지만, 그림 <code>docs/wes-infrastructure-architecture.drawio/.png</code>는 2026-09-05 관리자 경로 갱신에서 멈춰 있다. 그 뒤 9월 5~8일 사이의 변경이 반영되지 않았다.</p>
+<p>README의 글은 대체로 현재 구성을 따라왔지만, 그림 <code>docs/architecture/wes-infrastructure-architecture.drawio/.png</code>는 2026-09-05 관리자 경로 갱신에서 멈춰 있었다. 그 뒤 9월 5~8일 사이의 변경은 #65에서 반영했고, 아래는 그 전 그림과의 차이 기록이다.</p>
 <div class="tbl"><table>
   <thead><tr><th>항목</th><th>drawio / PNG</th><th>현재</th><th>상태</th></tr></thead>
   <tbody>
@@ -665,8 +665,8 @@
     <tr><td class="k">공개·관리자·Tailscale 경로, state 분리</td><td>있음</td><td>변화 없음</td><td><span class="pill ok">일치</span></td></tr>
   </tbody>
 </table></div>
-<div class="callout">README 본문에서도 빠진 것: 테스트 프론트 머신, dev 사진 버킷, GPU 워커 풀의 구체(대수·기본 정지·알람·AMI 파이프라인), OIDC 롤이 7개라는 점. <code>docs/pipeline-v2-infra-plan.md</code> §5가 README·drawio 갱신을 PR-5로 예약해 두었다.</div>
+<div class="callout">README 본문에서도 빠진 것: 테스트 프론트 머신, dev 사진 버킷, GPU 워커 풀의 구체(대수·기본 정지·알람·AMI 파이프라인), OIDC 롤이 7개라는 점. <code>docs/plans/pipeline-v2-infra-plan.md</code> §5가 README·drawio 갱신을 PR-5로 예약해 두었다.</div>
 
 <h2>출처</h2>
-<p class="src">루트 <code>main.tf</code> · <code>admin.tf</code> · <code>frontend-test.tf</code> · <code>variables.tf</code>, 모듈 <code>network</code> · <code>security</code> · <code>compute</code> · <code>database</code> · <code>ingress</code> · <code>storage</code> · <code>analysis</code> · <code>score-gpu</code> · <code>monitoring</code> · <code>frontend-test</code> · <code>admin-access</code> · <code>github-actions</code>, 그리고 <code>README.md</code> · <code>docs/pipeline-v2-infra-plan.md</code>. 커밋 42b33c6(2026-09-08) 기준.</p>
+<p class="src">루트 <code>main.tf</code> · <code>admin.tf</code> · <code>frontend-test.tf</code> · <code>variables.tf</code>, 모듈 <code>network</code> · <code>security</code> · <code>compute</code> · <code>database</code> · <code>ingress</code> · <code>storage</code> · <code>analysis</code> · <code>score-gpu</code> · <code>monitoring</code> · <code>frontend-test</code> · <code>admin-access</code> · <code>github-actions</code>, 그리고 <code>README.md</code> · <code>docs/plans/pipeline-v2-infra-plan.md</code>. 커밋 42b33c6(2026-09-08) 기준.</p>
 </div>

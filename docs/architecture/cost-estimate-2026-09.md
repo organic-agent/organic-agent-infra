@@ -3,7 +3,7 @@
 모니터링 서버(`wes-monitoring`)와 테스트 웹(`wes-frontend-test`)을 **제외**한 서비스 고정비 추정.
 실제 청구액은 Cost Explorer·Pricing API가 조직 SCP로 막혀 있어 조회하지 못했다.
 아래는 2026-09-10에 AWS CLI로 확인한 **실제 떠 있는 자원**에 서울 리전(ap-northeast-2) 온디맨드 공시 단가를 곱한 값이다.
-런북(`docs/runbook.md` "비용" 절)의 "$55-60"은 관리자 EC2·GPU 워커·Bedrock 엔드포인트·ECR·퍼블릭 IPv4 과금이 붙기 전 숫자라 지금은 맞지 않는다.
+런북(`docs/runbooks/runbook.md` "비용" 절)의 "$55-60"은 관리자 EC2·GPU 워커·Bedrock 엔드포인트·ECR·퍼블릭 IPv4 과금이 붙기 전 숫자라 지금은 맞지 않는다.
 
 ## 고정비 — 월 약 $105 (약 14~15만 원)
 

@@ -5,7 +5,7 @@
 | 폴더 | 기준 | 지금 있는 것 |
 |---|---|---|
 | `runbooks/` | **손으로 하는 절차.** 배포 순서, 수동 작업, 점검, 문제 해결, 롤백. 명령이 들어 있고 위에서 아래로 따라 한다 | `deploy-order.md`(제로 → 서비스까지 [1]~[8]) · `runbook.md`(운영 전반: 접속·CI/CD·AI 파이프라인·GPU AMI·모니터링·폐기) · `frontend-test.md`(테스트 프론트 배포·점검·롤백) |
-| `architecture/` | **왜 이렇게 생겼는지.** 구성·경계·결정 근거. 절차가 아니라 설명. `study/`는 학습 메모 | `wes-infrastructure-architecture.{drawio,png}`(전체 그림, README가 보여 준다) · `admin-internal-access.md`(백오피스 Tailscale 내부 접근의 구성·보안 경계·배포 계약) · `study/wes-terraform-learning-guide.md` |
+| `architecture/` | **왜 이렇게 생겼는지.** 구성·경계·결정 근거. 절차가 아니라 설명. `study/`는 학습 메모 | `wes-infrastructure-architecture.{drawio,png}`(전체 그림, README가 보여 준다) · `wes-infrastructure-architecture.md`(같은 구성의 Mermaid 요약·인벤토리) · `wes-infrastructure-architecture.html`(단일 파일 구성도) · `cost-estimate-2026-09.md`(구성별 월 비용 추정) · `admin-internal-access.md`(백오피스 Tailscale 내부 접근의 구성·보안 경계·배포 계약) · `study/wes-terraform-learning-guide.md` |
 | `plans/` | **앞으로 할 일의 설계.** 결정 표, PR 순서, 다른 저장소에 요구하는 계약, 롤백. 끝나면 남겨 두고 검토 이력을 붙인다 | `pipeline-v2-infra-plan.md`(GPU score 워커 풀·AMI 파이프라인·Phase 0, 결정 A~L) |
 | `research/` | 인프라와 무관한 조사·검토. 저장소에 들어온 이력 때문에 남겨 둔다 | `mass-market-project-ideas-50-detailed-review.md` |
 
