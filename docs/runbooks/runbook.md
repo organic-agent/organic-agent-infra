@@ -392,7 +392,7 @@ SELECT rolname, rolconnlimit FROM pg_roles WHERE rolname IN ('embedder','photose
 
 관리자 API 계정(`wes_admin_api`)의 상한은 서버 저장소가 정한다. embedder 예약 동시성을 올리면(`embedder_reserved_concurrent_executions`)
 이 값도 같이 올린다 — 낮으면 샤드가 `FATAL: too many connections for role "embedder"`로 죽는다. 상한을 풀려면 `CONNECTION LIMIT -1`.
-값의 근거와 RDS 클래스 결정 시점은 [분석 파이프라인 v2 인프라 계획](pipeline-v2-infra-plan.md) 결정 D·E.
+값의 근거와 RDS 클래스 결정 시점은 [분석 파이프라인 v2 인프라 계획](../plans/pipeline-v2-infra-plan.md) 결정 D·E.
 
 테이블별 GRANT의 원본은 서버 저장소 Flyway 베이스라인(`V1__baseline.sql`의 `EMBEDDER_GRANT_CONTRACT` ·
 `PHOTOSELECT_GRANT_CONTRACT`)이다. 그 블록은 **마이그레이션이 도는 시점에 role이 있을 때만** 건다 —
@@ -567,7 +567,7 @@ aws lambda invoke --region ap-northeast-2 --function-name wes-score \
 
 ### # 파이프라인 v2 준비 (Phase 0 수동 작업)
 
-[분석 파이프라인 v2 인프라 계획](pipeline-v2-infra-plan.md)의 Phase 0. 셋 다 Terraform 밖의 작업이고 다운타임이 없다.
+[분석 파이프라인 v2 인프라 계획](../plans/pipeline-v2-infra-plan.md)의 Phase 0. 셋 다 Terraform 밖의 작업이고 다운타임이 없다.
 전체 순서와 근거는 계획 문서 §5, 이후 Phase(GPU AMI 파이프라인·워커 풀)는 §3 PR 순서를 따른다.
 
 **1. 역할별 커넥션 상한** — 위 [DB 사용자](#-1-db-사용자-db를-새로-만들-때마다)의 `ALTER ROLE … CONNECTION LIMIT` 3건.
@@ -610,7 +610,7 @@ aws service-quotas list-requested-service-quota-change-history-by-quota --servic
 
 ### # GPU AMI (score 워커, Image Builder)
 
-[계획](pipeline-v2-infra-plan.md) §4.1의 AMI 파이프라인(`modules/score-gpu`, PR-3b). AMI에는 NVIDIA 드라이버(브랜치 고정) ·
+[계획](../plans/pipeline-v2-infra-plan.md) §4.1의 AMI 파이프라인(`modules/score-gpu`, PR-3b). AMI에는 NVIDIA 드라이버(브랜치 고정) ·
 Docker · nvidia-container-toolkit · `wes-score` systemd 유닛만 굽는다. 코드 이미지는 워커가 부팅 때 ECR `wes-score:gpu`
 (이동 태그)를 pull 하고, DB 주소·비밀번호·버킷은 기동 때 `/wes/prod/` 파라미터 세 개에서 읽는다 — 코드나 RDS가 바뀌어도
 AMI를 다시 굽지 않는다(결정 B·J). 파이프라인에는 schedule이 없다. **드라이버·베이스를 올릴 때만** 사람이 돌린다.

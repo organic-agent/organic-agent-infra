@@ -1,9 +1,9 @@
-# score GPU 워커 풀 — 1단계: AMI 파이프라인(계획 docs/pipeline-v2-infra-plan.md §4.1 위쪽 절반, PR-3b). 워커 인스턴스·롤·알람은 workers.tf.
+# score GPU 워커 풀 — 1단계: AMI 파이프라인(계획 docs/plans/pipeline-v2-infra-plan.md §4.1 위쪽 절반, PR-3b). 워커 인스턴스·롤·알람은 workers.tf.
 #
 # EC2 Image Builder가 AL2023 위에 NVIDIA 드라이버 · Docker · nvidia-container-toolkit · 워커 systemd 유닛을 구워
 # AMI를 만든다. 코드 이미지(ECR wes-score:gpu)는 굽지 않고 워커가 부팅 때 pull 한다 — 드라이버와 코드의 갱신
 # 주기가 다르기 때문이다(결정 B, §4.3). 파이프라인에는 schedule이 없다. 드라이버·베이스를 올릴 때만 사람이
-# 돌리고, 나온 AMI ID를 gpu_ami_id에 박는 PR을 낸다(docs/runbook.md "GPU AMI").
+# 돌리고, 나온 AMI ID를 gpu_ami_id에 박는 PR을 낸다(docs/runbooks/runbook.md "GPU AMI").
 #
 # 워커 인스턴스 2대 · 워커 롤 · 유휴 정지 알람은 workers.tf(PR-3c), GPU SG는 modules/security(RDS SG가 참조).
 #

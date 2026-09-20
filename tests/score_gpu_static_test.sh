@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# score GPU 워커 풀(modules/score-gpu)의 회귀 검사 — 계획 docs/pipeline-v2-infra-plan.md §7.
+# score GPU 워커 풀(modules/score-gpu)의 회귀 검사 — 계획 docs/plans/pipeline-v2-infra-plan.md §7.
 # 1~9는 PR-3b(AMI 파이프라인), 10~14는 PR-3c(워커 풀·SG·롤·알람·앱 롤).
 #   1. 서비스 연결 역할 둘(imagebuilder · events)이 코드로 있고, tf_apply 문장은 그 두 ARN으로 한정(§7-8)
 #   2. 부모 이미지는 Image Builder 관리 이미지 `x.x.x` — data "aws_ami" most_recent 금지(§7-6의 정신: 빌드마다 replace 금지)

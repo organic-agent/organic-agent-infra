@@ -154,7 +154,7 @@ Server와 Infra는 이름 기반 기본 subject를 쓰지만 IAM에서 immutable
 맞춘 environment subject와 `ref=refs/heads/main`도 동시에 요구한다.
 
 적용 후 서버 저장소에는 공개/관리자 API 역할을 각각 등록하고, 백오피스 저장소에는 기존 이름으로 등록한다.
-Lambda 셋의 worker 역할은 AI 저장소(`organic-agent-ai`)의 변수로 간다 — [deploy-order.md의 [5]](deploy-order.md#-5-배포-롤-시크릿-스택-세울-때마다).
+Lambda 셋의 worker 역할은 AI 저장소(`organic-agent-ai`)의 변수로 간다 — [deploy-order.md의 [5]](../runbooks/deploy-order.md#-5-배포-롤-시크릿-스택-세울-때마다).
 
 ```sh
 # WES-Server

@@ -10,7 +10,7 @@
 #
 # 장기 액세스 키를 발급·보관하지 않고, 각 롤은 특정 저장소의 특정 브랜치/이벤트 토큰만 받는다.
 # 닭과 달걀: tf_* 롤은 이 스택이 만든다. 최초 apply와 이 모듈을 고치는 apply는 로컬에서 하고,
-# output의 ARN을 저장소 시크릿에 넣으면 CI/CD가 돈다 (docs/runbook.md '인프라 CI/CD').
+# output의 ARN을 저장소 시크릿에 넣으면 CI/CD가 돈다 (docs/runbooks/runbook.md '인프라 CI/CD').
 
 data "aws_caller_identity" "current" {}
 

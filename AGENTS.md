@@ -7,7 +7,7 @@ This repository runs a single long-lived environment, edited and committed in pl
 - Repository root is the app stack (`main.tf`, `variables.tf`, `outputs.tf`, `providers.tf`, `versions.tf`) — VPC, ALB/ACM, EC2, RDS.
 - `dns/` is a separate mini-stack owning the Route53 hosted zone, kept apart so destroying the app stack never deletes the zone (a zone re-create would assign new NS servers and force re-delegation at the registrar).
 - `modules/` for reusable infrastructure components (`network`, `security`, `compute`, `database`, `ingress`, `storage`, `analysis`, `monitoring`, `github-actions`, `admin-access`).
-- `docs/` for runbooks and recovery procedures.
+- `docs/` split by kind: `runbooks/` (deploy order, operations, recovery), `architecture/` (diagram, network/boundary designs, `study/` learning notes), `plans/` (work plans per initiative), `research/` (non-infra reviews). Index and file map in `docs/README.md`.
 
 If multiple environments are ever needed again, reintroduce `environments/<name>/` compositions over the same modules.
 
