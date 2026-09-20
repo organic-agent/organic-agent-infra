@@ -310,7 +310,7 @@ resource "aws_lambda_function" "this" {
   # categorize는 zip으로도 가지만 셋이 같은 배포 경로(deploy.sh → ECR → update-function-code)를 쓴다.
   #
   # 리포지토리에 이 태그가 이미 있어야 한다 — 이미지 없는 ECR을 상대로는 함수가 만들어지지
-  # 않는다. 첫 apply 순서는 docs/deploy-order.md에 있다.
+  # 않는다. 첫 apply 순서는 docs/runbooks/deploy-order.md에 있다.
   package_type = "Image"
   image_uri    = "${aws_ecr_repository.this[each.key].repository_url}:${var.image_tag}"
 
@@ -363,7 +363,7 @@ resource "aws_lambda_function" "this" {
       # 키 하나만 무시하므로 DB_HOST 같은 나머지 값은 정상적으로 반영된다.
       #
       # 원래는 이것조차 필요 없었다 — RDS IAM 인증으로 비밀번호 자체가 없는 설계였다. 조직 SCP가
-      # rds-db:connect를 막아 임시로 되돌린 상태다(위 embedder 정책 주석, docs/runbook.md "SCP 차단").
+      # rds-db:connect를 막아 임시로 되돌린 상태다(위 embedder 정책 주석, docs/runbooks/runbook.md "SCP 차단").
       # 이래도 refresh는 AWS에서 값을 읽어 state에 기록한다. 즉 비밀번호는 state 파일에 남는다 —
       # Terraform이 넣지 않을 뿐이다. state 버킷은 버저닝이 켜져 있어 한 번 들어간 값은 과거 버전에도
       # 남으니, SCP가 풀려 이 우회로를 걷을 때 비밀번호도 함께 교체한다. 주입 절차는 runbook "비밀번호 주입".

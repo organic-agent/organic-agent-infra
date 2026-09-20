@@ -1,4 +1,4 @@
-# score GPU 워커 풀 — 2단계: 워커 인스턴스·롤·유휴 정지 알람(계획 docs/pipeline-v2-infra-plan.md §4.1 아래쪽 절반·§4.2·§4.5, PR-3c).
+# score GPU 워커 풀 — 2단계: 워커 인스턴스·롤·유휴 정지 알람(계획 docs/plans/pipeline-v2-infra-plan.md §4.1 아래쪽 절반·§4.2·§4.5, PR-3c).
 #
 # 인스턴스는 main.tf의 파이프라인이 만든 AMI(var.gpu_ami_id)로 AZ마다 한 대씩 만들고 생성 직후 정지시킨다. 그 뒤 켜고
 # 끄는 것은 코드의 몫이다 — wes GpuController(태그 Name=<local.name>로 탐색, backlog 있으면 Start, 무진행 안전망 Stop)와

@@ -1,6 +1,6 @@
 # 마스터 비밀번호는 Terraform 밖에서 생성함 (최초 1회 수동 작업):
 #   aws ssm put-parameter --name <parameter_prefix>/spring.datasource.password --type SecureString --value '<password>'
-# (이 환경의 실제 경로는 /wes/prod/spring.datasource.password — docs/runbook.md '사전 준비' 참고)
+# (이 환경의 실제 경로는 /wes/prod/spring.datasource.password — docs/runbooks/runbook.md '사전 준비' 참고)
 # ephemeral로 읽어서 write-only 인자로 넘기기 때문에 비밀번호가
 # Terraform state에 절대 남지 않음. 비밀번호 변경 후 RDS에 반영하려면
 # var.password_wo_version을 올리면 됨.
@@ -41,7 +41,7 @@ resource "aws_db_instance" "this" {
   #
   # 이 플래그만으로는 아무도 IAM으로 붙을 수 없다. DB 안에서 `GRANT rds_iam`을 받은
   # 사용자를 한 번 만들어 줘야 하고, 그건 Terraform이 못 하는 일이다 —
-  # docs/runbook.md의 "임베딩 파이프라인" 절 참고.
+  # docs/runbooks/runbook.md의 "임베딩 파이프라인" 절 참고.
   iam_database_authentication_enabled = true
 
   db_subnet_group_name   = aws_db_subnet_group.this.name

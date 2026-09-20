@@ -4,7 +4,7 @@ locals {
   score_gpu_tag_name = "wes-score-gpu"
 
   # 파라미터 네이밍 컨벤션: /wes/<환경>/<스프링 프로퍼티>, 환경은 local/prod 두 개.
-  # url/username은 Terraform이 자동 생성, password는 밖에서 수동 관리 (docs/runbook.md 참고).
+  # url/username은 Terraform이 자동 생성, password는 밖에서 수동 관리 (docs/runbooks/runbook.md 참고).
   parameter_prefix_arn       = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.parameter_prefix}"
   db_password_parameter_name = "${var.parameter_prefix}/spring.datasource.password"
   db_password_parameter_arn  = "${local.parameter_prefix_arn}/spring.datasource.password"
@@ -21,7 +21,7 @@ locals {
 
 data "aws_caller_identity" "current" {}
 
-# 수동 등록 파라미터다(docs/deploy-order.md의 [2]). 없으면 여기서 apply가 멈추는데,
+# 수동 등록 파라미터다(docs/runbooks/deploy-order.md의 [2]). 없으면 여기서 apply가 멈추는데,
 # 그편이 CORS가 반쯤 맞는 스택을 세우는 것보다 낫다.
 data "aws_ssm_parameter" "cors_allowed_origins" {
   name = "${var.parameter_prefix}/cors.allowed-origins"
@@ -99,7 +99,7 @@ module "analysis" {
   photo_bucket_arn  = module.storage.bucket_arn
 
   # 비밀번호는 넘기지 않는다. 원래는 RDS IAM 인증이었고, 지금은 apply 밖에서 주입한다
-  # (docs/runbook.md "비밀번호 주입"·"SCP 차단").
+  # (docs/runbooks/runbook.md "비밀번호 주입"·"SCP 차단").
   db_host              = module.database.address
   db_port              = module.database.port
   db_name              = module.database.db_name
@@ -125,7 +125,7 @@ module "analysis" {
 }
 
 # score GPU 워커 풀 — AMI 파이프라인(Image Builder, PR-3b) + 워커 인스턴스 2대·롤·유휴 정지 알람(PR-3c).
-# 계획 docs/pipeline-v2-infra-plan.md §4. 코드 이미지는 AMI에 굽지 않고 부팅 때 ECR wes-score:gpu(이동 태그)를 pull 한다 —
+# 계획 docs/plans/pipeline-v2-infra-plan.md §4. 코드 이미지는 AMI에 굽지 않고 부팅 때 ECR wes-score:gpu(이동 태그)를 pull 한다 —
 # 그래서 analysis 모듈의 리포지토리 URL·ARN을 받는다. 워커 SG는 RDS SG가 참조해야 해서 security 모듈에 있다.
 # 켜고 끄는 것은 wes(GpuController, 태그 Name=wes-score-gpu)와 워커 자기 정지의 몫이고, 인프라는 생성 직후 정지와
 # 최후 안전장치 알람만 소유한다.

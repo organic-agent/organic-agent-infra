@@ -309,7 +309,7 @@ variable "embedder_db_username" {
   description = <<-EOT
     임베딩 Lambda가 붙을 DB 사용자. 마스터 계정이 아니다 — 마스터는 rds_iam을 받을 수 없고,
     서버의 Flyway 베이스라인이 이 이름의 role에 photos·photo_analysis의 최소 컬럼만 GRANT 한다.
-    DB 안에 사용자를 만드는 것은 Terraform 밖의 수동 작업이다 (docs/runbook.md).
+    DB 안에 사용자를 만드는 것은 Terraform 밖의 수동 작업이다 (docs/runbooks/runbook.md).
   EOT
   type        = string
   default     = "embedder"
@@ -319,7 +319,7 @@ variable "analysis_db_username" {
   description = <<-EOT
     score·categorize Lambda가 붙을 DB 사용자. 마스터도 임베더 계정도 아니다 — 서버 저장소 Flyway
     베이스라인이 이 이름의 role이 있으면 photo_analysis·ai_concept_assignments·ai_analysis_jobs 등의
-    GRANT를 건다(PHOTOSELECT_GRANT_CONTRACT). 역시 수동 생성이다 (docs/runbook.md).
+    GRANT를 건다(PHOTOSELECT_GRANT_CONTRACT). 역시 수동 생성이다 (docs/runbooks/runbook.md).
   EOT
   type        = string
   default     = "photoselect"
@@ -332,13 +332,13 @@ variable "gpu_score_enabled" {
 }
 
 variable "lambda_image_tag" {
-  description = "ECR에 올라간 Lambda 셋의 이미지 태그. 세 리포지토리에 이 태그가 이미 있어야 함수가 만들어진다 (docs/deploy-order.md)."
+  description = "ECR에 올라간 Lambda 셋의 이미지 태그. 세 리포지토리에 이 태그가 이미 있어야 함수가 만들어진다 (docs/runbooks/deploy-order.md)."
   type        = string
   default     = "latest"
 }
 
 variable "gpu_ami_id" {
-  description = "score GPU 워커 인스턴스의 AMI ID. modules/score-gpu 파이프라인을 수동 실행해 나온 AMI를 사람이 확인해 박는다(docs/runbook.md \"GPU AMI\"). 바꾸면 워커 2대 replace(정지 상태로 다시 생성)."
+  description = "score GPU 워커 인스턴스의 AMI ID. modules/score-gpu 파이프라인을 수동 실행해 나온 AMI를 사람이 확인해 박는다(docs/runbooks/runbook.md \"GPU AMI\"). 바꾸면 워커 2대 replace(정지 상태로 다시 생성)."
   type        = string
   default     = "ami-0f2e11582fb0a76da"
 }

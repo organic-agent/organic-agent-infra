@@ -51,7 +51,7 @@ if rg -Fq '"s3:*"' "$module_dir/main.tf" || rg -Fq '"lambda:*"' "$module_dir/mai
 fi
 
 if rg -n '/wes/prod/admin/tailscale-auth-key' \
-  "$module_dir" "$repo_root/admin.tf" "$repo_root/variables.tf" "$repo_root/docs/admin-internal-access.md"; then
+  "$module_dir" "$repo_root/admin.tf" "$repo_root/variables.tf" "$repo_root/docs/architecture/admin-internal-access.md"; then
   echo "Tailscale auth key must stay outside the app-readable /wes/prod path" >&2
   exit 1
 fi

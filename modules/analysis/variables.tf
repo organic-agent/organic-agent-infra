@@ -58,7 +58,7 @@ variable "embedder_db_username" {
   description = <<-EOT
     embedder가 붙을 DB 사용자. 마스터 계정이 아니다 — 마스터는 rds_iam을 받을 수 없고, 서버 저장소의
     Flyway 베이스라인이 이 이름의 role이 있으면 photos·photo_analysis의 최소 컬럼만 GRANT 한다
-    (EMBEDDER_GRANT_CONTRACT). DB 안에 사용자를 만드는 것은 Terraform 밖의 수동 작업이다 (docs/runbook.md).
+    (EMBEDDER_GRANT_CONTRACT). DB 안에 사용자를 만드는 것은 Terraform 밖의 수동 작업이다 (docs/runbooks/runbook.md).
   EOT
   type        = string
   default     = "embedder"
@@ -68,7 +68,7 @@ variable "analysis_db_username" {
   description = <<-EOT
     score·categorize가 붙을 DB 사용자. 마스터 계정이 아니고 embedder 계정과도 다르다 — 서버 저장소의
     Flyway 베이스라인이 이 이름의 role이 있으면 photo_analysis·ai_concept_assignments·ai_analysis_jobs
-    등에 필요한 GRANT를 건다(PHOTOSELECT_GRANT_CONTRACT). 역시 수동 생성이다 (docs/runbook.md).
+    등에 필요한 GRANT를 건다(PHOTOSELECT_GRANT_CONTRACT). 역시 수동 생성이다 (docs/runbooks/runbook.md).
   EOT
   type        = string
   default     = "photoselect"
@@ -77,7 +77,7 @@ variable "analysis_db_username" {
 variable "image_tag" {
   description = <<-EOT
     ECR에 올라간 이미지 태그. 세 리포지토리에 이 태그가 이미 있어야 한다 — 이미지 없는 ECR을
-    상대로는 Lambda가 만들어지지 않는다. 첫 apply 순서는 docs/deploy-order.md 참고.
+    상대로는 Lambda가 만들어지지 않는다. 첫 apply 순서는 docs/runbooks/deploy-order.md 참고.
   EOT
   type        = string
   default     = "latest"

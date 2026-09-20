@@ -23,7 +23,7 @@ output "ec2_instance_id" {
 }
 
 output "ssh_command" {
-  description = "비상용 직접 SSH (ssh_allowed_cidr 지정 후에만 동작). 평소엔 SSM 경유 — docs/runbook.md '서버 접속' 참조"
+  description = "비상용 직접 SSH (ssh_allowed_cidr 지정 후에만 동작). 평소엔 SSM 경유 — docs/runbooks/runbook.md '서버 접속' 참조"
   value       = "ssh -i ~/.ssh/wes-aws-key ubuntu@${module.compute.public_ip}"
 }
 
@@ -83,7 +83,7 @@ output "lambda_function_names" {
 }
 
 output "lambda_role_arns" {
-  description = "Lambda 셋의 실행 롤 ARN (SCP 차단 판별 — docs/runbook.md 'SCP 차단' 참조)"
+  description = "Lambda 셋의 실행 롤 ARN (SCP 차단 판별 — docs/runbooks/runbook.md 'SCP 차단' 참조)"
   value       = module.analysis.role_arns
 }
 

@@ -53,7 +53,7 @@
 | AWS(수동) | 롤 `wes-gpu-benchmark` + 인스턴스 프로파일 `wes-gpu-benchmark` + 인라인 정책 `benchmark` + `AmazonSSMManagedInstanceCore` 부착 해제 | Phase 0 | I7 |
 | AWS(수동) | 롤 `wes-sagemaker-benchmark` + 인라인 정책 `benchmark` | Phase 0 | I7 |
 | `modules/analysis/variables.tf` · 루트 `variables.tf` | `embedder_reserved_concurrent_executions`·`score_reserved_concurrent_executions` description의 "샤드 상한 MAX_SHARDS=32 · advisory lock stride 64 · micro 79 커넥션" 근거 문장 | Phase 3(score가 GPU로 감) · Phase 5 뒤(RDS 결정) | 값(32)은 그대로 두고 근거만 다시 쓴다. embedder 검증 `<= 64`는 advisory lock stride가 코드에서 사라진 뒤 풀 수 있다 |
-| `modules/analysis/main.tf` 머리말 · `docs/runbook.md` "AI 파이프라인" · `README.md` 아키텍처 bullet | "갤러리 단위로 한 번 부른다 / 샤드 / 15분 앞에서 자기 재호출"을 **기본 흐름**으로 적은 서술과 흐름도 | Phase 3·5 | v2 흐름(스위퍼 배치 → embedder, GPU 워커 풀, Lambda 폴백)으로 교체. 폴백 경로 설명은 남긴다 |
+| `modules/analysis/main.tf` 머리말 · `docs/runbooks/runbook.md` "AI 파이프라인" · `README.md` 아키텍처 bullet | "갤러리 단위로 한 번 부른다 / 샤드 / 15분 앞에서 자기 재호출"을 **기본 흐름**으로 적은 서술과 흐름도 | Phase 3·5 | v2 흐름(스위퍼 배치 → embedder, GPU 워커 풀, Lambda 폴백)으로 교체. 폴백 경로 설명은 남긴다 |
 
 지우지 **않는** 것과 이유:
 
@@ -73,9 +73,9 @@
 | `modules/github-actions/main.tf` | `tf_apply_iam`에 서비스 연결 역할 문장(`iam:CreateServiceLinkedRole`·`DeleteServiceLinkedRole`·`GetServiceLinkedRoleDeletionStatus`). 리소스는 두 ARN 한정 — `role/aws-service-role/imagebuilder.amazonaws.com/AWSServiceRoleForImageBuilder`, `role/aws-service-role/events.amazonaws.com/AWSServiceRoleForCloudWatchEvents`. **로컬 apply** | 3 |
 | `main.tf` | `module "score_gpu"` 호출, `module "security"`에 GPU 관련 입력 | 3 |
 | `outputs.tf` | GPU 인스턴스 ID 맵, AMI 파이프라인 ARN, 현재 `gpu_ami_id` | 3 |
-| `docs/deploy-order.md` | [7] DB 사용자 SQL에 `CONNECTION LIMIT`(Phase 0) · [3]에 "GPU AMI 파이프라인 1회 실행 → AMI ID를 `gpu_ami_id`로"(Phase 3) | 0·3 |
-| `docs/runbook.md` | DB 사용자 절에 `ALTER ROLE … CONNECTION LIMIT`, 벤치마크 IAM 정리 기록(0) · AI 파이프라인 절 재작성, 비용 절에 GPU 풀 고정비·유휴 비용, "GPU 워커 점검" 절(SSM 접속, journald, 강제 정지)(3·5) | 0·3·5 |
-| `README.md` · `docs/wes-infrastructure-architecture.drawio/.png` | AI 분석 bullet과 그림에 GPU 워커 풀·스위퍼 | 5 |
+| `docs/runbooks/deploy-order.md` | [7] DB 사용자 SQL에 `CONNECTION LIMIT`(Phase 0) · [3]에 "GPU AMI 파이프라인 1회 실행 → AMI ID를 `gpu_ami_id`로"(Phase 3) | 0·3 |
+| `docs/runbooks/runbook.md` | DB 사용자 절에 `ALTER ROLE … CONNECTION LIMIT`, 벤치마크 IAM 정리 기록(0) · AI 파이프라인 절 재작성, 비용 절에 GPU 풀 고정비·유휴 비용, "GPU 워커 점검" 절(SSM 접속, journald, 강제 정지)(3·5) | 0·3·5 |
+| `README.md` · `docs/architecture/wes-infrastructure-architecture.drawio/.png` | AI 분석 bullet과 그림에 GPU 워커 풀·스위퍼 | 5 |
 
 **Phase 5 부하 테스트 뒤 결정**(결정 D — 코드는 준비돼 있어 변수 기본값만 바꾼다):
 
@@ -91,7 +91,7 @@
 | `modules/score-gpu/` | GPU 워커 풀 모듈(§4) — Image Builder 파이프라인 + 서비스 연결 역할 둘, 워커 롤·프로파일, 인스턴스 2대(생성 직후 정지), 인스턴스별 유휴 정지 알람 | 3 |
 | `modules/score-gpu/components/` | Image Builder 컴포넌트 YAML(드라이버·Docker·toolkit·systemd 유닛·env 스크립트 설치·nvidia-smi 검증). 유닛·스크립트 본문은 AI 쪽이 S1 머지 때 전달 | 3 |
 | `tests/score_gpu_static_test.sh` | §7 회귀 검사 | 3 |
-| `docs/pipeline-v2-phase{0,3,5}.md` | 각 Phase 실측(상위 문서 §4 요구) | 각 Phase 끝 |
+| `docs/plans/pipeline-v2-phase{0,3,5}.md` | 각 Phase 실측(상위 문서 §4 요구) | 각 Phase 끝 |
 
 ---
 
