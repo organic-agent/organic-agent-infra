@@ -132,6 +132,12 @@ resource "aws_instance" "this" {
   tags = {
     Name = "${var.name_prefix}-app"
   }
+
+  lifecycle {
+    # Ubuntu 새 이미지로 인한 교체는 명시적인 유지보수 변경이어야 한다(#69). most_recent 데이터 소스는 Canonical이
+    # 이미지를 낼 때마다 값이 바뀌어, 막지 않으면 아무 PR의 apply가 이 서버를 교체한다(admin-access·frontend-test와 같은 규칙).
+    ignore_changes = [ami]
+  }
 }
 
 # 앱의 analysis 도메인(GpuController)이 score GPU 워커 풀을 켜고 끈다(계획 pipeline-v2-infra-plan.md 결정 C).
