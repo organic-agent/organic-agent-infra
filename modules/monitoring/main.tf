@@ -127,6 +127,12 @@ resource "aws_instance" "this" {
   tags = {
     Name = "${var.name_prefix}-monitoring"
   }
+
+  lifecycle {
+    # Ubuntu 새 이미지로 인한 교체는 명시적인 유지보수 변경이어야 한다(#69). most_recent 데이터 소스는 Canonical이
+    # 이미지를 낼 때마다 값이 바뀌어, 막지 않으면 아무 PR의 apply가 이 서버를 교체하고 보관 중인 로그가 사라진다.
+    ignore_changes = [ami]
+  }
 }
 
 # Let's Encrypt가 A 레코드로 찾아오는 대상이라 IP가 바뀌면 안 된다. 앱 EC2와 달리 EIP를 쓴다.
