@@ -340,7 +340,7 @@ variable "lambda_image_tag" {
 variable "gpu_ami_id" {
   description = "score GPU 워커 인스턴스의 AMI ID. modules/score-gpu 파이프라인을 수동 실행해 나온 AMI를 사람이 확인해 박는다(docs/runbooks/runbook.md \"GPU AMI\"). 바꾸면 워커 2대 replace(정지 상태로 다시 생성)."
   type        = string
-  default     = "ami-0f2e11582fb0a76da"
+  default     = "ami-0f3e867e2ed3964ce"
 }
 
 variable "gpu_instance_type" {
