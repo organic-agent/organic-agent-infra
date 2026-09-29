@@ -125,6 +125,15 @@ rg -Fq 'ExecStart=/usr/local/bin/wes-score-failsafe.sh' "$failsafe_unit"
 rg -Fq 'aws ec2 stop-instances' "$failsafe_script"
 rg -Fq 'X-aws-ec2-metadata-token' "$failsafe_script"
 rg -Fq 'docker pull --quiet "$WES_SCORE_IMAGE"' "$pull_script"
+# 옛 이미지가 쌓여 루트 볼륨이 차지 않게 pull 앞뒤로 dangling 이미지를 지운다(#67). 정리 실패가 기동을 막지 않는다.
+if [ "$(rg -Fc 'docker image prune --force >/dev/null || true' "$pull_script")" != 2 ]; then
+  echo "pull script must prune dangling images before and after pull, non-fatally" >&2
+  exit 1
+fi
+if rg -n 'prune.*(-a|--all)' "$pull_script"; then
+  echo "pull script must prune only dangling images, never the image it just pulled" >&2
+  exit 1
+fi
 # AMI에 구워지는 image.env에는 비밀이 없다.
 if rg -n -A6 'path: /etc/wes-score/image.env' "$component" | rg -qi 'password|secret'; then
   echo "image.env baked into the AMI must not contain secrets" >&2
