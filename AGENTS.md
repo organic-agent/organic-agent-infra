@@ -37,7 +37,7 @@ Every change should pass formatting, static validation, and tests before review.
 
 Git conventions follow `.claude/spec/git-convention.md`, shared with the server repository: Korean noun-phrase subjects in the form `{type}: 내용(#이슈번호)` (e.g. `feat: 프라이빗 서브넷 추가(#12)`), work branches named `{type}/{issue}-{slug}` branching from and merging back to `main`.
 
-Pull requests follow `.github/pull_request_template.md`: link the issue, describe the changes, summarize plan output, and explain rollout and rollback. Call out replacements, deletions, permission changes, and expected downtime explicitly.
+Issue and pull request bodies follow `.claude/spec/issue-pr-writing.md` (same rules as the server and AI repositories): a one-line summary on top, then why / what changed (before → after table) / how it was verified, one fact per line. Pull requests follow `.github/pull_request_template.md`: link the issue, describe the changes, summarize plan output, and explain rollout and rollback. Call out replacements, deletions, permission changes, and expected downtime explicitly.
 
 ## Security & Configuration
 
