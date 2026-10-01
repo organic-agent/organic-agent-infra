@@ -28,17 +28,7 @@ variable "db_subnet_cidrs" {
   type        = list(string)
 }
 
-variable "interface_endpoint_subnet_indexes" {
-  description = <<-EOT
-    bedrock-runtime 인터페이스 엔드포인트의 ENI를 둘 DB 서브넷 인덱스. 기본은 한 AZ([0]) —
-    ENI 하나당 시간당 과금(월 약 $11)이고 앱 EC2·RDS도 단일 AZ다. 다른 AZ의 Lambda는 AZ를 건너
-    붙어 동작하지만 그 AZ 장애 때 함께 멈춘다. 두 AZ로 늘리려면 [0, 1].
-  EOT
-  type        = list(number)
-  default     = [0]
-
-  validation {
-    condition     = length(var.interface_endpoint_subnet_indexes) >= 1 && alltrue([for i in var.interface_endpoint_subnet_indexes : i >= 0 && i < 2])
-    error_message = "interface_endpoint_subnet_indexes는 0 또는 1을 하나 이상 담아야 합니다 (DB 서브넷은 AZ당 하나, 총 2개)."
-  }
+variable "bedrock_vpc_cidr" {
+  description = "Bedrock 리전에 두는 엔드포인트 전용 VPC의 CIDR. 서브넷 하나가 통째로 쓴다. 피어링으로 이어지므로 vpc_cidr와 겹치면 안 된다."
+  type        = string
 }

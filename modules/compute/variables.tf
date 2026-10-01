@@ -33,6 +33,11 @@ variable "bedrock_model_id" {
   type        = string
 }
 
+variable "bedrock_region" {
+  description = "앱이 Bedrock을 부르는 리전(프로필 ARN의 리전). 루트의 bedrock_region과 같은 값이며 앱 설정 app.llm.region과 일치해야 한다."
+  type        = string
+}
+
 variable "score_gpu_tag_name" {
   description = "score GPU 워커 인스턴스의 Name 태그 값. 앱 롤의 ec2:StartInstances·StopInstances는 이 태그를 단 인스턴스로만 허용된다(wes app.analysis.gpu.tag와 같은 값)"
   type        = string

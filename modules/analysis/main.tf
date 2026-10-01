@@ -105,17 +105,18 @@ locals {
       policy_name          = "read-previews-and-invoke-bedrock"
       environment = merge(local.db_env, local.ssl_env, {
         DB_USER = var.analysis_db_username
-        # 그룹 이름 짓기. 리전은 이 스택의 리전이고, 모델은 `global.` 크로스 리전 프로필이다 —
-        # 서울 온디맨드에 Sonnet이 없다(categorize/llm.py). 아래 Bedrock IAM 문장과 같은 값이어야 한다.
-        BEDROCK_REGION   = local.region
+        # 그룹 이름 짓기. 리전은 이 스택의 리전이 아니라 프로필이 있는 Bedrock 리전이다 — 조직 SCP가
+        # `global.` 프로필을 막아 `us.` 프로필을 미국 리전 엔드포인트로 부른다(#71, modules/network/bedrock.tf).
+        # 아래 Bedrock IAM 문장과 같은 값이어야 한다.
+        BEDROCK_REGION   = var.bedrock_region
         BEDROCK_MODEL_ID = var.bedrock_model_id
       })
     }
   }
 
-  # `global.anthropic.claude-sonnet-4-6` → 기반 모델 `anthropic.claude-sonnet-4-6`. 크로스 리전 프로필로
+  # `us.anthropic.claude-sonnet-4-6` → 기반 모델 `anthropic.claude-sonnet-4-6`. 크로스 리전 프로필로
   # 부르면 IAM은 프로필 ARN과 프로필이 라우팅하는 기반 모델 ARN 둘 다를 요구한다. 기반 모델 ARN의
-  # 리전 자리는 `global.` 프로필이 빈 값(`arn:aws:bedrock:::foundation-model/…`)이라 `*`로 받는다.
+  # 리전 자리는 프로필이 보내는 리전마다 달라(`us.`는 미국 세 리전) `*`로 받는다.
   bedrock_foundation_model_id = replace(var.bedrock_model_id, "/^(global|us|eu|apac|jp|au|ca)\\./", "")
 }
 
@@ -261,14 +262,14 @@ data "aws_iam_policy_document" "categorize" {
     resources = ["${var.photo_bucket_arn}/previews/*"]
   }
 
-  # 크로스 리전 프로필 호출은 프로필 ARN(이 계정·리전)과 그 프로필이 보내는 기반 모델 ARN(리전 무관)
+  # 크로스 리전 프로필 호출은 프로필 ARN(이 계정·Bedrock 리전)과 그 프로필이 보내는 기반 모델 ARN(리전 무관)
   # 양쪽에 InvokeModel이 있어야 한다. 하나만 있으면 AccessDeniedException인데, 메시지가 프로필이
   # 없다는 것처럼 읽힌다. 스트리밍은 쓰지 않으므로 InvokeModelWithResponseStream은 주지 않는다.
   statement {
     sid     = "InvokeNamingModel"
     actions = ["bedrock:InvokeModel"]
     resources = [
-      "arn:aws:bedrock:${local.region}:${local.account_id}:inference-profile/${var.bedrock_model_id}",
+      "arn:aws:bedrock:${var.bedrock_region}:${local.account_id}:inference-profile/${var.bedrock_model_id}",
       "arn:aws:bedrock:*::foundation-model/${local.bedrock_foundation_model_id}",
     ]
   }

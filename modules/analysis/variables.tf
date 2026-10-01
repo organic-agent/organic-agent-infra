@@ -9,7 +9,7 @@ variable "parameter_prefix" {
 }
 
 variable "subnet_ids" {
-  description = "Lambda ENI가 생길 서브넷. RDS와 같은 DB 서브넷이어야 하고, S3 게이트웨이·lambda·bedrock-runtime 엔드포인트가 걸려 있어야 한다."
+  description = "Lambda ENI가 생길 서브넷. RDS와 같은 DB 서브넷이어야 하고, S3 게이트웨이 엔드포인트와 Bedrock 리전으로 가는 피어링 라우트가 걸려 있어야 한다."
   type        = list(string)
 }
 
@@ -204,18 +204,23 @@ variable "async_event_max_age_seconds" {
 
 variable "bedrock_model_id" {
   description = <<-EOT
-    categorize가 그룹 이름을 지을 때 부르는 Bedrock 모델(추론 프로필) ID. 서울 온디맨드에 Sonnet이 없어
-    `global.` 크로스 리전 프로필을 쓴다 — 대표 사진이 국외로 나간다(AI 저장소 categorize/llm.py).
+    categorize가 그룹 이름을 지을 때 부르는 Bedrock 모델(추론 프로필) ID. 서울 온디맨드에 Sonnet이 없고
+    조직 SCP가 `global.` 프로필을 막아 `us.` 크로스 리전 프로필을 쓴다(#71) — 대표 사진이 국외로 나간다.
     함수 환경변수 BEDROCK_MODEL_ID와 실행 롤의 InvokeModel 대상이 이 값에서 함께 나온다.
-    확인: aws bedrock list-inference-profiles --region ap-northeast-2
+    확인: aws bedrock list-inference-profiles --region us-east-1
   EOT
   type        = string
-  default     = "global.anthropic.claude-sonnet-4-6"
+  default     = "us.anthropic.claude-sonnet-4-6"
 
   validation {
     condition     = can(regex("^(global|us|eu|apac|jp|au|ca)\\.[a-z0-9.-]+(:[0-9]+)?$", var.bedrock_model_id))
-    error_message = "bedrock_model_id는 `global.`·`apac.` 같은 크로스 리전 프로필 ID여야 합니다 (예: global.anthropic.claude-sonnet-4-6). 기반 모델 ID를 직접 주면 IAM 대상이 맞지 않습니다."
+    error_message = "bedrock_model_id는 `us.`·`apac.` 같은 크로스 리전 프로필 ID여야 합니다 (예: us.anthropic.claude-sonnet-4-6). 기반 모델 ID를 직접 주면 IAM 대상이 맞지 않습니다."
   }
+}
+
+variable "bedrock_region" {
+  description = "categorize가 Bedrock을 부르는 리전(함수 환경변수 BEDROCK_REGION, 실행 롤의 프로필 ARN 리전). bedrock_model_id의 프로필이 있는 리전이어야 하고, 이 스택의 리전과 다르다."
+  type        = string
 }
 
 variable "gpu_score_enabled" {

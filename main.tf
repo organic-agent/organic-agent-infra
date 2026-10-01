@@ -40,8 +40,12 @@ module "network" {
   azs                 = var.azs
   public_subnet_cidrs = var.public_subnet_cidrs
   db_subnet_cidrs     = var.db_subnet_cidrs
+  bedrock_vpc_cidr    = var.bedrock_vpc_cidr
 
-  interface_endpoint_subnet_indexes = var.interface_endpoint_subnet_indexes
+  providers = {
+    aws         = aws
+    aws.bedrock = aws.bedrock
+  }
 }
 
 module "security" {
@@ -87,8 +91,8 @@ module "analysis" {
   name_prefix      = local.name_prefix
   parameter_prefix = var.parameter_prefix
 
-  # RDS와 같은 DB 서브넷에 들어간다. 이 출력이 S3 게이트웨이와 lambda·bedrock-runtime 인터페이스
-  # 엔드포인트를 기다리므로, 함수가 만들어질 때는 이미 사진·Lambda API·Bedrock에 닿을 경로가 있다.
+  # RDS와 같은 DB 서브넷에 들어간다. 이 출력이 S3 게이트웨이 엔드포인트와 Bedrock 리전으로 가는 피어링
+  # 경로를 기다리므로, 함수가 만들어질 때는 이미 사진·Bedrock에 닿을 경로가 있다.
   # 보안 그룹은 이름이 embedder지만 인그레스 없음 + 이그레스 전부라 셋이 같은 규칙이고, RDS 보안
   # 그룹이 이미 이 그룹을 인그레스 소스로 받는다 — 함수마다 그룹을 나눠 얻는 것이 없다.
   subnet_ids        = module.network.db_subnet_ids
@@ -119,6 +123,7 @@ module "analysis" {
   categorize_memory_mb                      = var.categorize_memory_mb
   categorize_reserved_concurrent_executions = var.categorize_reserved_concurrent_executions
   bedrock_model_id                          = var.bedrock_model_id
+  bedrock_region                            = var.bedrock_region
 
   # wes가 읽는 GPU 워커 스위치(SSM app.analysis.gpu.enabled). 워커 풀(PR-3c) 뒤 true로.
   gpu_score_enabled = var.gpu_score_enabled
@@ -170,8 +175,24 @@ module "compute" {
   ssh_public_key           = var.ssh_public_key
   app_parameter_prefix_arn = local.parameter_prefix_arn
   bedrock_model_id         = var.bedrock_model_id
+  bedrock_region           = var.bedrock_region
   # score_gpu 모듈의 worker_tag_name과 같은 값. 모듈 출력을 참조하면 storage → compute → score_gpu 순환이라 문자열로 맞춘다.
   score_gpu_tag_name = local.score_gpu_tag_name
+}
+
+# 앱이 Bedrock을 부를 리전과 모델. 앱 기본값(application-variable.yml)은 서울 + `global.`이라, 여기서 덮지
+# 않으면 IAM은 `us.` 프로필만 허용하는데 앱은 `global.`을 불러 호출마다 AccessDenied가 난다. 값이 IAM·Lambda와
+# 같은 변수에서 나오므로 갈릴 수 없다. 앱은 부팅 때 읽으므로 값이 바뀌면 재시작해야 한다.
+resource "aws_ssm_parameter" "llm_region" {
+  name  = "${var.parameter_prefix}/app.llm.region"
+  type  = "String"
+  value = var.bedrock_region
+}
+
+resource "aws_ssm_parameter" "llm_model_id" {
+  name  = "${var.parameter_prefix}/app.llm.model-id"
+  type  = "String"
+  value = var.bedrock_model_id
 }
 
 module "ingress" {
