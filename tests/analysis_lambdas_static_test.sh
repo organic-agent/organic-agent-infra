@@ -3,8 +3,8 @@ set -euo pipefail
 
 # AI Lambda 셋(embedder · score · categorize) 배포 인프라(#18)의 회귀 검사.
 #   1. worker 배포 역할은 AI 저장소 main의 immutable sub 하나만 신뢰하고, 세 ECR·세 함수만 다룬다
-#   2. DB 서브넷에 bedrock-runtime 인터페이스 엔드포인트가 있고 private DNS가 켜져 있다. lambda 엔드포인트는 없다(#57)
-#   3. 실행 롤: embedder·score에 lambda:InvokeFunction 없음(재호출·체인은 v2에서 wes 소유), categorize → Bedrock(프로필 + 기반 모델)
+#   2. Bedrock은 다른 리전의 엔드포인트 전용 VPC로 피어링을 타고 나간다(#71): 엔드포인트·양방향 라우트·프라이빗 호스티드 존. lambda 엔드포인트는 없다(#57)
+#   3. 실행 롤: embedder·score에 lambda:InvokeFunction 없음(재호출·체인은 v2에서 wes 소유), categorize → Bedrock(Bedrock 리전의 프로필 + 기반 모델)
 #   4. score·categorize 함수는 임베더와 같은 비동기 규칙(재시도 0·event age)과 수동 DB_PASSWORD 규칙을 따른다
 #   5. wes가 읽는 SSM 파라미터 둘과 앱 인스턴스 롤의 InvokeFunction
 
@@ -12,6 +12,9 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 oidc_main="$repo_root/modules/github-actions/main.tf"
 oidc_vars="$repo_root/modules/github-actions/variables.tf"
 network_main="$repo_root/modules/network/main.tf"
+network_bedrock="$repo_root/modules/network/bedrock.tf"
+compute_main="$repo_root/modules/compute/main.tf"
+root_providers="$repo_root/providers.tf"
 network_outputs="$repo_root/modules/network/outputs.tf"
 analysis_main="$repo_root/modules/analysis/main.tf"
 analysis_vars="$repo_root/modules/analysis/variables.tf"
@@ -60,22 +63,52 @@ rg -Fq '"ecr:DescribeRepositories"' "$oidc_main"
 rg -Fq '"lambda:GetFunctionConfiguration"' "$oidc_main"
 rg -Fq '"lambda:UpdateFunctionCode"' "$oidc_main"
 
-# --- 2. 인터페이스 엔드포인트 ---
-rg -Fq 'resource "aws_vpc_endpoint" "bedrock_runtime"' "$network_main"
-rg -Fq 'service_name        = "com.amazonaws.${data.aws_region.current.name}.bedrock-runtime"' "$network_main"
-[ "$(rg -c 'vpc_endpoint_type   = "Interface"' "$network_main")" -eq 1 ]
-[ "$(rg -c 'private_dns_enabled = true' "$network_main")" -eq 1 ]
-rg -Fq 'resource "aws_security_group" "vpc_endpoints"' "$network_main"
-rg -Fq 'cidr_ipv4         = aws_vpc.this.cidr_block' "$network_main"
-rg -Fq 'from_port         = 443' "$network_main"
-# 함수를 만드는 쪽이 엔드포인트 생성을 기다린다.
-rg -Fq 'aws_vpc_endpoint.bedrock_runtime,' "$network_outputs"
+# --- 2. Bedrock 경로: 다른 리전의 엔드포인트 전용 VPC + 피어링 + 프라이빗 호스티드 존 (#71) ---
+# 엔드포인트 쪽 리소스는 전부 aws.bedrock 프로바이더(= var.bedrock_region)로 만들어진다.
+rg -Fq 'alias  = "bedrock"' "$root_providers"
+rg -Fq 'region = var.bedrock_region' "$root_providers"
+rg -Fq 'aws.bedrock = aws.bedrock' "$root_main"
+rg -Fq 'configuration_aliases = [aws.bedrock]' "$repo_root/modules/network/versions.tf"
+for r in 'aws_vpc" "bedrock"' 'aws_subnet" "bedrock"' 'aws_vpc_peering_connection_accepter" "bedrock"' \
+         'aws_route_table" "bedrock"' 'aws_route" "bedrock_to_main"' 'aws_security_group" "bedrock_endpoint"' \
+         'aws_vpc_endpoint" "bedrock"'; do
+  sed -n "/resource \"$r/,/^}/p" "$network_bedrock" | rg -Fq 'provider = aws.bedrock' \
+    || { echo "$r must be created in the Bedrock region (provider = aws.bedrock)" >&2; exit 1; }
+done
+# 인터페이스 엔드포인트는 하나뿐이고(ENI당 시간 과금) private DNS는 끈다 — 이름 풀이는 서울 VPC의 호스티드 존 몫이다.
+[ "$(rg -c 'vpc_endpoint_type   = "Interface"' "$network_bedrock")" -eq 1 ]
+rg -Fq 'private_dns_enabled = false' "$network_bedrock"
+rg -Fq 'subnet_ids          = [aws_subnet.bedrock.id]' "$network_bedrock"
+rg -Fq 'cidr_ipv4         = aws_vpc.this.cidr_block' "$network_bedrock"
+rg -Fq 'from_port         = 443' "$network_bedrock"
+# 서울 리전에는 인터페이스 엔드포인트가 남지 않는다 — 남으면 쓰이지 않는 ENI에 월 $11을 낸다.
+if rg -n '^\s*[^#]*(vpc_endpoint_type\s*=\s*"Interface"|private_dns_enabled)' "$network_main"; then
+  echo "no interface endpoint may remain in the stack region — Bedrock goes over peering (#71)" >&2
+  exit 1
+fi
+# 피어링은 수락된 뒤에만 라우트를 걸 수 있다: 세 라우트 모두 accepter의 id를 쓴다. 퍼블릭(앱 EC2)·DB(Lambda)·되돌아오는 길.
+[ "$(rg -c 'vpc_peering_connection_id = aws_vpc_peering_connection_accepter.bedrock.id' "$network_bedrock")" -eq 2 ]
+rg -Fq 'vpc_peering_connection_id = aws_vpc_peering_connection_accepter.bedrock.id' "$network_main"
+rg -Fq 'route_table_id            = aws_route_table.db.id' "$network_bedrock"
+rg -Fq 'destination_cidr_block    = aws_vpc.this.cidr_block' "$network_bedrock"
+# 호스티드 존이 SDK 기본 호스트네임을 엔드포인트로 돌린다 — 함수·앱 코드에 엔드포인트 URL이 없다.
+rg -Fq 'name    = "bedrock-runtime.${data.aws_region.bedrock.name}.amazonaws.com"' "$network_bedrock"
+rg -Fq 'vpc_id = aws_vpc.this.id' "$network_bedrock"
+rg -Fq 'name                   = aws_vpc_endpoint.bedrock.dns_entry[0].dns_name' "$network_bedrock"
+# DB 서브넷에는 여전히 인터넷 경로가 없다. 0.0.0.0/0은 퍼블릭 라우트 테이블의 IGW 하나뿐이다.
+[ "$(rg -c '"0\.0\.0\.0/0"' "$network_main")" -eq 1 ]
+if rg -n 'aws_nat_gateway|"0\.0\.0\.0/0"' "$network_bedrock"; then
+  echo "the Bedrock path must not open an internet route" >&2
+  exit 1
+fi
+# 함수를 만드는 쪽이 경로(라우트·레코드) 생성을 기다린다.
+rg -Fq 'aws_route.db_to_bedrock,' "$network_outputs"
+rg -Fq 'aws_route53_record.bedrock_runtime,' "$network_outputs"
 # lambda 엔드포인트(ENI당 시간 과금)는 Lambda 간 호출이 사라진 v2에서 뺐다. 되살아나면 비용 근거를 다시 써야 한다.
-if rg -n '^\s*[^#]*aws_vpc_endpoint"? "?lambda' "$network_main" "$network_outputs" "$root_outputs"; then
+if rg -n '^\s*[^#]*aws_vpc_endpoint"? "?lambda' "$network_main" "$network_bedrock" "$network_outputs" "$root_outputs"; then
   echo "lambda interface endpoint must stay removed (#57) — Lambda-to-Lambda calls no longer exist" >&2
   exit 1
 fi
-rg -Fq 'default     = [0]' "$repo_root/modules/network/variables.tf"
 # 게이트웨이 엔드포인트는 그대로 하나, 퍼블릭 라우트 테이블에는 붙지 않는다.
 rg -Fq 'route_table_ids   = [aws_route_table.db.id]' "$network_main"
 
@@ -90,7 +123,12 @@ for doc in embedder score; do
 done
 rg -Fq 'sid     = "InvokeNamingModel"' "$analysis_main"
 rg -Fq 'actions = ["bedrock:InvokeModel"]' "$analysis_main"
-rg -Fq ':inference-profile/${var.bedrock_model_id}' "$analysis_main"
+# 프로필 ARN의 리전은 스택 리전이 아니라 Bedrock 리전이다. Lambda·앱 롤, Lambda 환경변수, 앱 파라미터가 같은 변수를 쓴다.
+rg -Fq 'arn:aws:bedrock:${var.bedrock_region}:${local.account_id}:inference-profile/${var.bedrock_model_id}' "$analysis_main"
+rg -Fq 'arn:aws:bedrock:${var.bedrock_region}:${data.aws_caller_identity.current.account_id}:inference-profile/${var.bedrock_model_id}' "$compute_main"
+rg -Fq 'BEDROCK_REGION   = var.bedrock_region' "$analysis_main"
+rg -Fq 'name  = "${var.parameter_prefix}/app.llm.region"' "$root_main"
+rg -Fq 'name  = "${var.parameter_prefix}/app.llm.model-id"' "$root_main"
 rg -Fq 'foundation-model/${local.bedrock_foundation_model_id}' "$analysis_main"
 if rg -n '^\s*[^#]*CATEGORIZE_FUNCTION_NAME' "$analysis_main"; then
   echo "score no longer chains categorize — CATEGORIZE_FUNCTION_NAME must be gone (#57)" >&2
@@ -131,7 +169,13 @@ rg -Fq 'default     = 8192' "$analysis_vars"
 rg -Fq 'default     = 10240' "$analysis_vars"
 rg -Fq 'default     = 3008' "$analysis_vars"
 rg -Fq 'default     = "photoselect"' "$analysis_vars"
-rg -Fq 'default     = "global.anthropic.claude-sonnet-4-6"' "$analysis_vars"
+rg -Fq 'default     = "us.anthropic.claude-sonnet-4-6"' "$analysis_vars"
+rg -Fq 'default     = "us.anthropic.claude-sonnet-4-6"' "$root_vars"
+# 조직 SCP가 `global.` 프로필을 거부한다(#71). 기본값으로 되돌아오면 Bedrock 호출이 전부 AccessDenied다.
+if rg -n '^\s*default\s*=\s*"global\.' "$analysis_vars" "$root_vars"; then
+  echo "global. inference profiles are denied by the organization SCP (#71)" >&2
+  exit 1
+fi
 rg -Fq 'metric_name         = "AsyncEventAge"' "$analysis_main"
 rg -Fq 'metric_name         = "AsyncEventsDropped"' "$analysis_main"
 

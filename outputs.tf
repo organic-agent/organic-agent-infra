@@ -88,7 +88,7 @@ output "lambda_role_arns" {
 }
 
 output "vpc_interface_endpoint_ids" {
-  description = "DB 서브넷의 인터페이스 엔드포인트 (bedrock-runtime: categorize naming). 시간당 과금 대상. lambda 엔드포인트는 #57에서 제거"
+  description = "인터페이스 엔드포인트 (bedrock-runtime: bedrock_region의 엔드포인트 전용 VPC, 피어링으로 닿는다 — #71). 시간당 과금 대상. lambda 엔드포인트는 #57에서 제거"
   value = {
     bedrock_runtime = module.network.bedrock_runtime_endpoint_id
   }

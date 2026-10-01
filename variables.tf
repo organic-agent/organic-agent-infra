@@ -293,14 +293,10 @@ variable "db_subnet_cidrs" {
   default     = ["10.0.10.0/24", "10.0.11.0/24"]
 }
 
-variable "interface_endpoint_subnet_indexes" {
-  description = <<-EOT
-    bedrock-runtime 인터페이스 엔드포인트의 ENI를 둘 DB 서브넷 인덱스. 기본은 한 AZ([0], 월 약 $11).
-    [0, 1]로 늘리면 두 배이고 그 대가는 한 AZ 장애 때 categorize의 Bedrock 호출이 멈추지 않는 것뿐이다 —
-    앱 EC2·RDS가 단일 AZ라 지금은 의미가 없다.
-  EOT
-  type        = list(number)
-  default     = [0]
+variable "bedrock_vpc_cidr" {
+  description = "Bedrock 리전(bedrock_region)에 두는 엔드포인트 전용 VPC의 CIDR. 서울 VPC와 피어링되므로 vpc_cidr와 겹치면 안 된다."
+  type        = string
+  default     = "10.1.0.0/24"
 }
 
 # --- AI Lambda 셋 (embedder → score → categorize) ---
@@ -404,9 +400,20 @@ variable "categorize_reserved_concurrent_executions" {
 }
 
 variable "bedrock_model_id" {
-  description = "categorize의 그룹 이름 짓기와 앱(EC2)의 추천 이유·비교샷 판정에 쓰는 Bedrock 모델(크로스 리전 추론 프로필 ID). Lambda 환경변수, Lambda·EC2 실행 롤의 InvokeModel 대상이 여기서 함께 나온다. 앱 설정 app.llm.model-id와 같아야 한다."
+  description = "categorize의 그룹 이름 짓기와 앱(EC2)의 추천 이유·비교샷 판정에 쓰는 Bedrock 모델(크로스 리전 추론 프로필 ID). Lambda 환경변수, Lambda·EC2 실행 롤의 InvokeModel 대상, 앱이 읽는 app.llm.model-id 파라미터가 여기서 함께 나온다. 조직 SCP가 `global.` 프로필을 막아 `us.`를 쓴다(#71)."
   type        = string
-  default     = "global.anthropic.claude-sonnet-4-6"
+  default     = "us.anthropic.claude-sonnet-4-6"
+}
+
+variable "bedrock_region" {
+  description = "Bedrock을 부르는 리전. bedrock_model_id의 프로필이 있는 리전이어야 한다(`us.`면 us-east-1·us-east-2·us-west-2). 엔드포인트 전용 VPC가 여기 생기고, Lambda의 BEDROCK_REGION·앱의 app.llm.region·IAM의 프로필 ARN이 이 값을 쓴다."
+  type        = string
+  default     = "us-east-1"
+
+  validation {
+    condition     = var.bedrock_region != var.aws_region
+    error_message = "bedrock_region은 스택 리전과 달라야 합니다 — 같은 리전이면 피어링이 아니라 그 리전의 인터페이스 엔드포인트를 쓰면 됩니다."
+  }
 }
 
 # --- 모니터링 (Loki + Grafana) ---

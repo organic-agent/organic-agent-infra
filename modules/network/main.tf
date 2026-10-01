@@ -50,6 +50,13 @@ resource "aws_route_table" "public" {
     gateway_id = aws_internet_gateway.this.id
   }
 
+  # 앱 EC2 → Bedrock 리전 VPC(bedrock.tf). 프라이빗 호스티드 존이 VPC 전체에 걸려 앱도 엔드포인트의
+  # 사설 IP를 받으므로 이 라우트가 필요하다.
+  route {
+    cidr_block                = aws_vpc.bedrock.cidr_block
+    vpc_peering_connection_id = aws_vpc_peering_connection_accepter.bedrock.id
+  }
+
   tags = {
     Name = "${var.name_prefix}-public-rt"
   }
@@ -109,67 +116,6 @@ resource "aws_vpc_endpoint" "s3" {
   }
 }
 
-# --- AI Lambda 셋이 AWS API에 닿을 통로 (인터페이스 엔드포인트) ---
-#
-# S3 게이트웨이 엔드포인트만으로는 부족한 호출이 셋 있다. embedder·score의 자기 재호출과
-# score → categorize 체인은 Lambda API(`lambda.<region>.amazonaws.com`)로, categorize의 그룹
-# 이름 짓기는 Bedrock(`bedrock-runtime.<region>.amazonaws.com`)으로 나간다. 둘 다 게이트웨이
-# 엔드포인트가 없는 서비스라 인터페이스 엔드포인트(= ENI)가 필요하고, 없으면 15분짜리
-# 함수가 남은 시간을 연결 타임아웃에 쓰고 재호출·체인만 실패한 채 끝난다.
-#
-# 인터페이스 엔드포인트는 게이트웨이와 달리 **시간당 과금**이다(ENI 하나에 약 $0.0147/h,
-# 서브넷 = AZ마다 하나). 두 AZ에 다 두면 엔드포인트 둘 × ENI 둘 ≈ 월 $43, 한 AZ면 절반.
-# Lambda ENI는 두 DB 서브넷 어디에나 생기지만 엔드포인트는 기본 한 AZ([0])만 둔다(#57) — 다른 AZ의
-# 함수는 AZ를 건너 붙어 동작하고, 그 AZ가 죽으면 같이 죽는다. 앱 EC2·RDS도 단일 AZ라 같은 수준이다.
-# 두 AZ로 늘리려면 `interface_endpoint_subnet_indexes = [0, 1]`.
-#
-# private_dns_enabled: 함수 코드는 기본 퍼블릭 호스트네임(boto3 기본값)으로 부른다. 이 옵션이
-# 그 이름을 VPC 안에서 ENI 주소로 풀어 주므로 코드에 엔드포인트 URL을 심을 필요가 없다.
-
-# 엔드포인트 ENI에 붙는 보안 그룹. 이 VPC 안에서만 443으로 들어온다 — 엔드포인트는 VPC 밖에서
-# 닿을 수 없으므로 출처를 Lambda SG로 더 좁혀 얻는 것이 없고, security 모듈이 network 모듈에
-# 의존하는 구조라 여기서 Lambda SG를 참조하면 순환이 된다.
-resource "aws_security_group" "vpc_endpoints" {
-  name_prefix = "${var.name_prefix}-vpce-"
-  description = "Interface VPC endpoints: HTTPS from inside the VPC"
-  vpc_id      = aws_vpc.this.id
-
-  tags = {
-    Name = "${var.name_prefix}-vpce"
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "aws_vpc_security_group_ingress_rule" "vpc_endpoints_https" {
-  security_group_id = aws_security_group.vpc_endpoints.id
-  description       = "HTTPS from the VPC (Lambda ENIs in the DB subnets)"
-  cidr_ipv4         = aws_vpc.this.cidr_block
-  from_port         = 443
-  to_port           = 443
-  ip_protocol       = "tcp"
-}
-
-locals {
-  interface_endpoint_subnet_ids = [for i in var.interface_endpoint_subnet_indexes : aws_subnet.db[i].id]
-}
-
-# lambda 인터페이스 엔드포인트는 없다. Lambda가 Lambda를 부르던 경로(embedder 재호출·score 샤드 팬아웃·
-# score → categorize 체인)는 파이프라인 v2에서 wes가 가져갔다(#57). 다시 필요해지면 bedrock_runtime과 같은 모양으로 만든다.
-
-# categorize의 그룹 이름 짓기(Bedrock InvokeModel). `global.` 크로스 리전 프로필도 이 리전의
-# bedrock-runtime으로 들어가고, 다른 리전으로 넘기는 것은 Bedrock 안쪽 일이다.
-resource "aws_vpc_endpoint" "bedrock_runtime" {
-  vpc_id              = aws_vpc.this.id
-  service_name        = "com.amazonaws.${data.aws_region.current.name}.bedrock-runtime"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = local.interface_endpoint_subnet_ids
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
-
-  tags = {
-    Name = "${var.name_prefix}-bedrock-runtime"
-  }
-}
+# 인터페이스 엔드포인트는 이 리전에 없다. categorize의 Bedrock 호출은 다른 리전의 엔드포인트로 피어링을 타고
+# 나간다(bedrock.tf, #71). Lambda가 Lambda를 부르던 경로는 파이프라인 v2에서 wes가 가져가 `lambda`
+# 엔드포인트도 없다(#57).

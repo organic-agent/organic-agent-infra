@@ -15,12 +15,12 @@
 | 앱 EC2 `wes-app` | t4g.micro $7.6 + gp3 20GB $1.8 + 퍼블릭 IP $3.65 | $13.1 |
 | 관리자 EC2 `wes-admin` | t4g.small $15.2 + gp3 20GB $1.8 + 퍼블릭 IP $3.65 | $20.7 |
 | GPU 워커 2대 (정지 상태) | gp3 30GB × 2 $5.5 + AMI 스냅샷 30GB ≈ $1.5. 정지 중엔 퍼블릭 IP 없음 | $7 |
-| `bedrock-runtime` 인터페이스 엔드포인트 | ENI 1개(한 AZ) × $0.0147/h. 두 AZ면 $21 | $10.7 |
+| `bedrock-runtime` 인터페이스 엔드포인트 | us-east-1 전용 VPC의 ENI 1개 × $0.01/h + 프라이빗 호스티드 존 $0.5. 피어링은 무료(#71 — 그 전에는 서울 ENI $10.7) | $7.8 |
 | ECR | 약 53GB(score 44GB, embedder 6.7GB, categorize 1.8GB) × $0.10 | $3~5 |
 | S3 | wes-photos 16GB + wes-dev-photos 11.5GB + tf-state 0.2GB × $0.025 | $0.7 |
 | Route53 존 | easyselect.kr | $0.5 |
 | CloudWatch 알람·로그 | 알람 10개 이내 무료, Lambda 로그 14일 보관 | $0~1 |
-| **합계** | | **약 $103~107** |
+| **합계** | | **약 $100~104** |
 
 제외한 두 항목(참고): 모니터링 약 $13 (t4g.micro + gp3 20GB + EIP), 테스트 웹 약 $21 (t4g.small + gp3 20GB + EIP + 아티팩트 버킷).
 
@@ -30,7 +30,7 @@
 |---|---|---|
 | GPU 워커 가동 | g6.xlarge 대당 약 $0.99/h | 2대 × 월 10시간 ≈ $20. 자기 정지(30초 유휴)·wes 강제 정지·CloudWatch 알람이 모두 실패해 상시 running이면 월 $1,424 |
 | Lambda 3개 | embedder 3GB · score 8GB(폴백) · categorize 3GB × 실행 시간 | 호출량 비례. GPU 풀이 켜져 있어 score Lambda는 폴백만 |
-| Bedrock | Claude Sonnet 4.6 (`global.anthropic.claude-sonnet-4-6`) 토큰 과금 | categorize 그룹 이름 짓기(갤러리당 몇 번) + 앱의 추천 이유·비교샷 판정 |
+| Bedrock | Claude Sonnet 4.6 (`us.anthropic.claude-sonnet-4-6`) 토큰 과금. `global.` 프로필과 단가가 다를 수 있다 — 요금 페이지 확인 | categorize 그룹 이름 짓기(갤러리당 몇 번) + 앱의 추천 이유·비교샷 판정. 리전 간 전송료는 사진 몇 장 수준 |
 | 데이터 전송 아웃 | GB당 $0.126, 월 100GB 무료 | ALB 응답 + S3 원본/미리보기 다운로드 |
 | AMI 빌드 | Image Builder 실행 시 g6.xlarge 1시간 안팎 | 회당 $1 정도, 수동 실행 때만 |
 
