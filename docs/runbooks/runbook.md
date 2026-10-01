@@ -96,7 +96,7 @@ Route53 존 easyselect.kr (dns/ 스택 소유, 공용)
 모니터링 비용을 더 줄이려면 `monitoring_instance_type`을 `t4g.nano`로 내릴 수 있지만(−$3),
 512MiB에 Grafana+Loki를 같이 올리면 compactor가 돌 때 OOM이 잦다. 스왑이 받아주긴 해도 조회가 느려진다.
 
-AI 파이프라인의 고정비는 **인터페이스 VPC 엔드포인트**다. 지금은 `bedrock-runtime` 하나를 한 AZ에만 두어 ENI 하나 × 약 $0.0147/h ≈ 월 $11이다(`interface_endpoint_subnet_indexes = [0]`, 두 AZ면 $21). `lambda` 엔드포인트(월 $21)는 Lambda 간 호출이 v2에서 사라져 #57에서 뺐다. S3 게이트웨이 엔드포인트는 무료고 Lambda는 호출할 때만 과금되므로(embedder 3GB · score 8GB · categorize 3GB × 실행 시간), 그 밖에 늘어나는 것은 S3에 쌓이는 원본·미리보기, ECR의 이미지(embedder·score 각 3-5GB, 월 $1 수준), categorize의 Bedrock 호출(갤러리당 몇 번)이다.
+AI 파이프라인의 고정비는 **인터페이스 VPC 엔드포인트**다. 지금은 `bedrock-runtime` 하나를 us-east-1의 엔드포인트 전용 VPC에 한 AZ로 두어 ENI 하나 × 약 $0.01/h ≈ 월 $7.3이고, 그 이름을 서울 VPC에서 풀어 주는 프라이빗 호스티드 존이 월 $0.5다(#71 — 서울에 있던 엔드포인트 월 $11은 뺐다). 리전 간 피어링 자체는 무료고 전송량(대표 사진 몇 장)에만 GB당 과금이 붙는다. NAT 게이트웨이였다면 월 약 $43이다. `lambda` 엔드포인트(월 $21)는 Lambda 간 호출이 v2에서 사라져 #57에서 뺐다. S3 게이트웨이 엔드포인트는 무료고 Lambda는 호출할 때만 과금되므로(embedder 3GB · score 8GB · categorize 3GB × 실행 시간), 그 밖에 늘어나는 것은 S3에 쌓이는 원본·미리보기, ECR의 이미지(embedder·score 각 3-5GB, 월 $1 수준), categorize의 Bedrock 호출(갤러리당 몇 번)이다.
 
 ---
 
@@ -332,8 +332,8 @@ OAuth 클라이언트 ID/시크릿도 `/wes/prod/` 아래 SecureString 파라미
 - **embedder·score는 갤러리를 샤드로 나눠 동시에 돈다.** wes가 부른 실행은 조정자가 되어 사진 150장당 샤드 하나(최대 32)로 자기 함수를 다시 EVENT 하고 끝난다. 샤드는 자기 몫만 처리한다. embedder 샤드는 각자 끝나면 그만이고(앱이 `photo_analysis`를 세어 단계를 닫는다), score는 마지막으로 끝난 샤드가 `wes-categorize`를 부른다. 그래서 두 함수의 예약 동시성은 샤드 상한(32) 이상이어야 한다 — 낮으면 샤드가 스로틀되어 라운드가 늘어난다. 샤드 상한은 RDS 커넥션이 정한다(샤드당 1개를 세션 advisory lock 으로 끝까지 붙든다 — db.t4g.micro 79 개 중 평상시 24 + 샤드 32).
 - **재실행이 안전하다.** embedder는 `embedding IS NULL`, score는 `MODEL_VERSION` + CLIP 유무로 남은 것만 이어서 한다.
 - **재시도 주체는 앱의 오케스트레이터 하나다.** Lambda 서비스 재시도는 셋 다 0회이며, 이벤트 수명은 20분(15분 runtime 상한 + 최대 5분 queue 지연)이다. 오래 적체된 이벤트를 뒤늦게 중복 실행하지 않는다.
-- **DB 서브넷은 인터넷이 없다.** S3는 게이트웨이 엔드포인트, Bedrock(categorize의 이름 짓기)은 `bedrock-runtime` **인터페이스 엔드포인트**로 나간다(ENI당 시간 과금, [비용](#-비용)). Lambda가 Lambda를 부르는 경로는 v2에서 wes가 가져가 `lambda` 엔드포인트는 없다(#57) — 함수 코드에 `lambda:Invoke`가 되살아나면 엔드포인트와 IAM 문장을 같이 되살려야 한다.
-- **categorize의 대표 사진은 국외로 나간다.** 서울 온디맨드에 Sonnet이 없어 `global.` 크로스 리전 프로필(`bedrock_model_id`)을 쓴다.
+- **DB 서브넷은 인터넷이 없다.** S3는 게이트웨이 엔드포인트, Bedrock(categorize의 이름 짓기)은 **리전 간 VPC 피어링**을 타고 us-east-1의 `bedrock-runtime` 인터페이스 엔드포인트로 나간다(`modules/network/bedrock.tf`, ENI당 시간 과금, [비용](#-비용)). 서울 VPC의 프라이빗 호스티드 존이 `bedrock-runtime.us-east-1.amazonaws.com`을 엔드포인트의 사설 IP로 풀어 주므로 함수 코드에는 엔드포인트 URL이 없다. 이 존은 VPC 전체에 걸려 **앱 EC2의 Bedrock 호출도 같은 경로**를 탄다(퍼블릭 라우트 테이블에도 피어링 라우트가 있다). Lambda가 Lambda를 부르는 경로는 v2에서 wes가 가져가 `lambda` 엔드포인트는 없다(#57) — 함수 코드에 `lambda:Invoke`가 되살아나면 엔드포인트와 IAM 문장을 같이 되살려야 한다.
+- **categorize의 대표 사진은 국외(미국)로 나간다.** 서울 온디맨드에 Sonnet이 없고, 조직 SCP가 2026-09-30부터 `global.` 크로스 리전 프로필을 거부해(`arn:aws:bedrock:::foundation-model/…`에 explicit deny) `us.` 프로필(`bedrock_model_id`)을 `bedrock_region`(us-east-1)으로 부른다(#71). 같은 두 변수에서 Lambda의 `BEDROCK_REGION`·`BEDROCK_MODEL_ID`, 앱이 읽는 `app.llm.region`·`app.llm.model-id` 파라미터, 양쪽 롤의 프로필 ARN이 함께 나온다 — 앱은 부팅 때 읽으므로 값이 바뀌면 재시작한다.
 
 | 함수 | 메모리 | /tmp | 동시 실행 | DB 사용자 | 특이 권한 |
 |---|---|---|---|---|---|
@@ -555,8 +555,8 @@ aws lambda invoke --region ap-northeast-2 --function-name wes-score \
 | S3 GET에서 타임아웃 (자격증명 오류처럼 보이지 않는다) | DB 서브넷의 S3 게이트웨이 엔드포인트가 없다 |
 | 로그에 `Connect timeout on endpoint URL: "https://lambda…"` | 함수가 Lambda API를 부르고 있다 — v2에서는 없어야 할 경로다(`lambda` 엔드포인트·권한은 #57에서 제거). AI 저장소 코드가 옛 재호출·체인으로 돌아갔는지 확인 |
 | 재호출·체인이 `AccessDeniedException` | 실행 롤의 `lambda:InvokeFunction` 대상(자기 함수·categorize) 확인 |
-| categorize 로그에 `Connect timeout on endpoint URL: "https://bedrock-runtime…"` | `bedrock-runtime` 인터페이스 엔드포인트가 없다 |
-| categorize가 Bedrock `AccessDeniedException` | 프로필 ARN과 기반 모델 ARN **둘 다** `bedrock:InvokeModel`이 있어야 한다. `bedrock_model_id`와 `BEDROCK_MODEL_ID`가 같은지, 프로필이 리전에 있는지(`aws bedrock list-inference-profiles`) 확인 |
+| categorize 로그에 `Connect timeout on endpoint URL: "https://bedrock-runtime…"` | Bedrock 리전으로 가는 경로가 끊겼다. 피어링이 `active`인지, DB·퍼블릭 라우트 테이블과 us-east-1 라우트 테이블에 피어링 라우트가 있는지, 프라이빗 호스티드 존 레코드가 엔드포인트를 가리키는지 확인. 호스트네임의 리전이 `BEDROCK_REGION`과 다르면 존이 그 이름을 못 풀어 인터넷으로 나가려다 멈춘다 |
+| categorize가 Bedrock `AccessDeniedException` | 프로필 ARN과 기반 모델 ARN **둘 다** `bedrock:InvokeModel`이 있어야 한다. `bedrock_model_id`와 `BEDROCK_MODEL_ID`가 같은지, 프로필이 `bedrock_region`에 있는지(`aws bedrock list-inference-profiles --region us-east-1`) 확인. 메시지에 `explicit deny in a service control policy`가 있으면 조직 SCP다 — `global.` 프로필은 막혀 있다(#71) |
 | score가 `[Errno 28] No space left on device` | `/tmp`가 찼다. 갤러리 미리보기 전부를 내려받으므로 `score_ephemeral_storage_mb`를 올린다 |
 | 호출은 되는데 핸들러 로그가 없다 | VPC 함수의 ENI를 못 만들었다 — 롤에 `AWSLambdaVPCAccessExecutionRole` 확인 |
 | `InvalidParameterValueException: image manifest ... not supported` | buildx가 manifest list를 만들었다 — `--provenance=false --sbom=false` 빠짐 |

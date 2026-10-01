@@ -20,7 +20,6 @@ flowchart LR
     r53[Route 53 easyselect.kr<br/>dns/ 스택 소유]
     ssm[(SSM Parameter Store<br/>/wes/prod · admin-api/prod · admin · monitoring · local)]
     ecr[(ECR ×3<br/>embedder · score · categorize)]
-    bedrock[Bedrock<br/>global.anthropic.claude-sonnet-4-6]:::ai
     s3[(S3 wes-photos-*<br/>원본 + previews/ · 비공개)]:::pub
     s3dev[(S3 wes-dev-photos-*<br/>로컬 개발)]
     s3fe[(S3 테스트웹 아티팩트)]:::dep
@@ -42,9 +41,13 @@ flowchart LR
         score[Lambda wes-score<br/>CLIP·ARNIQA·LAION · 8192MB · 동시 32 · GPU 폴백]:::ai
         cat[Lambda wes-categorize<br/>3008MB · 동시 2]:::ai
         s3ep[S3 게이트웨이 EP]
-        brep[bedrock-runtime 인터페이스 EP<br/>한 AZ]:::ai
       end
     end
+  end
+
+  subgraph use1[AWS us-east-1 · Bedrock 전용 VPC 10.1.0.0/24]
+    brep[bedrock-runtime 인터페이스 EP<br/>한 AZ · IGW/NAT 없음]:::ai
+    bedrock[Bedrock<br/>us.anthropic.claude-sonnet-4-6]:::ai
   end
 
   user -- "① HTTPS :443" --> alb -- "② :8080 (ALB SG만)" --> app -- "③ :5432" --> rds
@@ -60,7 +63,7 @@ flowchart LR
   gpu -. "부팅 시 wes-score:gpu pull" .-> ecr
   emb & score & cat -- ":5432 (Lambda SG)" --> rds
   emb & score & cat --- s3ep --> s3
-  cat --> brep --> bedrock
+  cat & app -- "리전 간 피어링 · 프라이빗 호스티드 존" --> brep --> bedrock
   ib -. "AMI ID → gpu_ami_id" .-> gpu
   gh -. OIDC .-> runcmd -. "SendCommand (SSH 없음)" .-> app & admin & fe
   gh -. "ECR push · update-function-code" .-> ecr
@@ -90,7 +93,7 @@ flowchart LR
 | wes-db | RDS db.t4g.micro · PG 16.14 · 20GB · Single-AZ | DB subnet | :5432 ← EC2·Lambda·GPU·admin SG | 계정 wes_admin(40) · embedder(32) · photoselect(24) · wes_admin_api |
 | wes-embedder / score / categorize | Lambda 컨테이너 x86_64 · 900s | DB subnet | 없음 | 3008/8192/3008MB · 동시 32/32/2 |
 
-네트워크: public `10.0.0.0/24`·`10.0.1.0/24`, DB `10.0.10.0/24`·`10.0.11.0/24`(NAT 없음). S3 게이트웨이 엔드포인트는 DB 라우트 테이블만. `bedrock-runtime` 인터페이스 엔드포인트는 2a 한 곳(`interface_endpoint_subnet_indexes=[0]`).
+네트워크: public `10.0.0.0/24`·`10.0.1.0/24`, DB `10.0.10.0/24`·`10.0.11.0/24`(NAT 없음). S3 게이트웨이 엔드포인트는 DB 라우트 테이블만. `bedrock-runtime` 인터페이스 엔드포인트는 서울에 없고 us-east-1의 전용 VPC `10.1.0.0/24`에 한 곳 — 퍼블릭·DB 라우트 테이블이 피어링으로 닿고, 프라이빗 호스티드 존 `bedrock-runtime.us-east-1.amazonaws.com`이 이름을 푼다(#71, 조직 SCP가 `global.` 프로필 차단).
 
 SSM 프리픽스: `/wes/prod/*`(앱 · GPU 워커는 3개 키만) · `/wes/admin-api/prod/*` · `/wes/admin/*`(Tailscale auth) · `/wes/monitoring/*` · `/wes/local/*`(dev 버킷).
 
@@ -103,7 +106,7 @@ SSM 프리픽스: `/wes/prod/*`(앱 · GPU 워커는 3개 키만) · `/wes/admin
 | AI Lambda | embedder 하나, DINOv2 | embedder(DINOv3) · score · categorize, ECR 3개, 동시성 32/32/2 |
 | GPU 워커 풀 | 없음 | g6.xlarge ×2 · SG · 롤 · 유휴 정지 알람 · gpu.enabled=true |
 | Image Builder AMI 파이프라인 | 없음 | 수동 파이프라인 · 서비스 연결 역할 2 |
-| Bedrock | 없음 | bedrock-runtime 엔드포인트 · categorize · 앱 롤 InvokeModel |
+| Bedrock | 없음 | us-east-1 bedrock-runtime 엔드포인트 + 피어링 · categorize · 앱 롤 InvokeModel |
 | 모니터링 | 없음 | wes-monitoring · :3100 push · monitoring.easyselect.kr |
 | 테스트 프론트 | 없음 | wes-frontend-test · test.easyselect.kr · 아티팩트 S3 · 전용 롤 |
 | 배포 롤 | ×3 | ×7 |

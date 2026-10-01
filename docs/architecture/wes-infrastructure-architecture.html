@@ -312,8 +312,8 @@
 <rect x="1100" y="560" width="150" height="52" rx="5" class="node-box"/>
 <rect x="1109" y="569" width="6" height="10" rx="1" class="chip"/>
 <text x="1121" y="577" class="node-title">bedrock-runtime 엔드포인트</text>
-<text x="1110" y="592" class="node-line">인터페이스 · 한 AZ(2a)</text>
-<text x="1110" y="605" class="node-line">private DNS · 시간당 과금</text>
+<text x="1110" y="592" class="node-line">us-east-1 전용 VPC · 한 AZ</text>
+<text x="1110" y="605" class="node-line">피어링 + 프라이빗 존 · 시간당 과금</text>
 </g>
 <g class="node g-cfg"><rect x="1262" y="220" width="30" height="200" rx="4" class="node-box"/><text transform="translate(1281 320) rotate(-90)" text-anchor="middle" class="node-title">S3 게이트웨이 EP · DB RT만 · 무료</text></g>
 <g class="node g-public">
@@ -328,7 +328,7 @@
 <rect x="1340" y="560" width="150" height="60" rx="5" class="node-box"/>
 <rect x="1349" y="569" width="6" height="10" rx="1" class="chip"/>
 <text x="1361" y="577" class="node-title">Bedrock</text>
-<text x="1350" y="592" class="node-line">global.anthropic.claude-sonnet-4-6</text>
+<text x="1350" y="592" class="node-line">us.anthropic.claude-sonnet-4-6</text>
 <text x="1350" y="605" class="node-line">categorize 이름 · 앱 추천</text>
 </g>
 <g class="node g-cfg">
@@ -521,7 +521,7 @@
 <path d="M695,255 H885" class="edge e-ai" marker-end="url(#sq-ai)"/>
 <text x="790.0" y="249" text-anchor="middle" class="edge-label l-ai">previews GET (대표 몇 장)</text>
 <path d="M695,275 H885" class="edge e-ai" marker-end="url(#sq-ai)"/>
-<text x="790.0" y="269" text-anchor="middle" class="edge-label l-ai">Bedrock InvokeModel (bedrock-runtime EP · global. Sonnet)</text>
+<text x="790.0" y="269" text-anchor="middle" class="edge-label l-ai">Bedrock InvokeModel (피어링 → us-east-1 EP · us. Sonnet)</text>
 <path d="M695,295 H885" class="edge e-ai" marker-end="url(#sq-ai)"/>
 <text x="790.0" y="289" text-anchor="middle" class="edge-label l-ai">그룹·이름 UPDATE :5432</text>
 <text x="500" y="322" text-anchor="middle" class="seq-note">Lambda 자체 재시도 0 · 이벤트 age 상한 20분 · AsyncEventAge/Dropped 알람 → 다시 보내는 것은 wes dispatch</text>
@@ -614,7 +614,7 @@
     <tr><td class="k">Public subnet</td><td class="mono">10.0.0.0/24 · 10.0.1.0/24</td><td>IGW 라우트, map_public_ip_on_launch</td></tr>
     <tr><td class="k">DB subnet</td><td class="mono">10.0.10.0/24 · 10.0.11.0/24</td><td>인터넷 라우트 없음, NAT 없음</td></tr>
     <tr><td class="k">S3 게이트웨이 엔드포인트</td><td>DB 라우트 테이블만</td><td>무료. public 라우트에는 붙이지 않음</td></tr>
-    <tr><td class="k">bedrock-runtime 인터페이스 엔드포인트</td><td>DB subnet 2a 한 곳</td><td>private DNS, 시간당 과금. <code>interface_endpoint_subnet_indexes=[0,1]</code>로 두 AZ 확장 가능</td></tr>
+    <tr><td class="k">bedrock-runtime 인터페이스 엔드포인트</td><td>us-east-1 전용 VPC <code>10.1.0.0/24</code> 한 AZ</td><td>리전 간 피어링(퍼블릭·DB 라우트 테이블) + 프라이빗 호스티드 존으로 닿는다. 시간당 과금. 조직 SCP가 <code>global.</code> 프로필을 막아 <code>us.</code> 프로필을 쓴다(#71)</td></tr>
     <tr><td class="k">lambda 인터페이스 엔드포인트</td><td>없음</td><td>#57에서 제거(Lambda 간 호출 폐지)</td></tr>
   </tbody>
 </table></div>
@@ -653,7 +653,7 @@
     <tr><td class="k">AI Lambda</td><td>wes-embedder 하나, DINOv2</td><td>embedder(DINOv3) · score · categorize 셋, ECR 3개, 동시성 32/32/2</td><td><span class="pill stale">낡음</span></td></tr>
     <tr><td class="k">GPU 워커 풀</td><td>없음</td><td>g6.xlarge ×2 · SG · 롤 · 유휴 정지 알람 · 앱 롤 Start/Stop · gpu.enabled=true</td><td><span class="pill miss">누락</span></td></tr>
     <tr><td class="k">Image Builder AMI 파이프라인</td><td>없음</td><td>수동 파이프라인 · 빌더 롤/SG · 서비스 연결 역할 2</td><td><span class="pill miss">누락</span></td></tr>
-    <tr><td class="k">Bedrock</td><td>없음</td><td>bedrock-runtime 엔드포인트(한 AZ) · categorize 이름 짓기 · 앱 롤 InvokeModel</td><td><span class="pill miss">누락</span></td></tr>
+    <tr><td class="k">Bedrock</td><td>없음</td><td>us-east-1 bedrock-runtime 엔드포인트(한 AZ) + 피어링 · categorize 이름 짓기 · 앱 롤 InvokeModel</td><td><span class="pill miss">누락</span></td></tr>
     <tr><td class="k">모니터링</td><td>없음</td><td>wes-monitoring(Loki·Grafana·Caddy) · app/admin → :3100 · monitoring.easyselect.kr</td><td><span class="pill miss">누락</span></td></tr>
     <tr><td class="k">테스트 프론트</td><td>없음</td><td>wes-frontend-test · test.easyselect.kr · 아티팩트 S3 · 전용 OIDC 롤 · SSM 문서</td><td><span class="pill miss">누락</span></td></tr>
     <tr><td class="k">배포 롤</td><td>×3 (공개 API · 관리자 API · BackOffice)</td><td>×7 (+ AI worker · test-web · tf_plan · tf_apply)</td><td><span class="pill stale">낡음</span></td></tr>
