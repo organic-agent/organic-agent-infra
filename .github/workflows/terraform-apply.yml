@@ -13,7 +13,7 @@ on:
       stack:
         description: "강제로 apply 할 스택 (경로 변경 감지 무시)"
         type: choice
-        options: [app, dns]
+        options: [app, dns, dev]
         required: true
 
 permissions:
@@ -30,6 +30,7 @@ jobs:
     outputs:
       app: ${{ github.event_name == 'workflow_dispatch' && inputs.stack == 'app' || steps.filter.outputs.app == 'true' }}
       dns: ${{ github.event_name == 'workflow_dispatch' && inputs.stack == 'dns' || steps.filter.outputs.dns == 'true' }}
+      dev: ${{ github.event_name == 'workflow_dispatch' && inputs.stack == 'dev' || steps.filter.outputs.dev == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -43,6 +44,9 @@ jobs:
               - 'modules/**'
             dns:
               - 'dns/**'
+            dev:
+              - 'environments/dev/**'
+              - 'modules/**'
 
   # dns가 먼저다: 앱 스택이 data로 존을 읽는다. 둘 다 바뀐 드문 경우 순서를 지킨다.
   apply-dns:
@@ -92,6 +96,41 @@ jobs:
         run: |
           {
             echo "## Terraform outputs (app)"
+            echo '```'
+            terraform output -no-color 2>/dev/null | grep -v -i 'password\|secret' || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # dev는 운영 다음이다: 운영 VPC·서브넷·모니터링 SG·Loki URL 파라미터를 data로 읽는다. 운영 apply가 실패하면 dev는 건너뛴다.
+  apply-dev:
+    needs: [detect-changes, apply-app]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.dev == 'true' &&
+      (needs.apply-app.result == 'success' || needs.apply-app.result == 'skipped')
+    runs-on: ubuntu-latest
+    concurrency: terraform-dev
+    environment: production
+    defaults:
+      run:
+        working-directory: environments/dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - run: terraform init -input=false
+      - run: terraform apply -input=false -auto-approve -no-color
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Terraform outputs (dev)"
             echo '```'
             terraform output -no-color 2>/dev/null | grep -v -i 'password\|secret' || true
             echo '```'

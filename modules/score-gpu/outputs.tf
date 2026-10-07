@@ -35,12 +35,12 @@ output "gpu_ami_id" {
 
 output "worker_instance_ids" {
   description = "워커 인스턴스 ID (키: AZ). wes는 ID가 아니라 태그 Name=<name_prefix>-score-gpu로 찾는다"
-  value       = { for az, inst in aws_instance.this : az => inst.id }
+  value       = module.workers.worker_instance_ids
 }
 
 output "worker_role_name" {
   description = "워커 인스턴스 롤 이름"
-  value       = aws_iam_role.worker.name
+  value       = module.workers.worker_role_name
 }
 
 output "worker_tag_name" {

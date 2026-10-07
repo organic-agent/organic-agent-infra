@@ -5,7 +5,7 @@
 # 주기가 다르기 때문이다(결정 B, §4.3). 파이프라인에는 schedule이 없다. 드라이버·베이스를 올릴 때만 사람이
 # 돌리고, 나온 AMI ID를 gpu_ami_id에 박는 PR을 낸다(docs/runbooks/runbook.md "GPU AMI").
 #
-# 워커 인스턴스 2대 · 워커 롤 · 유휴 정지 알람은 workers.tf(PR-3c), GPU SG는 modules/security(RDS SG가 참조).
+# 워커 인스턴스 2대 · 워커 롤 · 유휴 정지 알람은 workers.tf → modules/score-gpu-workers(PR-3c), GPU SG는 modules/security(RDS SG가 참조).
 #
 # Packer가 아니라 Image Builder인 이유(결정 I): CI(OIDC 롤)는 plan/apply만 한다는 규칙을 지키려면 빌드 인스턴스를
 # 띄우는 권한을 CI에 주지 않아야 하고, Image Builder는 그 일을 서비스 연결 역할이 한다.

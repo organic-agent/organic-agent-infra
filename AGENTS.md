@@ -2,20 +2,21 @@
 
 ## Project Structure & Module Organization
 
-This repository runs a single long-lived environment, edited and committed in place. Layout:
+This repository runs the production environment at the root plus a `dev` environment, edited and committed in place. Layout:
 
 - Repository root is the app stack (`main.tf`, `variables.tf`, `outputs.tf`, `providers.tf`, `versions.tf`) — VPC, ALB/ACM, EC2, RDS.
 - `dns/` is a separate mini-stack owning the Route53 hosted zone, kept apart so destroying the app stack never deletes the zone (a zone re-create would assign new NS servers and force re-delegation at the registrar).
-- `modules/` for reusable infrastructure components (`network`, `security`, `compute`, `database`, `ingress`, `storage`, `analysis`, `monitoring`, `github-actions`, `admin-access`).
+- `environments/dev/` is the dev stack (own state `dev/terraform.tfstate`): the same modules at production spec under `wes-dev-*` names and the `/wes/dev` SSM prefix, inside the production VPC. Runbook: `docs/runbooks/dev-environment.md`.
+- `modules/` for reusable infrastructure components (`network`, `security`, `compute`, `database`, `ingress`, `storage`, `analysis`, `score-gpu`, `score-gpu-workers`, `monitoring`, `github-actions`, `admin-access`). A module change affects both stacks, so CI plans both.
 - `docs/` split by kind: `runbooks/` (deploy order, operations, recovery), `architecture/` (diagram, network/boundary designs, `study/` learning notes), `plans/` (work plans per initiative), `research/` (non-infra reviews). Index and file map in `docs/README.md`.
 
-If multiple environments are ever needed again, reintroduce `environments/<name>/` compositions over the same modules.
+Further environments follow the same `environments/<name>/` pattern.
 
 Do not commit generated plans, local state, caches, or provider downloads.
 
 ## Build, Test, and Development Commands
 
-Plain Terraform commands, run from the repository root (add `-chdir=dns` for the zone stack):
+Plain Terraform commands, run from the repository root (add `-chdir=dns` for the zone stack, `-chdir=environments/dev` for dev):
 
 ```sh
 terraform fmt -recursive # format all HCL
