@@ -84,21 +84,13 @@ module "storage_local" {
   attach_app_role_policy = false
 }
 
-# 로컬 버킷 이름 변경(wes-dev-photos → wes-local-photos). `wes-dev-photos-<계정>`은 dev 서버(environments/dev)에 넘긴다.
-# 옛 버킷은 force_destroy라 교체로 두면 apply가 로컬 사진을 지운다 — state에서만 빼고 객체를 새 버킷으로 복사한 뒤
-# 손으로 지운다(docs/runbooks/deploy-order.md '로컬 버킷 이름 변경'). /wes/local/app.storage.bucket 파라미터는 같은 이름이라
-# 새 모듈로 가져와 값만 바꾼다. 옛 버킷을 지운 뒤 dev 스택이 그 이름으로 버킷을 만든다. 운영 apply가 한 번 지나가면 두 블록은 지워도 된다.
-removed {
+# 로컬 버킷 이름 변경(wes-dev-photos → wes-local-photos). `wes-dev-photos-<계정>`은 dev 서버 환경에 넘긴다.
+# 이름이 바뀌어 버킷은 교체된다 — force_destroy라 옛 버킷의 로컬 사진은 같이 지워진다(로컬 테스트 데이터라 버린다).
+# moved로 주소를 이어 /wes/local/app.storage.bucket 파라미터는 값만 바뀐다(주소째 바꾸면 같은 이름의 삭제·생성이 겹친다).
+# 운영 apply가 한 번 지나가면 지워도 된다.
+moved {
   from = module.storage_dev
-
-  lifecycle {
-    destroy = false
-  }
-}
-
-import {
-  to = module.storage_local.aws_ssm_parameter.photo_bucket
-  id = "${var.local_parameter_prefix}/app.storage.bucket"
+  to   = module.storage_local
 }
 
 # AI 분석 Lambda 셋(embedder → score → categorize). 서버의 analysis 도메인이 단계마다 부른다.
