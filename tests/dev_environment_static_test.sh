@@ -10,6 +10,7 @@ set -euo pipefail
 #   6. GPU 워커는 운영 AMI를 쓰고, bootcmd로 image.env의 프리픽스·이미지를 dev 값으로 덮는다
 #   7. CD 롤은 dev 브랜치만 신뢰하고 SendCommand는 wes-dev-app 태그로만
 #   8. CI plan/apply가 dev 스택을 돌리고, apply는 운영 다음
+#   9. 관리자 호스트는 wes-dev-admin · /wes/admin-api/dev · dev.admin 도메인이고, 운영 관리자 프리픽스·인스턴스에 닿지 않는다
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 dev="$repo_root/environments/dev"
@@ -79,5 +80,19 @@ rg -Fq -- "- 'environments/dev/**'" "$plan_wf"
 rg -Fq 'needs: [detect-changes, apply-app]' "$apply_wf"
 rg -Fq 'working-directory: environments/dev' "$apply_wf"
 rg -Fq 'options: [app, dns, dev]' "$apply_wf"
+
+# --- 9. 관리자 호스트 ---
+dev_admin="$dev/admin.tf"
+rg -Fq 'admin_instance_name                = "${local.name_prefix}-admin"' "$dev_admin"
+rg -Fq 'name_prefix   = local.admin_instance_name' "$dev_admin"
+rg -Fq 'default     = "/wes/admin-api/dev"' "$dev_vars"
+rg -Fq 'default     = "dev.admin"' "$dev_vars"
+rg -Fq 'default     = "/wes/dev-admin/tailscale-auth-key"' "$dev_vars"
+rg -Fq 'values   = [local.admin_instance_name]' "$dev_roles"
+rg -Fq 'subject       = "${var.backoffice_oidc_subject_prefix}:ref:refs/heads/${var.dev_branch}"' "$dev_roles"
+if rg -n 'admin-api/prod|"/wes/admin/' "$dev_admin" "$dev_roles"; then
+  echo "dev 관리자가 운영 관리자 프리픽스를 쓴다" >&2
+  exit 1
+fi
 
 echo "dev environment static checks passed"

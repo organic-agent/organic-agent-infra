@@ -213,6 +213,101 @@ variable "score_gpu_image_tag" {
   }
 }
 
+# --- 관리자 호스트 (admin.tf) ---
+
+variable "admin_subdomain" {
+  description = "dev 관리자 도메인의 서브도메인(zone_name 앞). 운영은 admin"
+  type        = string
+  default     = "dev.admin"
+}
+
+variable "admin_instance_type" {
+  description = "dev 관리자 EC2 타입(arm64). 백오피스·관리자 API·Caddy·Tailscale을 같이 돌려 2GiB 이상이어야 한다"
+  type        = string
+  default     = "t4g.small"
+
+  validation {
+    condition     = !contains(["t4g.nano", "t4g.micro"], var.admin_instance_type)
+    error_message = "admin_instance_type은 t4g.small 이상이어야 합니다."
+  }
+}
+
+variable "admin_app_port" {
+  description = "백오피스 컨테이너 포트(운영과 같다)"
+  type        = number
+  default     = 8080
+}
+
+variable "admin_api_port" {
+  description = "관리자 API 컨테이너 포트(운영과 같다)"
+  type        = number
+  default     = 8081
+}
+
+variable "admin_proxy_https_port" {
+  description = "Caddy가 127.0.0.1에 여는 포트(운영과 같다)"
+  type        = number
+  default     = 8443
+}
+
+variable "admin_tailscale_hostname" {
+  description = "tailnet에 표시할 dev 관리자 서버 이름. 태그는 운영과 같은 tag:wes-admin"
+  type        = string
+  default     = "wes-dev-admin"
+}
+
+variable "admin_tailscale_ipv4" {
+  description = "첫 apply 후 확인한 wes-dev-admin의 Tailscale IPv4. null이면 dev 관리자 DNS A 레코드를 만들지 않는다"
+  type        = string
+  default     = null
+}
+
+variable "admin_tailscale_auth_parameter_name" {
+  description = "tag:wes-admin 일회용 auth key를 담을 수동 SecureString. 앱 프리픽스(/wes/dev) 밖, 운영 키(/wes/admin)와도 따로"
+  type        = string
+  default     = "/wes/dev-admin/tailscale-auth-key"
+
+  validation {
+    condition     = startswith(var.admin_tailscale_auth_parameter_name, "/") && !startswith(var.admin_tailscale_auth_parameter_name, "/wes/dev/") && !startswith(var.admin_tailscale_auth_parameter_name, "/wes/admin/")
+    error_message = "admin_tailscale_auth_parameter_name은 /wes/dev 와 운영 /wes/admin 밖이어야 합니다."
+  }
+}
+
+variable "admin_parameter_prefix" {
+  description = "dev 관리자 API가 읽는 SSM 프리픽스. 공개 앱(/wes/dev)과 운영 관리자(/wes/admin-api/prod)와 분리"
+  type        = string
+  default     = "/wes/admin-api/dev"
+
+  validation {
+    condition     = var.admin_parameter_prefix != "/wes/admin-api/prod" && !startswith(var.admin_parameter_prefix, "/wes/dev/") && !endswith(var.admin_parameter_prefix, "/")
+    error_message = "admin_parameter_prefix는 운영 관리자·dev 앱 프리픽스와 달라야 하고 끝 슬래시가 없어야 합니다."
+  }
+}
+
+variable "admin_db_username" {
+  description = "dev 관리자 API의 DB 사용자(운영과 같은 이름, dev RDS에 따로 만든다)"
+  type        = string
+  default     = "wes_admin_api"
+}
+
+variable "monitoring_subdomain" {
+  description = "운영 모니터링 서버(Grafana) 서브도메인. dev 관리자의 관측 링크가 가리킨다"
+  type        = string
+  default     = "monitoring"
+}
+
+variable "backoffice_oidc_subject_prefix" {
+  description = "백오피스 저장소 OIDC sub의 immutable 접두사(`:ref:...` 앞까지). 운영 admin_github_oidc_subject와 같은 형식"
+  type        = string
+  default     = "repo:organic-agent@299031009/organic-agent-backoffice@1344578659"
+}
+
+variable "backoffice_repository_id" {
+  description = "organic-agent-backoffice의 immutable repository ID"
+  type        = string
+  default     = "1344578659"
+}
+
 # --- CD (GitHub OIDC) ---
 
 variable "dev_branch" {

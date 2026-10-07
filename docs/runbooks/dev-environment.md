@@ -17,12 +17,14 @@
 | Lambda | `wes-embedder`·`wes-score`·`wes-categorize` | `wes-dev-embedder`·`wes-dev-score`·`wes-dev-categorize` |
 | ECR | `wes-embedder`·`wes-score`·`wes-categorize` | `wes-dev-embedder`·`wes-dev-score`·`wes-dev-categorize` |
 | GPU 워커 | `wes-score-gpu` × 2 (2a·2c) | `wes-dev-score-gpu` × 1 (2a) |
+| 관리자 호스트 | `wes-admin` (t4g.small), `admin.easyselect.kr` | `wes-dev-admin` (t4g.small), `dev.admin.easyselect.kr` |
+| 관리자 SSM | `/wes/admin-api/prod/`, 키 `/wes/admin/tailscale-auth-key` | `/wes/admin-api/dev/`, 키 `/wes/dev-admin/tailscale-auth-key` |
 | CD 브랜치 | `main` | `develop` |
 
 **같이 쓰는 것**: VPC·서브넷·S3 게이트웨이 엔드포인트·Bedrock 리전 피어링(#71), 모니터링 서버(Loki·Grafana), Route53 존, GPU AMI.
 dev가 운영 리소스에 덧붙이는 것은 운영 모니터링 SG의 Loki `:3100` 인그레스 규칙 하나뿐이다.
 
-**만들지 않는 것**: 관리자 서버(`wes-admin`), 모니터링 서버, AMI 파이프라인.
+**만들지 않는 것**: 모니터링 서버, AMI 파이프라인. 관리자 호스트는 Tailscale 태그(`tag:wes-admin`)를 운영과 같이 써서 tailnet policy를 고치지 않는다.
 
 > 로컬 개발용 `wes-local-photos-<계정>` 버킷과 `/wes/local/`은 이 환경과 **별개**다(운영 스택의 `storage_local`). 노트북의
 > `local` 프로필용이고, dev 서버는 `wes-dev-photos-*`를 쓴다 — 로컬 pg와 dev RDS의 갤러리 id가 겹쳐 키 공간이 섞이지 않게.
@@ -43,13 +45,14 @@ dev 워커 롤은 `/wes/dev/` 세 파라미터만 읽을 수 있어, 덮기 전�
 AMI 빌드 중에 운영 2대와 dev 1대가 모두 켜져 있으면 늦게 켜는 쪽이 `VcpuLimitExceeded`로 실패한다 — AMI 빌드는
 dev 워커가 꺼져 있을 때 돌리고, 길게 겹쳐 쓸 거면 쿼터 증설(16)을 신청한다.
 
-### # 비용 (고정비, 월 약 $65)
+### # 비용 (고정비, 월 약 $85)
 
 | 항목 | 월 |
 |---|---|
 | ALB `wes-dev` + 퍼블릭 IPv4 2개 | $24.8 |
 | RDS `wes-dev-db` (db.t4g.micro + gp3 20GB) | $21.6 |
 | 앱 EC2 `wes-dev-app` (t4g.micro + gp3 20GB + 퍼블릭 IP) | $13.1 |
+| 관리자 EC2 `wes-dev-admin` (t4g.small + gp3 20GB + 퍼블릭 IP) | 약 $20 |
 | GPU 워커 1대 (정지 상태 gp3 30GB) | $2.8 |
 | ECR dev 리포지토리 (score GPU 이미지 포함 약 15~20GB) | $1.5~2 |
 | S3·SSM·CloudWatch | $1 미만 |
@@ -180,6 +183,18 @@ inject wes-dev-categorize /wes/dev/photoselect.db.password
 | AI 저장소 시크릿 | `AWS_DEV_WORKER_DEPLOY_ROLE_ARN` = `terraform -chdir=environments/dev output -raw github_worker_deploy_role_arn` |
 
 dev CD 롤은 `develop` 브랜치 토큰만 받는다(`dev_branch` 변수). 다른 브랜치에서 dev에 올리려면 변수를 바꾸는 PR을 낸다.
+
+### # [8] 관리자 호스트 (`wes-dev-admin`)
+
+운영 관리자(`docs/architecture/admin-internal-access.md`)와 같은 2단계다.
+
+1. **apply 전** 손으로 넣는다. auth key는 부팅 때 한 번만 읽으므로 없이 뜨면 인스턴스를 교체해야 한다.
+   - Tailscale 콘솔에서 one-off · non-ephemeral · pre-approved · `tag:wes-admin` auth key → `/wes/dev-admin/tailscale-auth-key` SecureString
+   - `/wes/admin-api/dev/spring.datasource.password` SecureString (새로 생성)
+2. apply 뒤 SSM으로 `cloud-init status --wait; tailscale ip -4` → 나온 IP를 `admin_tailscale_ipv4` 기본값에 커밋하는 PR. plan이 A 레코드 1개만 추가하는지 본다.
+3. dev DB에 관리자 API 사용자(`wes_admin_api`)를 운영과 같은 권한으로 만든다(비밀번호 = 1의 값).
+4. 서버 저장소 시크릿 `AWS_DEV_ADMIN_API_DEPLOY_ROLE_ARN` = `output -raw github_admin_api_deploy_role_arn`,
+   백오피스 저장소 시크릿 `AWS_DEV_DEPLOY_ROLE_ARN` = `output -raw github_admin_deploy_role_arn`. 두 저장소 모두 `develop` 브랜치에서만 assume 된다.
 
 ---
 

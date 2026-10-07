@@ -3,6 +3,8 @@
 #
 #   deploy        서버 저장소 dev CD — public API를 wes-dev-app에 SSM Run Command로 배포 (운영 cd.yml과 같은 흐름)
 #   worker_deploy AI 저장소 dev CD   — wes-dev-* ECR에 push 하고 dev Lambda 코드 갱신. GPU 워커 이미지도 wes-dev-score에 민다
+#   admin_api_deploy 서버 저장소 dev CD — 관리자 API를 wes-dev-admin에 배포 (운영 cd-prod.yml의 deploy-admin과 같은 흐름)
+#   admin_deploy  백오피스 저장소 dev CD — 백오피스를 wes-dev-admin에 배포
 #
 # 이름이 `wes-dev-`로 시작해 운영 tf_apply의 IAM 울타리(`wes-*`) 안이므로 CI apply로 만들어진다(로컬 apply 불필요).
 
@@ -20,6 +22,14 @@ locals {
     worker_deploy = {
       subject       = "${var.ai_oidc_subject_prefix}:ref:refs/heads/${var.dev_branch}"
       repository_id = var.ai_repository_id
+    }
+    admin_api_deploy = {
+      subject       = "repo:${var.server_repository}:ref:refs/heads/${var.dev_branch}"
+      repository_id = var.server_repository_id
+    }
+    admin_deploy = {
+      subject       = "${var.backoffice_oidc_subject_prefix}:ref:refs/heads/${var.dev_branch}"
+      repository_id = var.backoffice_repository_id
     }
   }
 }
@@ -157,4 +167,58 @@ resource "aws_iam_role_policy" "worker_deploy" {
   name   = "deploy-ai-lambdas"
   role   = aws_iam_role.worker_deploy.name
   policy = data.aws_iam_policy_document.worker_deploy.json
+}
+
+# --- admin_api_deploy · admin_deploy: 서버·백오피스 저장소 dev CD → wes-dev-admin ---
+# 운영과 같이 두 저장소가 롤을 따로 쓰고 정책은 같다(Name=wes-dev-admin 한 대). 호스트의 공통 flock이 둘을 직렬화한다.
+
+data "aws_iam_policy_document" "admin_deploy" {
+  statement {
+    actions   = ["ec2:DescribeInstances"]
+    resources = ["*"]
+  }
+
+  statement {
+    actions   = ["ssm:SendCommand"]
+    resources = ["arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"]
+  }
+
+  # dev 관리자 인스턴스(Name=wes-dev-admin)에만 — 운영 wes-admin에는 닿지 않는다.
+  statement {
+    actions   = ["ssm:SendCommand"]
+    resources = ["arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ssm:resourceTag/Name"
+      values   = [local.admin_instance_name]
+    }
+  }
+
+  statement {
+    actions   = ["ssm:GetCommandInvocation"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role" "admin_api_deploy" {
+  name_prefix        = "${local.name_prefix}-admin-api-deploy-"
+  assume_role_policy = data.aws_iam_policy_document.assume["admin_api_deploy"].json
+}
+
+resource "aws_iam_role_policy" "admin_api_deploy" {
+  name   = "deploy-via-ssm"
+  role   = aws_iam_role.admin_api_deploy.name
+  policy = data.aws_iam_policy_document.admin_deploy.json
+}
+
+resource "aws_iam_role" "admin_deploy" {
+  name_prefix        = "${local.name_prefix}-admin-deploy-"
+  assume_role_policy = data.aws_iam_policy_document.assume["admin_deploy"].json
+}
+
+resource "aws_iam_role_policy" "admin_deploy" {
+  name   = "deploy-via-ssm"
+  role   = aws_iam_role.admin_deploy.name
+  policy = data.aws_iam_policy_document.admin_deploy.json
 }
