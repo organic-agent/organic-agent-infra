@@ -115,22 +115,27 @@ terraform -chdir=environments/dev apply \
 
 ### # [3] 첫 이미지 넣기
 
-AI 저장소의 dev CD([7])가 아직 없으면 운영 이미지를 그대로 복사한다. 이미지가 크다(score GPU 이미지 약 7GB).
+AI 저장소의 dev CD([7])가 아직 없으면 운영 이미지를 그대로 복사한다(압축 약 7GB, score GPU 이미지가 4GB).
+`imagetools create`는 레지스트리끼리 블롭을 복사해 로컬 디스크를 쓰지 않는다. 다만 태그를 원본을 감싼 이미지 인덱스에 달아
+다이제스트가 원본과 달라지고, Lambda는 인덱스를 거부할 수 있다 — 그래서 블롭 복사 뒤 원본 매니페스트를 `put-image`로 다시 태그한다.
+결과 다이제스트가 운영과 같아야 한다. bash로 돌린다(zsh는 인자 분리가 달라 `copy` 인자가 깨진다).
 
 ```bash
-REGION=ap-northeast-2
-REG=233927217926.dkr.ecr.$REGION.amazonaws.com
-aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REG
+#!/usr/bin/env bash
+set -eo pipefail
+REG=233927217926.dkr.ecr.ap-northeast-2.amazonaws.com
+aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $REG
 
-copy() {  # copy <운영 리포지토리:태그> <dev 리포지토리:태그>
-  docker pull --platform linux/amd64 "$REG/$1"
-  docker tag "$REG/$1" "$REG/$2"
-  docker push "$REG/$2"
+copy() {  # copy <운영 리포지토리> <dev 리포지토리> <태그>
+  docker buildx imagetools create -t "$REG/$2:$3" "$REG/$1:$3"   # 블롭 복사
+  local q="images[0]"
+  aws ecr put-image --repository-name "$2" --image-tag "$3"     --image-manifest "$(aws ecr batch-get-image --repository-name "$1" --image-ids imageTag="$3" --query "$q.imageManifest" --output text)"     --image-manifest-media-type "$(aws ecr batch-get-image --repository-name "$1" --image-ids imageTag="$3" --query "$q.imageManifestMediaType" --output text)" >/dev/null
+  aws ecr describe-images --repository-name "$2" --image-ids imageTag="$3" --query 'imageDetails[0].imageDigest' --output text
 }
-copy wes-embedder:latest   wes-dev-embedder:latest
-copy wes-score:latest      wes-dev-score:latest
-copy wes-categorize:latest wes-dev-categorize:latest
-copy wes-score:gpu         wes-dev-score:gpu        # dev GPU 워커가 부팅 때 pull
+copy wes-embedder   wes-dev-embedder   latest
+copy wes-score      wes-dev-score      latest
+copy wes-categorize wes-dev-categorize latest
+copy wes-score      wes-dev-score      gpu      # dev GPU 워커가 부팅 때 pull
 ```
 
 ### # [4] 전체 apply
