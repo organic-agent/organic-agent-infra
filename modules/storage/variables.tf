@@ -1,5 +1,5 @@
 variable "name_prefix" {
-  description = "리소스 이름 접두사. 버킷 이름이 `{prefix}-photos-{account}`가 되므로 dev 버킷은 `wes-dev`처럼 환경을 접두사에 싣는다"
+  description = "리소스 이름 접두사. 버킷 이름이 `{prefix}-photos-{account}`가 되므로 로컬·dev 버킷은 `wes-local`·`wes-dev`처럼 환경을 접두사에 싣는다"
   type        = string
 }
 
@@ -9,9 +9,15 @@ variable "parameter_prefix" {
 }
 
 variable "app_role_name" {
-  description = "버킷 접근 권한을 붙일 앱 인스턴스 롤 이름. null이면 정책을 만들지 않는다 — 노트북 자격증명으로만 쓰는 dev 버킷"
+  description = "버킷 접근 권한을 붙일 앱 인스턴스 롤 이름. attach_app_role_policy = false면 쓰지 않는다"
   type        = string
   default     = null
+}
+
+variable "attach_app_role_policy" {
+  description = "app_role_name에 버킷 정책을 붙일지. false는 노트북 자격증명으로만 쓰는 로컬 개발 버킷(/wes/local)"
+  type        = bool
+  default     = true
 }
 
 variable "web_origins" {

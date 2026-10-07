@@ -67,9 +67,9 @@ output "photo_bucket" {
   value       = module.storage.bucket_name
 }
 
-output "dev_photo_bucket" {
+output "local_photo_bucket" {
   description = "로컬 개발용 사진 버킷 (이미 /wes/local/app.storage.bucket에 기록됨). 임베더·AI CLI의 S3_BUCKET"
-  value       = module.storage_dev.bucket_name
+  value       = module.storage_local.bucket_name
 }
 
 output "lambda_repository_urls" {
