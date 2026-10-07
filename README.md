@@ -27,7 +27,8 @@ DNS와 앱 스택을 분리해 앱 스택을 삭제해도 Hosted Zone과 NS 위�
 - 설정 : 공개 API는 `/wes/prod/*`, 관리자 API는 `/wes/admin-api/prod/*`를 읽는다. Grafana 비밀번호는 `/wes/monitoring/*`에 분리한다. DB 비밀번호는 Terraform state에 넣지 않고 각 경로의 수동 SecureString으로 관리한다
 - 보안 : ALB `:80/:443` → 공개 API EC2 `:8080`(ALB SG만), RDS `:5432`는 공개 API·관리자 API·Lambda SG(셋이 공유)만 허용한다. 관리자 API `:8081`은 SG/Caddy에 열지 않고 localhost health와 Docker internal network에서만 사용한다
 - 배포 : 서버 저장소는 공개 API·관리자 API에 서로 다른 최소권한 OIDC 역할을 사용하고, AI 저장소는 Lambda 셋의 ECR push·코드 갱신만 되는 worker 역할을 쓴다. BackOffice도 전용 역할을 쓰며, 같은 관리자 호스트의 두 CD는 공통 `flock`으로 직렬화한다
-- State : app/dns 스택이 관리하지 않는 사전 생성 S3 backend에서 `app/terraform.tfstate`, `dns/terraform.tfstate` 키를 분리하고 S3 native lock을 사용한다
+- dev 환경 : `environments/dev/` 스택이 같은 모듈로 운영과 같은 규격의 앱 계층(`dev.api.easyselect.kr`, `wes-dev-*`)·Lambda 셋·GPU 워커 1대를 운영 VPC 안에 따로 세운다. 앱은 `/wes/dev/*`를 읽는다 — [docs/runbooks/dev-environment.md](docs/runbooks/dev-environment.md)
+- State : app/dns/dev 스택이 관리하지 않는 사전 생성 S3 backend에서 `app/terraform.tfstate`, `dns/terraform.tfstate`, `dev/terraform.tfstate` 키를 분리하고 S3 native lock을 사용한다
 
 ---
 

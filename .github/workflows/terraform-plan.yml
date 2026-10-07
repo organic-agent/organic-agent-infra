@@ -22,6 +22,7 @@ jobs:
     outputs:
       app: ${{ steps.filter.outputs.app }}
       dns: ${{ steps.filter.outputs.dns }}
+      dev: ${{ steps.filter.outputs.dev }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -34,10 +35,14 @@ jobs:
               - 'modules/**'
             dns:
               - 'dns/**'
+            # dev 스택은 운영과 같은 모듈을 쓰므로 모듈 변경도 dev plan을 돌린다.
+            dev:
+              - 'environments/dev/**'
+              - 'modules/**'
 
   plan:
     needs: detect-changes
-    if: needs.detect-changes.outputs.app == 'true' || needs.detect-changes.outputs.dns == 'true'
+    if: needs.detect-changes.outputs.app == 'true' || needs.detect-changes.outputs.dns == 'true' || needs.detect-changes.outputs.dev == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -49,6 +54,9 @@ jobs:
           - stack: dns
             dir: dns
             changed: ${{ needs.detect-changes.outputs.dns }}
+          - stack: dev
+            dir: environments/dev
+            changed: ${{ needs.detect-changes.outputs.dev }}
     steps:
       - name: Skip unchanged stack
         if: matrix.changed != 'true'

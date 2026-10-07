@@ -13,12 +13,14 @@ set -euo pipefail
 #   7. ECR score 라이프사이클에 gpu- 접두사 최근 3개 규칙(§7-7), 이동 태그 gpu는 규칙 밖
 #   8. `arn:aws:automate:` EC2 액션 ARN은 modules/score-gpu 밖 어디에도 없다(§7-10) — 3b에는 아직 안에도 없다
 #   9. 루트 배선: module "score_gpu"가 score 리포지토리 URL을 받고, 파이프라인 ARN 출력이 있다
-#  10. 워커 인스턴스: AZ 맵 for_each, ami = var.gpu_ami_id, IMDSv2 hop 2, key_name 없음, user_data 없음, Name 태그 = local.name(§7-1·6)
+#  10. 워커 인스턴스(modules/score-gpu-workers): AZ 맵 for_each, ami = var.gpu_ami_id, IMDSv2 hop 2, key_name 없음, Name 태그 = var.name(§7-1·6).
+#      user_data는 변수로만 받고 운영 풀(modules/score-gpu → workers)은 넘기지 않는다 — dev만 image.env를 덮는다
 #  11. aws_ec2_instance_state stopped + ignore_changes = [state](§7-2)
 #  12. GPU SG(security 모듈): 인그레스 규칙 0개, RDS SG에 rds_from_score_gpu(§7-3)
 #  13. 워커 롤: S3 previews/* 만, SSM은 세 파라미터 ARN(와일드카드 없음), lambda: 액션 없음, StopInstances 태그 조건(§7-4).
 #      앱 롤(compute): Start/Stop 태그 조건, DescribeInstances만 `*`(§7-5)
-#  14. 유휴 정지 알람: InstanceId dimension, notBreaching, period 300 × 6, 인스턴스와 같은 for_each, 정지 액션은 이 모듈 안에만(§7-9·10)
+#  14. 유휴 정지 알람: InstanceId dimension, notBreaching, period 300 × 6, 인스턴스와 같은 for_each, 정지 액션은 워커 모듈 안에만(§7-9·10),
+#      운영 풀은 CloudWatch Events 서비스 연결 역할을 기다린다
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 mod="$repo_root/modules/score-gpu"
@@ -34,7 +36,8 @@ oidc_main="$repo_root/modules/github-actions/main.tf"
 analysis_main="$repo_root/modules/analysis/main.tf"
 root_main="$repo_root/main.tf"
 root_outputs="$repo_root/outputs.tf"
-workers="$mod/workers.tf"
+workers="$repo_root/modules/score-gpu-workers/main.tf"
+workers_call="$mod/workers.tf"
 security_main="$repo_root/modules/security/main.tf"
 compute_main="$repo_root/modules/compute/main.tf"
 
@@ -149,9 +152,9 @@ if rg -n 'tagPrefixList = \["gpu"\]' "$analysis_main"; then
   exit 1
 fi
 
-# --- 8. EC2 정지 액션 ARN은 score-gpu 밖에 없다 ---
-if rg -n 'arn:aws:automate:' "$repo_root" --glob '!modules/score-gpu/**' --glob '!docs/**' --glob '!tests/**' --glob '!.terraform/**'; then
-  echo "EC2 stop alarm action must only exist in modules/score-gpu" >&2
+# --- 8. EC2 정지 액션 ARN은 워커 모듈 밖에 없다 ---
+if rg -n 'arn:aws:automate:' "$repo_root" --glob '!modules/score-gpu-workers/**' --glob '!docs/**' --glob '!tests/**' --glob '!.terraform/**'; then
+  echo "EC2 stop alarm action must only exist in modules/score-gpu-workers" >&2
   exit 1
 fi
 
@@ -168,9 +171,15 @@ rg -Fq 'for_each = var.worker_subnet_ids' "$workers"
 rg -Fq 'ami                         = var.gpu_ami_id' "$workers"
 rg -Fq 'http_put_response_hop_limit = 2' "$workers"
 rg -n -A40 'resource "aws_instance" "this"' "$workers" | rg -Fq 'http_tokens                 = "required"'
-rg -n -A40 'resource "aws_instance" "this"' "$workers" | rg -Fq 'Name = local.name'
-if rg -n '^\s*key_name\s*=|^\s*user_data\s*=|^\s*data "aws_ami"|^\s*most_recent\s*=' "$workers"; then
-  echo "워커 인스턴스에 key_name·user_data·most_recent AMI가 있다 — SSM만, 유닛은 AMI에, AMI는 변수로" >&2
+rg -n -A40 'resource "aws_instance" "this"' "$workers" | rg -Fq 'Name = var.name'
+if rg -n '^\s*key_name\s*=|^\s*data "aws_ami"|^\s*most_recent\s*=' "$workers"; then
+  echo "워커 인스턴스에 key_name·most_recent AMI가 있다 — SSM만, AMI는 변수로" >&2
+  exit 1
+fi
+rg -Fq 'user_data = var.user_data' "$workers"
+rg -Fq 'source = "../score-gpu-workers"' "$workers_call"
+if rg -n '^\s*user_data\s*=' "$workers_call"; then
+  echo "운영 워커 풀에 user_data가 있다 — 운영은 AMI에 구워진 image.env 그대로 쓴다" >&2
   exit 1
 fi
 rg -Fq 'default     = "g6.xlarge"' "$mod_vars"
@@ -199,7 +208,7 @@ if rg -n 'ssm_parameter_arn_prefix}/?\*|parameter_prefix}/?\*|"lambda:' "$worker
   exit 1
 fi
 rg -n -A10 'sid       = "StopSelf"' "$workers" | rg -Fq 'variable = "ec2:ResourceTag/Name"'
-rg -n -A10 'sid       = "StopSelf"' "$workers" | rg -Fq 'values   = [local.name]'
+rg -n -A10 'sid       = "StopSelf"' "$workers" | rg -Fq 'values   = [var.name]'
 rg -Fq 'policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"' "$workers"
 rg -n -A12 'sid = "StartStopScoreGpuWorkers"' "$compute_main" | rg -Fq 'variable = "ec2:ResourceTag/Name"'
 rg -n -A12 'sid = "StartStopScoreGpuWorkers"' "$compute_main" | rg -Fq '"ec2:StartInstances",'
@@ -219,9 +228,9 @@ rg -Fq 'treat_missing_data  = "notBreaching"' "$workers"
 rg -Fq 'period              = 300' "$workers"
 rg -Fq 'evaluation_periods  = 6' "$workers"
 rg -Fq 'alarm_actions = ["arn:aws:automate:${data.aws_region.current.name}:ec2:stop"]' "$workers"
-rg -Fq 'depends_on = [aws_iam_service_linked_role.cloudwatch_events]' "$workers"
+rg -Fq 'depends_on = [aws_iam_service_linked_role.cloudwatch_events]' "$workers_call"
 
 # --- 10. 워커 인스턴스: 정지 중 퍼블릭 IP 드리프트로 replace 되지 않게 ---
-rg -Fq 'ignore_changes = [associate_public_ip_address]' "$mod/workers.tf"
+rg -Fq 'ignore_changes = [associate_public_ip_address]' "$workers"
 
 echo "score-gpu static checks passed"
