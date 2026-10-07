@@ -122,8 +122,10 @@ locals {
 
 # --- ECR ---
 
+# 리포지토리는 함수 이름만 보고 반복한다. local.functions는 환경 변수(DB 주소·버킷)를 품어서, 그걸로 돌면
+# ECR만 먼저 만드는 -target apply(dev 런북 [2])에 RDS·버킷이 딸려 온다. 키는 같다.
 resource "aws_ecr_repository" "this" {
-  for_each = local.functions
+  for_each = local.function_names
 
   name = local.function_names[each.key]
 
@@ -139,7 +141,7 @@ resource "aws_ecr_repository" "this" {
 # embedder·score 이미지는 torch와 가중치로 3~5GB다. 이게 없으면 다시 빌드할 때마다 이전 레이어가
 # ECR 스토리지 요금을 내며 그대로 쌓인다. categorize는 작지만 규칙은 같이 둔다.
 resource "aws_ecr_lifecycle_policy" "this" {
-  for_each = local.functions
+  for_each = local.function_names
 
   repository = aws_ecr_repository.this[each.key].name
 
