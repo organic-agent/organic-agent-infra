@@ -259,7 +259,8 @@ variable "admin_tailscale_hostname" {
 variable "admin_tailscale_ipv4" {
   description = "첫 apply 후 확인한 wes-dev-admin의 Tailscale IPv4. null이면 dev 관리자 DNS A 레코드를 만들지 않는다"
   type        = string
-  default     = null
+  # 2026-10-07 첫 apply 뒤 SSM `tailscale ip -4`로 확인. 인스턴스를 교체하면 IP가 바뀌므로 다시 확인해 고친다.
+  default = "100.87.204.110"
 }
 
 variable "admin_tailscale_auth_parameter_name" {
