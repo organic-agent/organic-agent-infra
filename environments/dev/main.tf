@@ -113,7 +113,8 @@ module "storage" {
   name_prefix      = local.name_prefix
   parameter_prefix = var.parameter_prefix
   app_role_name    = module.compute.instance_role_name
-  web_origins      = local.public_web_origins
+  # 백오피스도 브라우저에서 버킷에 직접 올린다(운영 루트의 web_origins와 같은 이유).
+  web_origins = distinct(concat(local.public_web_origins, [local.admin_web_origin]))
 }
 
 module "database" {

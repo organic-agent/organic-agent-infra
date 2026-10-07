@@ -71,3 +71,28 @@ output "github_worker_deploy_role_arn" {
   description = "AI 저장소 dev CD 롤 ARN — AI 저장소 시크릿 AWS_DEV_WORKER_DEPLOY_ROLE_ARN"
   value       = aws_iam_role.worker_deploy.arn
 }
+
+output "admin_url" {
+  description = "dev 관리자(백오피스) 주소 — tailnet에서만. admin_tailscale_ipv4를 커밋하기 전엔 DNS 레코드가 없다"
+  value       = local.admin_web_origin
+}
+
+output "admin_instance_id" {
+  description = "dev 관리자 인스턴스 ID. 첫 apply 뒤 SSM으로 `tailscale ip -4`를 확인한다"
+  value       = module.admin_access.instance_id
+}
+
+output "admin_dns_configured" {
+  description = "dev 관리자 A 레코드가 만들어졌는지"
+  value       = module.admin_access.dns_configured
+}
+
+output "github_admin_api_deploy_role_arn" {
+  description = "서버 저장소 dev CD의 AWS_DEV_ADMIN_API_DEPLOY_ROLE_ARN 값"
+  value       = aws_iam_role.admin_api_deploy.arn
+}
+
+output "github_admin_deploy_role_arn" {
+  description = "백오피스 저장소 dev CD의 AWS_DEV_DEPLOY_ROLE_ARN 값"
+  value       = aws_iam_role.admin_deploy.arn
+}
