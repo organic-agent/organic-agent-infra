@@ -21,7 +21,7 @@ flowchart LR
     ssm[(SSM Parameter Store<br/>/wes/prod · admin-api/prod · admin · monitoring · local)]
     ecr[(ECR ×3<br/>embedder · score · categorize)]
     s3[(S3 wes-photos-*<br/>원본 + previews/ · 비공개)]:::pub
-    s3dev[(S3 wes-dev-photos-*<br/>로컬 개발)]
+    s3dev[(S3 wes-local-photos-*<br/>로컬 개발)]
     s3fe[(S3 테스트웹 아티팩트)]:::dep
     ib[EC2 Image Builder<br/>score GPU AMI · 수동]:::ai
     runcmd[SSM Run Command<br/>Name tag 한정]:::dep

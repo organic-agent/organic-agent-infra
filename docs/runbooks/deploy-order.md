@@ -131,10 +131,14 @@ EC2 user_data가 Docker·스왑을 설치하고, S3 사진 버킷과 Lambda 셋(
 프라이빗 호스티드 존), GitHub Actions용 OIDC 배포 롤도 함께 생성된다. 인터페이스 엔드포인트는 생성 뒤 몇 분 동안
 `pending` 상태라, apply 직후 첫 분석 잡의 Bedrock 호출이 타임아웃하면 잠시 뒤 다시 부른다.
 
-로컬 개발용 사진 버킷(`wes-dev-photos-<계정>`, `module.storage_dev`)도 같이 만들어지고
+로컬 개발용 사진 버킷(`wes-local-photos-<계정>`, `module.storage_local`)도 같이 만들어지고
 `/wes/local/app.storage.bucket`에 기록된다. 운영 버킷과 달리 인스턴스 롤 정책이 없다 — 노트북
 자격증명(개발자 IAM)으로 서명·읽기·쓰기 한다. 로컬 프론트 오리진은 `local_web_origins` 변수다.
 서버 저장소의 `scripts/local-ai.sh`가 이 버킷을 `S3_BUCKET`으로 읽는다.
+
+> **로컬 버킷 이름 변경 (2026-10).** 로컬 버킷은 예전에 `wes-dev-photos-<계정>`(`module.storage_dev`)이었고, 그 이름은
+> dev 서버 환경에 넘겼다. 이름 변경 apply가 옛 버킷을 사진째 지우고 새로 만든다(`force_destroy`). 로컬 pg의 사진 행은 객체를 잃으므로
+> 서버 저장소의 `scripts/reset-test-data.sh local`로 비운다.
 
 모니터링 EC2(`wes-monitoring`)도 같이 뜬다. user_data가 Loki·Grafana·Caddy를 compose로
 올리고, Caddy가 `monitoring.easyselect.kr`의 Let's Encrypt 인증서를 받는다 — A 레코드가

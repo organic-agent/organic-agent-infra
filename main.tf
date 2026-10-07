@@ -71,15 +71,26 @@ module "storage" {
 # 운영 버킷을 같이 쓰면 로컬 pg의 갤러리 id가 운영과 겹칠 때 `galleries/{id}/…` 키 공간이 섞이므로
 # 버킷을 따로 판다. 임베더·AI CLI를 노트북에서 돌릴 때도 이 버킷을 읽는다.
 #
-# 같은 모듈의 두 번째 인스턴스다. 이름에 환경(dev)이 들어가고, /wes/local/app.storage.bucket에
+# 같은 모듈의 두 번째 인스턴스다. 이름은 `wes-local-photos-<계정>`이고, /wes/local/app.storage.bucket에
 # 기록되어 `bootRun --spring.profiles.active=local`이 자동으로 집는다. 인스턴스 롤 정책은 없다.
-module "storage_dev" {
+# (EC2에 올라가는 dev 서버 환경은 버킷을 따로 쓴다 — wes-dev-photos-*.)
+module "storage_local" {
   source = "./modules/storage"
 
-  name_prefix      = "${local.name_prefix}-dev"
+  name_prefix      = "${local.name_prefix}-local"
   parameter_prefix = var.local_parameter_prefix
-  app_role_name    = null
   web_origins      = var.local_web_origins
+
+  attach_app_role_policy = false
+}
+
+# 로컬 버킷 이름 변경(wes-dev-photos → wes-local-photos). `wes-dev-photos-<계정>`은 dev 서버 환경에 넘긴다.
+# 이름이 바뀌어 버킷은 교체된다 — force_destroy라 옛 버킷의 로컬 사진은 같이 지워진다(로컬 테스트 데이터라 버린다).
+# moved로 주소를 이어 /wes/local/app.storage.bucket 파라미터는 값만 바뀐다(주소째 바꾸면 같은 이름의 삭제·생성이 겹친다).
+# 운영 apply가 한 번 지나가면 지워도 된다.
+moved {
+  from = module.storage_dev
+  to   = module.storage_local
 }
 
 # AI 분석 Lambda 셋(embedder → score → categorize). 서버의 analysis 도메인이 단계마다 부른다.

@@ -334,7 +334,7 @@
 <g class="node g-cfg">
 <rect x="1340" y="740" width="150" height="52" rx="5" class="node-box"/>
 <rect x="1349" y="749" width="6" height="10" rx="1" class="chip"/>
-<text x="1361" y="757" class="node-title">S3 wes-dev-photos-*</text>
+<text x="1361" y="757" class="node-title">S3 wes-local-photos-*</text>
 <text x="1350" y="772" class="node-line">로컬 개발 · /wes/local</text>
 <text x="1350" y="785" class="node-line">인스턴스 롤 정책 없음</text>
 </g>
@@ -658,7 +658,7 @@
     <tr><td class="k">테스트 프론트</td><td>없음</td><td>wes-frontend-test · test.easyselect.kr · 아티팩트 S3 · 전용 OIDC 롤 · SSM 문서</td><td><span class="pill miss">누락</span></td></tr>
     <tr><td class="k">배포 롤</td><td>×3 (공개 API · 관리자 API · BackOffice)</td><td>×7 (+ AI worker · test-web · tf_plan · tf_apply)</td><td><span class="pill stale">낡음</span></td></tr>
     <tr><td class="k">SSM 프리픽스</td><td>/wes/prod · /wes/admin-api/prod · /wes/admin</td><td>+ /wes/monitoring · /wes/local · analysis 함수 이름 3개 · gpu.enabled</td><td><span class="pill stale">낡음</span></td></tr>
-    <tr><td class="k">S3 버킷</td><td>wes-photos 하나</td><td>+ wes-dev-photos(로컬) · 테스트웹 아티팩트</td><td><span class="pill stale">낡음</span></td></tr>
+    <tr><td class="k">S3 버킷</td><td>wes-photos 하나</td><td>+ wes-local-photos(로컬) · 테스트웹 아티팩트</td><td><span class="pill stale">낡음</span></td></tr>
     <tr><td class="k">ALB 리스너 규칙</td><td>없음</td><td><code>/internal/admin*</code> → 404 고정 응답</td><td><span class="pill miss">누락</span></td></tr>
     <tr><td class="k">RDS 인바운드</td><td>EC2·Lambda·admin</td><td>+ GPU 워커 SG. CONNECTION LIMIT embedder 32 · photoselect 24 · wes_admin 40</td><td><span class="pill stale">낡음</span></td></tr>
     <tr><td class="k">Lambda 간 호출</td><td>표기 없음</td><td>폐지됨. lambda 인터페이스 엔드포인트도 제거(#57)</td><td><span class="pill ok">일치</span></td></tr>
