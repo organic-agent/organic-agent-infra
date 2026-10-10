@@ -228,9 +228,14 @@ variable "admin_subdomain" {
 }
 
 variable "admin_instance_type" {
-  description = "dev 관리자 EC2 타입(arm64). 백오피스·관리자 API·Caddy·Tailscale을 같이 돌린다. dev는 가끔만 쓰여 비용을 줄이려 micro(1GiB)로 둔다(작성자 결정 2026-10-10) — 관리자 API JVM이 메모리 부족으로 느려지거나 멈출 수 있음을 감수한다. 운영(루트 admin_instance_type)은 small 이상 검증을 그대로 둔다"
+  description = "dev 관리자 EC2 타입(arm64). 백오피스·관리자 API·Caddy·Tailscale을 같이 돌려 2GiB 이상이어야 한다 — 2026-10-10 micro(1GiB)로 낮췄다가 디스크 스래싱(5분에 41만 번 읽기)으로 멈춰 되돌림(#87 → #91). 스왑 2GB도 함께 둔다(admin.tf)"
   type        = string
-  default     = "t4g.micro"
+  default     = "t4g.small"
+
+  validation {
+    condition     = !contains(["t4g.nano", "t4g.micro"], var.admin_instance_type)
+    error_message = "admin_instance_type은 t4g.small 이상이어야 합니다."
+  }
 }
 
 variable "admin_app_port" {
