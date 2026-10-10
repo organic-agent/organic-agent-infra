@@ -23,6 +23,12 @@ variable "instance_type" {
   type        = string
 }
 
+variable "swap_size_mb" {
+  description = "호스트 스왑 파일 크기(MB). 0이면 만들지 않는다. 메모리가 작은 인스턴스(dev micro 1GiB)에서 관리자 API JVM·백오피스·Caddy·Tailscale이 함께 뜰 때 디스크 스래싱을 막는다"
+  type        = number
+  default     = 0
+}
+
 variable "zone_id" {
   description = "easyselect.kr Route53 hosted zone ID"
   type        = string
