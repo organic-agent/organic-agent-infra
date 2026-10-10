@@ -235,6 +235,7 @@ locals {
     internal_network_subnet = var.internal_network_subnet
     runtime_network_name    = var.runtime_network_name
     runtime_network_subnet  = var.runtime_network_subnet
+    swap_size_mb            = var.swap_size_mb
   })
 }
 

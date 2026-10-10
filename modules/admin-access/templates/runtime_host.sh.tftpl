@@ -3,6 +3,20 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
+%{ if swap_size_mb > 0 ~}
+# 메모리가 작은 인스턴스(dev t4g.micro 1GiB)에서 관리자 API JVM·백오피스·Caddy·Tailscale이 함께 뜨면 페이지 캐시가 밀려
+# 디스크를 계속 다시 읽는다(2026-10-10: 5분에 41만 번 읽기, SSM 명령 10분 무응답). 스왑으로 그 순간을 흡수한다. 여러 번 돌아도 같다.
+if ! swapon --show=NAME --noheadings | grep -qx /swapfile; then
+  if [ ! -f /swapfile ]; then
+    fallocate -l ${swap_size_mb}M /swapfile
+    chmod 600 /swapfile
+    mkswap /swapfile
+  fi
+  swapon /swapfile
+fi
+grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+%{ endif ~}
 for attempt in $(seq 1 60); do
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     break
