@@ -50,9 +50,9 @@ variable "azs" {
 # --- 앱 계층 (운영과 같은 규격) ---
 
 variable "instance_type" {
-  description = "앱 EC2 타입 (arm64). 운영과 같은 규격"
+  description = "앱 EC2 타입 (arm64). wes #274 ADR 0003: JVM 몸집(≈690MB)이 micro의 RAM(≈600MB)을 넘어 스왑 → Full GC 20초 정지. dev 먼저 small(2GB), 운영은 #274 반영 때 같이 올린다"
   type        = string
-  default     = "t4g.micro"
+  default     = "t4g.small"
 }
 
 variable "app_port" {
@@ -124,6 +124,12 @@ variable "embedder_memory_mb" {
   default     = 3008
 }
 
+variable "embedder_reserved_concurrent_executions" {
+  description = "임베더 동시 실행 상한. wes #274 E-1: 32 → 48(임베딩 ≈ 56 → 64장/초 이상). 임베더가 적재 때만 DB 연결을 잡아(AI #147) 동시 실행 수가 연결 수가 아니다. wes app.analysis.embed-max-in-flight와 같은 값. 운영은 #274 반영 때"
+  type        = number
+  default     = 48
+}
+
 variable "embedder_batch_size" {
   description = "임베더가 모델에 한 번에 넣는 사진 수 — 운영과 같은 값"
   type        = number
@@ -161,9 +167,9 @@ variable "categorize_memory_mb" {
 }
 
 variable "categorize_reserved_concurrent_executions" {
-  description = "categorize 동시 실행 상한 — 운영과 같은 값"
+  description = "categorize 동시 실행 상한. wes #274 C-1: 2 → 3(5개 갤러리가 두 번에 나뉘어 기다리던 것을 줄임, 하나당 DB 읽기 ≈ 3.5초·233MB라 5는 아님). 운영은 #274 반영 때"
   type        = number
-  default     = 2
+  default     = 3
 }
 
 variable "bedrock_model_id" {

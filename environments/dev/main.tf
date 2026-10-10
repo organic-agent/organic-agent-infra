@@ -200,9 +200,10 @@ module "analysis" {
 
   image_tag = var.lambda_image_tag
 
-  embedder_memory_mb  = var.embedder_memory_mb
-  embedder_batch_size = var.embedder_batch_size
-  embedding_dimension = var.embedding_dimension
+  embedder_memory_mb                      = var.embedder_memory_mb
+  embedder_batch_size                     = var.embedder_batch_size
+  embedder_reserved_concurrent_executions = var.embedder_reserved_concurrent_executions
+  embedding_dimension                     = var.embedding_dimension
 
   score_memory_mb                           = var.score_memory_mb
   score_ephemeral_storage_mb                = var.score_ephemeral_storage_mb
