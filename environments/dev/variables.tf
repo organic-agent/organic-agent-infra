@@ -167,9 +167,9 @@ variable "categorize_memory_mb" {
 }
 
 variable "categorize_reserved_concurrent_executions" {
-  description = "categorize 동시 실행 상한. wes #274 C-1: 2 → 3(5개 갤러리가 두 번에 나뉘어 기다리던 것을 줄임, 하나당 DB 읽기 ≈ 3.5초·233MB라 5는 아님). 운영은 #274 반영 때"
+  description = "categorize 동시 실행 상한. wes #274 C-1: 2 → 3, R-2-2 F-2: 3 → 5(R-2-1에서 5개 갤러리 중 둘이 자리를 1~2분 기다림, 스로틀 13). 하나당 갤러리 전체를 읽으므로 DB 메모리를 R-2-2에서 본다. 운영은 #274 반영 때"
   type        = number
-  default     = 3
+  default     = 5
 }
 
 variable "bedrock_model_id" {
