@@ -20,7 +20,7 @@ module "admin_access" {
   vpc_id        = data.aws_vpc.shared.id
   subnet_id     = local.public_subnet_ids[0]
   instance_type = var.admin_instance_type
-  # micro(1GiB)라 스왑을 둔다 — 없으면 관리자 API·백오피스가 함께 뜰 때 디스크 스래싱으로 멈춘다(2026-10-10 #87 뒤 실측).
+  # 스왑을 둔다 — 메모리가 모자라면 관리자 API·백오피스가 함께 뜰 때 디스크 스래싱으로 멈춘다(2026-10-10 micro 실측, #89).
   swap_size_mb = 2048
 
   zone_id = data.aws_route53_zone.this.zone_id
