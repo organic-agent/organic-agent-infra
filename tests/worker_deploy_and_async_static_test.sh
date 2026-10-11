@@ -52,12 +52,16 @@ variable_default() {
 
 # DB outbox가 재시도를 소유하므로 Lambda 서비스 재시도는 끄고, 15분 runtime+5분 queue로 제한한다.
 rg -Fq 'resource "aws_lambda_function_event_invoke_config" "this"' "$analysis_main"
-rg -Fq 'maximum_retry_attempts       = 0' "$analysis_main"
+rg -Fq 'maximum_retry_attempts       = each.value.async_retry_attempts' "$analysis_main"
 rg -Fq 'maximum_event_age_in_seconds = var.async_event_max_age_seconds' "$analysis_main"
 [ "$(variable_default async_event_max_age_seconds "$analysis_vars")" = "1200" ]
+# 서비스 재시도는 embedder만 변수로 열고 기본은 0(운영 그대로). score·categorize는 0으로 고정.
+rg -Fq 'async_retry_attempts = var.embedder_async_retry_attempts' "$analysis_main"
+[ "$(rg -c 'async_retry_attempts = 0' "$analysis_main")" = "2" ]
+[ "$(variable_default embedder_async_retry_attempts "$analysis_vars")" = "0" ]
 
 # 예약 동시성은 갤러리 샤딩의 샤드 상한(MAX_SHARDS=32)과 같아야 한다 — embedder·score 둘 다(#30·#32).
-# 값 자체는 변수 블록에서 읽고, 상한(64 = advisory lock stride)은 validation 메시지로 확인한다.
+# 값 자체는 변수 블록에서 읽고, 상한은 validation 메시지로 확인한다(embedder 128 — v2에는 advisory lock stride가 없다).
 rg -Fq 'reserved_concurrent_executions = each.value.reserved_concurrency' "$analysis_main"
 rg -Fq 'reserved_concurrency = var.embedder_reserved_concurrent_executions' "$analysis_main"
 rg -Fq 'reserved_concurrency = var.score_reserved_concurrent_executions' "$analysis_main"
@@ -65,7 +69,7 @@ rg -Fq 'reserved_concurrency = var.score_reserved_concurrent_executions' "$analy
 [ "$(variable_default score_reserved_concurrent_executions "$analysis_vars")" = "32" ]
 # 루트는 score 만 변수로 노출한다. embedder 는 모듈 기본값을 그대로 쓴다(main.tf 의 module "analysis" 인자 참고).
 [ "$(variable_default score_reserved_concurrent_executions "$repo_root/variables.tf")" = "32" ]
-rg -Fq 'embedder_reserved_concurrent_executions는 1~64 사이여야 합니다' "$analysis_vars"
+rg -Fq 'embedder_reserved_concurrent_executions는 1~128 사이여야 합니다' "$analysis_vars"
 rg -Fq 'score_reserved_concurrent_executions는 1~64 사이여야 합니다' "$analysis_vars"
 rg -Fq 'metric_name         = "AsyncEventAge"' "$analysis_main"
 rg -Fq 'threshold           = 600000' "$analysis_main"

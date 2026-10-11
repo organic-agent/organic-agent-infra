@@ -108,13 +108,13 @@ variable "embedding_dimension" {
 }
 
 variable "embedder_reserved_concurrent_executions" {
-  description = "embedder 함수 동시 실행 상한 = 샤드 상한(MAX_SHARDS=32). 갤러리 하나 = 조정자 1 + 샤드 N(사진 150장 단위, 최대 32) 동시 실행이라 이 값 미만이면 샤드가 스로틀되어 라운드가 늘어난다. 샤드는 세션 advisory lock 으로 RDS 커넥션 1개를 끝까지 붙든다 — db.t4g.micro(max_connections 79)에서 평상시 24 + 32 = 56 이 한계 근거. 갤러리 2개가 겹치면 예약 동시성이 두 번째를 대기열에 세워 직렬화한다(커넥션은 넘치지 않는다)."
+  description = "embedder 함수 동시 실행 상한. 파이프라인 v2에서 wes가 사진 50장 배치(`{galleryId, photoIds}`)를 app.analysis.embed-max-in-flight개까지 띄우므로 그 값 이상이어야 한다. 임베더는 대상 조회·적재 때만 DB 연결을 잡고(AI #147) 역할 CONNECTION LIMIT에 막히면 잠깐 쉬었다 다시 연결하므로, 동시 실행 수가 곧 연결 수는 아니다."
   type        = number
   default     = 32
 
   validation {
-    condition     = var.embedder_reserved_concurrent_executions >= 1 && var.embedder_reserved_concurrent_executions <= 64
-    error_message = "embedder_reserved_concurrent_executions는 1~64 사이여야 합니다 (advisory lock stride 64 = 샤드 인덱스 상한)."
+    condition     = var.embedder_reserved_concurrent_executions >= 1 && var.embedder_reserved_concurrent_executions <= 128
+    error_message = "embedder_reserved_concurrent_executions는 1~128 사이여야 합니다 (계정 동시 실행 400을 운영·dev 함수가 나눠 쓴다)."
   }
 }
 
@@ -199,6 +199,21 @@ variable "categorize_naming_parallel" {
   validation {
     condition     = var.categorize_naming_parallel == null ? true : (var.categorize_naming_parallel >= 1 && var.categorize_naming_parallel <= 16)
     error_message = "categorize_naming_parallel은 null 또는 1~16이어야 합니다."
+  }
+}
+
+variable "embedder_async_retry_attempts" {
+  description = <<-EOT
+    embedder 비동기 호출을 함수 오류(프로세스 종료 포함) 뒤 Lambda가 다시 실행하는 횟수. 기본 0 = wes의 재배정
+    (app.analysis.embed-redispatch-after)만 믿는다. 1이면 약 1분 뒤 한 번 더 실행한다 — 같은 사진을 다시 처리해도
+    미리보기 덮어쓰기·storage_key CAS 적재라 결과가 같다. 2는 두 번째 재시도(약 3분 뒤)가 wes 재배정과 겹칠 수 있어 받지 않는다.
+  EOT
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.embedder_async_retry_attempts >= 0 && var.embedder_async_retry_attempts <= 1
+    error_message = "embedder_async_retry_attempts는 0 또는 1이어야 합니다."
   }
 }
 

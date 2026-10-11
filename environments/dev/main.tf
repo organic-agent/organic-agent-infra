@@ -203,6 +203,7 @@ module "analysis" {
   embedder_memory_mb                      = var.embedder_memory_mb
   embedder_batch_size                     = var.embedder_batch_size
   embedder_reserved_concurrent_executions = var.embedder_reserved_concurrent_executions
+  embedder_async_retry_attempts           = var.embedder_async_retry_attempts
   embedding_dimension                     = var.embedding_dimension
 
   score_memory_mb                           = var.score_memory_mb
