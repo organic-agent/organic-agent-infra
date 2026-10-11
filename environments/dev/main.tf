@@ -210,6 +210,7 @@ module "analysis" {
   score_reserved_concurrent_executions      = var.score_reserved_concurrent_executions
   categorize_memory_mb                      = var.categorize_memory_mb
   categorize_reserved_concurrent_executions = var.categorize_reserved_concurrent_executions
+  categorize_naming_parallel                = var.categorize_naming_parallel
   bedrock_model_id                          = var.bedrock_model_id
   bedrock_region                            = var.bedrock_region
 

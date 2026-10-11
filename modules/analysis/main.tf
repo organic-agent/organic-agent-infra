@@ -110,7 +110,8 @@ locals {
         # 아래 Bedrock IAM 문장과 같은 값이어야 한다.
         BEDROCK_REGION   = var.bedrock_region
         BEDROCK_MODEL_ID = var.bedrock_model_id
-      })
+        # 2층 이름 동시 호출 수. 넘기지 않으면 코드 기본값 — 운영 plan 이 바뀌지 않게 null 이면 키를 뺀다.
+      }, var.categorize_naming_parallel == null ? {} : { NAMING_PARALLEL = tostring(var.categorize_naming_parallel) })
     }
   }
 

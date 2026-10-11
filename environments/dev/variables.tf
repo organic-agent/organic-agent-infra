@@ -172,6 +172,12 @@ variable "categorize_reserved_concurrent_executions" {
   default     = 5
 }
 
+variable "categorize_naming_parallel" {
+  description = "categorize 2층 이름 Bedrock 동시 호출. wes #274: 4(코드 기본) → 8 — R-2-2에서 2층 6호출이 두 번에 나뉘어 ≈ 9초. 운영은 #274 반영 때"
+  type        = number
+  default     = 8
+}
+
 variable "bedrock_model_id" {
   description = "categorize와 앱이 부르는 Bedrock 프로필 ID. 운영 스택 bedrock_model_id와 같은 값(#71 — 조직 SCP로 `us.`)"
   type        = string
