@@ -69,6 +69,7 @@ locals {
       memory_mb            = var.embedder_memory_mb
       ephemeral_storage_mb = 512
       reserved_concurrency = var.embedder_reserved_concurrent_executions
+      async_retry_attempts = var.embedder_async_retry_attempts
       db_username          = var.embedder_db_username
       # 앱이 부팅할 때 읽는 파라미터. 파이프라인 v2(wes V16, 2026-09-08)부터 AnalysisProperties가 score·categorize와
       # 같은 프리픽스에서 읽는다 — 옛 EmbeddingProperties의 app.embedding.function-name은 더 읽지 않는다(#43).
@@ -87,6 +88,7 @@ locals {
       memory_mb            = var.score_memory_mb
       ephemeral_storage_mb = var.score_ephemeral_storage_mb
       reserved_concurrency = var.score_reserved_concurrent_executions
+      async_retry_attempts = 0
       db_username          = var.analysis_db_username
       parameter_name       = "app.analysis.score-function-name"
       # 이름은 그대로 둔다(#57에서 체인 권한이 빠졌지만 바꾸면 인라인 정책이 삭제 → 생성으로 교체된다).
@@ -100,6 +102,7 @@ locals {
       memory_mb            = var.categorize_memory_mb
       ephemeral_storage_mb = var.categorize_ephemeral_storage_mb
       reserved_concurrency = var.categorize_reserved_concurrent_executions
+      async_retry_attempts = 0
       db_username          = var.analysis_db_username
       parameter_name       = "app.analysis.categorize-function-name"
       policy_name          = "read-previews-and-invoke-bedrock"
@@ -376,15 +379,16 @@ resource "aws_lambda_function" "this" {
   }
 }
 
-# Lambda 서비스의 자체 재시도는 끈다. 재시도는 DB 상태를 보고 wes 분석 오케스트레이터가 맡고
-# (dispatch 재시도·하트비트·max-attempts), 함수는 수락한 이벤트를 한 번만 실행한다. 20분 event age는
+# Lambda 서비스의 자체 재시도는 기본으로 끈다. 재시도는 DB 상태를 보고 wes 분석 오케스트레이터가 맡고
+# (dispatch 재시도·하트비트·max-attempts), 함수는 수락한 이벤트를 한 번만 실행한다. 예외는 embedder 하나 —
+# 프로세스가 죽은 호출을 wes 재배정(분 단위)보다 먼저 한 번 더 돌릴 수 있게 변수로 연다(wes #274). 20분 event age는
 # 15분 함수 상한에 큐 지연 5분을 더한 값이라, 장시간 적체된 낡은 작업을 뒤늦게 실행하지 않는다.
 resource "aws_lambda_function_event_invoke_config" "this" {
   for_each = local.functions
 
   function_name = aws_lambda_function.this[each.key].function_name
 
-  maximum_retry_attempts       = 0
+  maximum_retry_attempts       = each.value.async_retry_attempts
   maximum_event_age_in_seconds = var.async_event_max_age_seconds
 }
 

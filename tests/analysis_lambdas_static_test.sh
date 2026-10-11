@@ -158,7 +158,7 @@ for r in aws_ecr_repository.this aws_ecr_lifecycle_policy.this aws_iam_role.this
 done
 [ ! -d "$repo_root/modules/embedding" ]
 rg -Fq 'policy_name    = "read-photos-and-connect-db"' "$analysis_main"
-rg -Fq 'maximum_retry_attempts       = 0' "$analysis_main"
+rg -Fq 'maximum_retry_attempts       = each.value.async_retry_attempts' "$analysis_main"
 rg -Fq 'maximum_event_age_in_seconds = var.async_event_max_age_seconds' "$analysis_main"
 rg -Fq 'reserved_concurrent_executions = each.value.reserved_concurrency' "$analysis_main"
 rg -Fq 'environment[0].variables["DB_PASSWORD"],' "$analysis_main"

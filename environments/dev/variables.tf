@@ -125,9 +125,15 @@ variable "embedder_memory_mb" {
 }
 
 variable "embedder_reserved_concurrent_executions" {
-  description = "임베더 동시 실행 상한. wes #274 E-1: 32 → 48(임베딩 ≈ 56 → 64장/초 이상). 임베더가 적재 때만 DB 연결을 잡아(AI #147) 동시 실행 수가 연결 수가 아니다. wes app.analysis.embed-max-in-flight와 같은 값. 운영은 #274 반영 때"
+  description = "임베더 동시 실행 상한. wes #274 E-1: 32 → 48, S-1: 48 → 72(R-2-3 업로드 5:22 끝 vs 임베딩 7:51 끝 — 분당 95호출로는 업로드 속도를 못 따라감). 임베더가 적재 때만 DB 연결을 잡아(AI #147) 동시 실행 수가 연결 수가 아니다. wes app.analysis.embed-max-in-flight와 같은 값. 운영은 #274 반영 때"
   type        = number
-  default     = 48
+  default     = 72
+}
+
+variable "embedder_async_retry_attempts" {
+  description = "임베더 호출이 죽으면 Lambda가 약 1분 뒤 한 번 더 실행한다. wes #274 R-2-3에서 Runtime.ExitError 한 번에 배치를 잃고 wes 재배정(10분)까지 기다렸다. 운영은 #274 반영 때"
+  type        = number
+  default     = 1
 }
 
 variable "embedder_batch_size" {
