@@ -4,7 +4,7 @@
 # 공개 서브넷에 한 대 둔다. 들어오는 포트는 없고 SSM으로만 접속한다. 평소에는 꺼 두고 측정 스크립트(wes `scripts/load/user-traffic/`)가
 # 켜고 끈다 — 꺼진 동안은 EBS 값만 든다. Terraform은 켜짐·꺼짐 상태를 관리하지 않는다.
 #
-# 결과(k6 요약 JSON)는 dev 사진 버킷의 `load-results/` 아래에만 쓸 수 있다.
+# 입력(k6 시나리오·토큰)을 읽고 결과(k6 요약 JSON)를 쓰는 곳은 dev 사진 버킷의 `load-results/` 아래뿐이다.
 
 variable "loadgen_enabled" {
   description = "부하 발생기 EC2를 둘지. 지우려면 false"
@@ -56,7 +56,7 @@ resource "aws_iam_role_policy_attachment" "loadgen_ssm" {
 
 data "aws_iam_policy_document" "loadgen_results" {
   statement {
-    actions   = ["s3:PutObject"]
+    actions   = ["s3:GetObject", "s3:PutObject"]
     resources = ["${module.storage.bucket_arn}/load-results/*"]
   }
 }
@@ -64,7 +64,7 @@ data "aws_iam_policy_document" "loadgen_results" {
 resource "aws_iam_role_policy" "loadgen_results" {
   count = var.loadgen_enabled ? 1 : 0
 
-  name   = "put-load-results"
+  name   = "read-write-load-results"
   role   = aws_iam_role.loadgen[0].id
   policy = data.aws_iam_policy_document.loadgen_results.json
 }
