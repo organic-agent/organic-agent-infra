@@ -191,6 +191,17 @@ variable "categorize_reserved_concurrent_executions" {
   }
 }
 
+variable "categorize_naming_parallel" {
+  description = "categorize 2층 이름(Bedrock) 동시 호출 수 — 환경 변수 NAMING_PARALLEL. null이면 넘기지 않아 코드 기본값(4)을 쓴다. 2층 호출은 갤러리당 컨셉 수(보통 6)만큼이라 4면 두 번에 나뉜다(wes #274)"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.categorize_naming_parallel == null ? true : (var.categorize_naming_parallel >= 1 && var.categorize_naming_parallel <= 16)
+    error_message = "categorize_naming_parallel은 null 또는 1~16이어야 합니다."
+  }
+}
+
 variable "async_event_max_age_seconds" {
   description = "비동기 invoke 이벤트의 최대 대기 수명(셋 공통). 900초 함수 상한과 짧은 큐 지연을 포함한다."
   type        = number
