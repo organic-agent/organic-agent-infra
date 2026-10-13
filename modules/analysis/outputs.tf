@@ -22,3 +22,8 @@ output "role_arns" {
   description = "함수별 실행 롤 ARN (SCP 차단 판별 등 IAM 정책 시뮬레이션용)"
   value       = { for key, role in aws_iam_role.this : key => role.arn }
 }
+
+output "failure_queue_url" {
+  description = "분석 Lambda 실패 큐 주소. failure_queue_enabled가 꺼져 있으면 null"
+  value       = var.failure_queue_enabled ? aws_sqs_queue.failure[0].url : null
+}

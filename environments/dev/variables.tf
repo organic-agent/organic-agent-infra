@@ -364,3 +364,9 @@ variable "ai_repository_id" {
   type        = string
   default     = "1336874708"
 }
+
+variable "analysis_failure_queue_enabled" {
+  description = "분석 Lambda(embedder·score·categorize)의 끝내 실패한 비동기 호출을 SQS 실패 큐로 보낼지. wes #286 (c) 2물결 — dev에서 먼저 켠다"
+  type        = bool
+  default     = true
+}

@@ -254,3 +254,14 @@ variable "gpu_score_enabled" {
   type        = bool
   default     = false
 }
+
+variable "failure_queue_enabled" {
+  description = <<-EOT
+    비동기 호출이 끝내 실패하면(함수 오류·시간 초과·event age 초과) 그 이벤트를 SQS 실패 큐로 보낼지(wes #286 (c)).
+    켜면 큐·OnFailure 대상·실행 롤의 SendMessage·앱 롤의 Receive/Delete·SSM 큐 주소가 함께 생긴다. wes가 큐를 몇 초마다 읽어
+    바로 다시 보내고 실패를 기록한다. 끄면 지금처럼 wes가 시간 기반 재전송(임베더 3분·categorize 20분)으로만 안다.
+    운영은 #274·#286 운영 반영(I3) 때 켠다.
+  EOT
+  type        = bool
+  default     = false
+}

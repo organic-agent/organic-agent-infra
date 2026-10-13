@@ -202,4 +202,18 @@ rg -Fq 'role   = var.app_role_name' "$analysis_main"
 rg -Fq 'app_role_name     = module.compute.instance_role_name' "$root_main"
 rg -Fq 'security_group_id = module.security.embedder_security_group_id' "$root_main"
 
+# 실패 큐(wes #286 (c)): 모듈 기본은 꺼짐 — 운영 루트는 켜지 않아 plan이 바뀌지 않는다. dev가 먼저 켠다.
+dev_main="$repo_root/environments/dev/main.tf"
+rg -U -q 'variable "failure_queue_enabled" \{[^}]*default     = false' "$analysis_vars"
+if rg -q 'failure_queue_enabled' "$root_main"; then
+  echo "운영 루트는 실패 큐를 I3(운영 반영) 전까지 켜지 않는다" >&2
+  exit 1
+fi
+rg -Fq 'failure_queue_enabled = var.analysis_failure_queue_enabled' "$dev_main"
+rg -Fq 'destination = aws_sqs_queue.failure[0].arn' "$analysis_main"
+rg -Fq 'name  = "${var.parameter_prefix}/app.analysis.failure-queue.queue-url"' "$analysis_main"
+rg -Fq 'actions   = ["sqs:SendMessage"]' "$analysis_main"
+rg -Fq '"sqs:ReceiveMessage",' "$analysis_main"
+rg -Fq '"sqs:DeleteMessage",' "$analysis_main"
+
 echo "analysis lambdas static checks passed"

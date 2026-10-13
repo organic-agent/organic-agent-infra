@@ -124,7 +124,8 @@ resource "aws_instance" "loadgen" {
 
   lifecycle {
     # AMI 파라미터가 새 이미지를 가리켜도 발생기를 다시 만들지 않는다 — 도구가 같아야 회차끼리 비교된다.
-    ignore_changes = [ami]
+    # 꺼 둔 발생기는 공개 IP가 없어 associate_public_ip_address가 false로 읽힌다 — 그것만으로 다시 만들지 않는다.
+    ignore_changes = [ami, associate_public_ip_address]
   }
 }
 
