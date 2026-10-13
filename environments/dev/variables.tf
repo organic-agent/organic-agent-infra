@@ -131,9 +131,9 @@ variable "embedder_reserved_concurrent_executions" {
 }
 
 variable "embedder_async_retry_attempts" {
-  description = "임베더 호출이 죽으면 Lambda가 약 1분 뒤 한 번 더 실행한다. wes #274 R-2-3에서 Runtime.ExitError 한 번에 배치를 잃고 wes 재배정(10분)까지 기다렸다. 운영은 #274 반영 때"
+  description = "임베더 호출이 죽었을 때 Lambda 자체 재시도 횟수. #274 R-2-3에서 1로 열었다(죽은 배치가 wes 재배정 10분을 기다림). wes #286 (c) P5부터는 실패가 실패 큐로 와 wes가 곧바로 다시 배정하므로 0 — Lambda 재시도(≈ 1분 뒤)가 실패를 그만큼 늦게 알리고 같은 배치를 한 번 더 돌린다. 운영은 #274·#286 반영(I3) 때"
   type        = number
-  default     = 1
+  default     = 0
 }
 
 variable "embedder_batch_size" {
