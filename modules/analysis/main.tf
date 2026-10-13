@@ -390,6 +390,57 @@ resource "aws_lambda_function_event_invoke_config" "this" {
 
   maximum_retry_attempts       = each.value.async_retry_attempts
   maximum_event_age_in_seconds = var.async_event_max_age_seconds
+
+  # 끝내 실패한 이벤트(재시도를 다 쓴 오류·시간 초과·event age 초과)를 실패 큐로. 아래 "실패 큐" 절 참고.
+  dynamic "destination_config" {
+    for_each = var.failure_queue_enabled ? [1] : []
+    content {
+      on_failure {
+        destination = aws_sqs_queue.failure[0].arn
+      }
+    }
+  }
+
+  # 대상을 걸기 전에 실행 롤에 SendMessage가 있어야 Lambda가 대상을 받아들인다.
+  depends_on = [aws_iam_role_policy.send_failure]
+}
+
+# --- 실패 큐 (wes #286 (c) ②) ---
+#
+#   wes ──EVENT──▶ Lambda ──끝내 실패──▶ (OnFailure) SQS 실패 큐 ──▶ wes가 몇 초마다 꺼냄 → 바로 다시 보냄 + 실패 기록
+#
+# 지금까지 wes는 실패를 모르고 "결과가 늦다"로만 알았다 — 임베더는 3분, categorize는 20분 뒤에야 다시 보냈다(R-3-b-cat:
+# categorize 한 번 실패에 1,222초). 메시지 본문은 Lambda가 만드는 호출 기록(requestContext·requestPayload·responsePayload)이라
+# AI 저장소는 바꿀 것이 없다. 보내는 길은 그대로 wes의 EVENT 호출이다 — 작업 큐로 바꾸는 것(③)은 wes 계획 03 (c)의 조건부 카드.
+# 큐 보관 4일: wes가 내려가 있어도 주말을 넘겨 실패 기록이 남는다. 가시성 60초: 한 번 꺼낸 메시지를 처리하다 죽으면 1분 뒤 다시 보인다.
+resource "aws_sqs_queue" "failure" {
+  count = var.failure_queue_enabled ? 1 : 0
+
+  name                       = "${var.name_prefix}-analysis-failures"
+  message_retention_seconds  = 345600
+  visibility_timeout_seconds = 60
+  receive_wait_time_seconds  = 10
+  sqs_managed_sse_enabled    = true
+}
+
+# OnFailure 대상으로 메시지를 넣는 주체는 함수의 실행 롤이다. 기존 인라인 정책(policy_name)에 섞지 않고 따로 둔다 —
+# 섞으면 스위치를 켜고 끌 때마다 함수별 정책 문서 전체가 바뀐다.
+data "aws_iam_policy_document" "send_failure" {
+  count = var.failure_queue_enabled ? 1 : 0
+
+  statement {
+    sid       = "SendAsyncFailures"
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.failure[0].arn]
+  }
+}
+
+resource "aws_iam_role_policy" "send_failure" {
+  for_each = var.failure_queue_enabled ? local.functions : {}
+
+  name   = "send-async-failures"
+  role   = aws_iam_role.this[each.key].id
+  policy = data.aws_iam_policy_document.send_failure[0].json
 }
 
 # backlog가 event age 상한에 가까워지거나 실제로 버려진 경우를 CloudWatch 상태로 남겨 무음 손실을 피한다.
@@ -450,6 +501,30 @@ resource "aws_iam_role_policy" "app_invoke" {
   policy = data.aws_iam_policy_document.app_invoke.json
 }
 
+# wes가 실패 큐를 읽고 처리한 메시지를 지운다. 앱 EC2는 공개 IP로 SQS 공개 엔드포인트에 닿는다(VPC 엔드포인트 불필요).
+data "aws_iam_policy_document" "app_failure_queue" {
+  count = var.failure_queue_enabled ? 1 : 0
+
+  statement {
+    sid = "ConsumeAnalysisFailures"
+    actions = [
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:ChangeMessageVisibility",
+      "sqs:GetQueueAttributes",
+    ]
+    resources = [aws_sqs_queue.failure[0].arn]
+  }
+}
+
+resource "aws_iam_role_policy" "app_failure_queue" {
+  count = var.failure_queue_enabled ? 1 : 0
+
+  name   = "consume-analysis-failures"
+  role   = var.app_role_name
+  policy = data.aws_iam_policy_document.app_failure_queue[0].json
+}
+
 # 앱이 부팅할 때 다른 설정과 함께 읽는다. 값이 없으면 앱은 기동은 하되 임베딩·분석 요청에 503으로
 # 답한다 — 로컬에는 함수가 없는 것이 정상이라 기동을 막지 않도록 그렇게 만들어져 있다.
 resource "aws_ssm_parameter" "function_name" {
@@ -463,6 +538,15 @@ resource "aws_ssm_parameter" "function_name" {
 # GPU score 워커 풀 스위치. wes(PR-C GpuController)가 읽는다 — true면 점수를 GPU 워커에 맡기고 Lambda는 폴백,
 # false면 지금처럼 score Lambda만 쓴다. 워커 풀(modules/score-gpu, PR-3c)이 올라온 뒤 변수로 true로 바꾼다.
 # 인프라 쪽 스위치라 Terraform이 소유한다 — 콘솔에서 바꾸면 다음 apply가 되돌린다.
+# wes가 부팅할 때 읽는 실패 큐 주소. 값이 없으면 wes는 큐를 읽지 않고 시간 기반 재전송만 쓴다(스위치 겸용).
+resource "aws_ssm_parameter" "failure_queue_url" {
+  count = var.failure_queue_enabled ? 1 : 0
+
+  name  = "${var.parameter_prefix}/app.analysis.failure-queue.queue-url"
+  type  = "String"
+  value = aws_sqs_queue.failure[0].url
+}
+
 resource "aws_ssm_parameter" "gpu_enabled" {
   name  = "${var.parameter_prefix}/app.analysis.gpu.enabled"
   type  = "String"

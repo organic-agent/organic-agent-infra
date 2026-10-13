@@ -216,6 +216,9 @@ module "analysis" {
   bedrock_region                            = var.bedrock_region
 
   gpu_score_enabled = var.gpu_score_enabled && length(var.gpu_worker_azs) > 0
+
+  # 끝내 실패한 비동기 호출을 SQS 실패 큐로 — wes가 바로 다시 보낸다(wes #286 (c), I1). 운영은 I3에서.
+  failure_queue_enabled = var.analysis_failure_queue_enabled
 }
 
 # wes GpuController가 워커를 찾는 태그. 앱 기본값(application-variable.yml)은 운영 태그 wes-score-gpu라, 덮지 않으면 dev 앱
