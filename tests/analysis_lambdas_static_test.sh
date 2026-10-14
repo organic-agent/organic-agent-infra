@@ -28,8 +28,8 @@ legacy_ai_subject='repo:organic-agent/organic-agent-ai:ref:refs/heads/main'
 # --- 1. worker 배포 역할 trust: AI 저장소 main, immutable ID ---
 rg -Fq 'subject       = var.worker_oidc_subject' "$oidc_main"
 rg -Fq 'repository_id = var.worker_repository_id' "$oidc_main"
-rg -Fq 'worker_oidc_subject    = var.ai_github_oidc_subject' "$root_main"
-rg -Fq 'worker_repository_id   = var.ai_github_repository_id' "$root_main"
+rg -q 'worker_oidc_subject +=  ?var.ai_github_oidc_subject' "$root_main"
+rg -q 'worker_repository_id +=  ?var.ai_github_repository_id' "$root_main"
 rg -Fq "default     = \"$ai_subject\"" "$root_vars"
 rg -Fq "condition     = var.ai_github_oidc_subject == \"$ai_subject\"" "$root_vars"
 rg -Fq 'default     = "1336874708"' "$root_vars"
@@ -50,8 +50,10 @@ fi
 rg -Fq 'variable "worker_repository_arns"' "$oidc_vars"
 rg -Fq 'variable "worker_function_arns"' "$oidc_vars"
 rg -Fq 'type        = list(string)' "$oidc_vars"
-rg -Fq 'worker_repository_arns = values(module.analysis.repository_arns)' "$root_main"
-rg -Fq 'worker_function_arns   = values(module.analysis.function_arns)' "$root_main"
+# 결과 큐(wes #286 (m))가 켜지면 writer ECR·함수와 embedder-admin 도 같은 역할이 민다 — null 은 compact 가 걷는다.
+rg -Fq 'worker_repository_arns = compact(concat(values(module.analysis.repository_arns), [module.analysis.embedwriter_repository_arn]))' "$root_main"
+rg -Fq 'values(module.analysis.function_arns),' "$root_main"
+rg -Fq '[module.analysis.embedder_admin_function_arn, module.analysis.embedwriter_function_arn],' "$root_main"
 # 모듈 맵의 키가 곧 함수 셋이다.
 for key in embedder score categorize; do
   rg -Fq "$key = \"\${var.name_prefix}-$key\"" "$analysis_main" \
@@ -202,13 +204,11 @@ rg -Fq 'role   = var.app_role_name' "$analysis_main"
 rg -Fq 'app_role_name     = module.compute.instance_role_name' "$root_main"
 rg -Fq 'security_group_id = module.security.embedder_security_group_id' "$root_main"
 
-# 실패 큐(wes #286 (c)): 모듈 기본은 꺼짐 — 운영 루트는 켜지 않아 plan이 바뀌지 않는다. dev가 먼저 켠다.
+# 실패 큐(wes #286 (c)): 모듈 기본은 꺼짐 — dev가 먼저 켜고 운영 루트는 I3(infra #106)에서 켠다.
 dev_main="$repo_root/environments/dev/main.tf"
 rg -U -q 'variable "failure_queue_enabled" \{[^}]*default     = false' "$analysis_vars"
-if rg -q 'failure_queue_enabled' "$root_main"; then
-  echo "운영 루트는 실패 큐를 I3(운영 반영) 전까지 켜지 않는다" >&2
-  exit 1
-fi
+rg -Fq 'failure_queue_enabled = var.analysis_failure_queue_enabled' "$root_main"
+rg -U -q 'variable "analysis_failure_queue_enabled" \{[^}]*default     = true' "$root_vars"
 rg -Fq 'failure_queue_enabled = var.analysis_failure_queue_enabled' "$dev_main"
 rg -Fq 'destination = aws_sqs_queue.failure[0].arn' "$analysis_main"
 rg -Fq 'name  = "${var.parameter_prefix}/app.analysis.failure-queue.queue-url"' "$analysis_main"
@@ -216,13 +216,13 @@ rg -Fq 'actions   = ["sqs:SendMessage"]' "$analysis_main"
 rg -Fq '"sqs:ReceiveMessage",' "$analysis_main"
 rg -Fq '"sqs:DeleteMessage",' "$analysis_main"
 
-# 임베더 결과 큐(wes #286 (m)): 두 단계 모두 모듈 기본은 꺼짐 — 운영 루트는 I3 전까지 켜지 않는다.
+# 임베더 결과 큐(wes #286 (m)): 두 단계 모두 모듈 기본은 꺼짐. 운영 루트는 I3(infra #106)에서 1단계만 켜고,
+# writer 이미지를 운영 ECR 에 민 뒤 2단계(embedwriter_deployed)를 다음 PR에서 켠다.
 rg -U -q 'variable "embed_result_queue_enabled" \{[^}]*default     = false' "$analysis_vars"
 rg -U -q 'variable "embedwriter_deployed" \{[^}]*default     = false' "$analysis_vars"
-if rg -q 'embed_result_queue_enabled|embedwriter_deployed' "$root_main"; then
-  echo "운영 루트는 임베더 결과 큐를 I3(운영 반영) 전까지 켜지 않는다" >&2
-  exit 1
-fi
+rg -Fq 'embed_result_queue_enabled = var.embed_result_queue_enabled' "$root_main"
+rg -Fq 'embedwriter_deployed       = var.embedwriter_deployed' "$root_main"
+rg -U -q 'variable "embed_result_queue_enabled" \{[^}]*default     = true' "$root_vars"
 rg -Fq 'embed_result_queue_enabled = var.embed_result_queue_enabled' "$dev_main"
 rg -Fq 'RESULT_QUEUE_URL = aws_sqs_queue.result[0].url' "$analysis_main"
 rg -Fq 'function_response_types            = ["ReportBatchItemFailures"]' "$repo_root/modules/analysis/result_queue.tf"

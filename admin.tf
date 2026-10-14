@@ -27,6 +27,7 @@ module "admin_access" {
   runtime_kms_key_arn          = var.admin_runtime_kms_key_arn
   photo_bucket_arn             = module.storage.bucket_arn
   embedding_function_arn       = module.analysis.function_arns["embedder"]
+  exact_photo_function_arn     = module.analysis.embedder_admin_function_arn
 
   app_port         = var.admin_app_port
   proxy_https_port = var.admin_proxy_https_port
@@ -81,6 +82,16 @@ resource "aws_ssm_parameter" "admin_embedding_function" {
 
 # 관리자 API가 남긴 trace를 같은 Loki로 전송하고, BackOffice가 동일 correlation ID의
 # Grafana/Loki 링크를 만들 수 있게 조회 주소를 관리자 전용 prefix에만 제공한다.
+# 관리자 사진 교체를 맡는 VPC 안 함수(wes #286 (m)). 배치 임베더가 VPC 밖으로 나가면 DB 를 못 써 교체를 이 함수가 한다.
+# wes LambdaAiTaskProperties.exactPhotoFunctionName — 비어 있으면 임베더 함수를 그대로 부른다.
+resource "aws_ssm_parameter" "admin_exact_photo_function" {
+  count = var.embed_result_queue_enabled ? 1 : 0
+
+  name  = "${var.admin_parameter_prefix}/app.analysis.exact-photo-function-name"
+  type  = "String"
+  value = module.analysis.embedder_admin_function_name
+}
+
 resource "aws_ssm_parameter" "admin_logging_loki_url" {
   name  = "${var.admin_parameter_prefix}/app.logging.loki-url"
   type  = "String"

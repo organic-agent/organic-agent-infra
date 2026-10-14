@@ -47,3 +47,13 @@ output "embedder_admin_function_arn" {
   description = "관리자 사진 교체 함수 ARN. embed_result_queue_enabled 가 꺼져 있으면 null"
   value       = var.embed_result_queue_enabled ? aws_lambda_function.embedder_admin[0].arn : null
 }
+
+output "embedwriter_repository_arn" {
+  description = "writer(embedwriter) ECR ARN — AI 배포 역할의 push 대상. embed_result_queue_enabled 가 꺼져 있으면 null"
+  value       = var.embed_result_queue_enabled ? aws_ecr_repository.embedwriter[0].arn : null
+}
+
+output "embedwriter_function_arn" {
+  description = "writer(embedwriter) 함수 ARN — AI 배포 역할의 update-function-code 대상. 2단계(embedwriter_deployed)가 꺼져 있으면 null"
+  value       = var.embed_result_queue_enabled && var.embedwriter_deployed ? aws_lambda_function.embedwriter[0].arn : null
+}
