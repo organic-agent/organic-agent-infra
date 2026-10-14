@@ -217,12 +217,13 @@ rg -Fq '"sqs:ReceiveMessage",' "$analysis_main"
 rg -Fq '"sqs:DeleteMessage",' "$analysis_main"
 
 # 임베더 결과 큐(wes #286 (m)): 두 단계 모두 모듈 기본은 꺼짐. 운영 루트는 I3(infra #106)에서 1단계만 켜고,
-# writer 이미지를 운영 ECR 에 민 뒤 2단계(embedwriter_deployed)를 다음 PR에서 켠다.
+# writer 이미지를 운영 ECR 에 민 뒤 2단계(embedwriter_deployed)를 켠다(#106 PR-B).
 rg -U -q 'variable "embed_result_queue_enabled" \{[^}]*default     = false' "$analysis_vars"
 rg -U -q 'variable "embedwriter_deployed" \{[^}]*default     = false' "$analysis_vars"
 rg -Fq 'embed_result_queue_enabled = var.embed_result_queue_enabled' "$root_main"
 rg -Fq 'embedwriter_deployed       = var.embedwriter_deployed' "$root_main"
 rg -U -q 'variable "embed_result_queue_enabled" \{[^}]*default     = true' "$root_vars"
+rg -U -q 'variable "embedwriter_deployed" \{[^}]*default     = true' "$root_vars"
 rg -Fq 'embed_result_queue_enabled = var.embed_result_queue_enabled' "$dev_main"
 rg -Fq 'RESULT_QUEUE_URL = aws_sqs_queue.result[0].url' "$analysis_main"
 rg -Fq 'function_response_types            = ["ReportBatchItemFailures"]' "$repo_root/modules/analysis/result_queue.tf"
