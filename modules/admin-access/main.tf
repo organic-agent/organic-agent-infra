@@ -127,7 +127,7 @@ data "aws_iam_policy_document" "admin_api_runtime" {
   statement {
     sid       = "InvokeEmbedder"
     actions   = ["lambda:InvokeFunction"]
-    resources = [var.embedding_function_arn]
+    resources = compact([var.embedding_function_arn, var.exact_photo_function_arn])
   }
 
   dynamic "statement" {

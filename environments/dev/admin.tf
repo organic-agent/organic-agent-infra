@@ -34,6 +34,7 @@ module "admin_access" {
   runtime_parameter_prefix_arn = local.admin_parameter_prefix_arn
   photo_bucket_arn             = module.storage.bucket_arn
   embedding_function_arn       = module.analysis.function_arns["embedder"]
+  exact_photo_function_arn     = module.analysis.embedder_admin_function_arn
 
   app_port         = var.admin_app_port
   proxy_https_port = var.admin_proxy_https_port
@@ -83,6 +84,16 @@ resource "aws_ssm_parameter" "admin_embedding_function" {
   name  = "${var.admin_parameter_prefix}/app.analysis.embedder-function-name"
   type  = "String"
   value = module.analysis.function_names["embedder"]
+}
+
+# 관리자 사진 교체를 맡는 VPC 안 함수(wes #286 (m)). 배치 임베더가 VPC 밖으로 나가면 DB 를 못 써 교체를 이 함수가 한다.
+# wes LambdaAiTaskProperties.exactPhotoFunctionName — 비어 있으면 임베더 함수를 그대로 부른다.
+resource "aws_ssm_parameter" "admin_exact_photo_function" {
+  count = var.embed_result_queue_enabled ? 1 : 0
+
+  name  = "${var.admin_parameter_prefix}/app.analysis.exact-photo-function-name"
+  type  = "String"
+  value = module.analysis.embedder_admin_function_name
 }
 
 # Loki·Grafana는 운영 모니터링 서버를 같이 쓴다. 로그는 env 라벨로 갈린다.

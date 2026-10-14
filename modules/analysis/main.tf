@@ -345,13 +345,20 @@ resource "aws_lambda_function" "this" {
   # 그때는 wes의 dispatch 재시도(app.analysis.dispatch-retry-after)가 다시 보낸다.
   reserved_concurrent_executions = each.value.reserved_concurrency
 
-  vpc_config {
-    subnet_ids         = var.subnet_ids
-    security_group_ids = [var.security_group_id]
+  # 결과 큐로 전환한 배치 임베더(embedwriter_deployed)는 DB 를 쓰지 않아 VPC 밖에서 돈다 — S3·SQS 를 공개 주소로 쓰고, NAT·SQS 엔드포인트가
+  # 필요 없다(wes #286 (m)). 관리자 사진 교체는 VPC 안의 embedder-admin 이 맡는다(result_queue.tf).
+  dynamic "vpc_config" {
+    for_each = each.key == "embedder" && var.embedwriter_deployed ? [] : [1]
+    content {
+      subnet_ids         = var.subnet_ids
+      security_group_ids = [var.security_group_id]
+    }
   }
 
   environment {
-    variables = each.value.environment
+    variables = each.key == "embedder" && var.embedwriter_deployed ? merge(each.value.environment, {
+      RESULT_QUEUE_URL = aws_sqs_queue.result[0].url
+    }) : each.value.environment
   }
 
   depends_on = [

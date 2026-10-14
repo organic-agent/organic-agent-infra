@@ -92,6 +92,12 @@ variable "embedding_function_arn" {
   type        = string
 }
 
+variable "exact_photo_function_arn" {
+  description = "관리자 사진 교체를 맡는 별도 Lambda(embedder-admin) ARN. 배치 임베더가 VPC 밖으로 나가 DB 를 못 쓰게 되면(wes #286 (m) 결과 큐) 이 함수가 교체를 맡는다. null 이면 embedding_function_arn 만 부른다"
+  type        = string
+  default     = null
+}
+
 variable "app_port" {
   description = "백오피스 앱이 localhost에서 리슨할 포트"
   type        = number

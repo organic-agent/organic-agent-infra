@@ -27,3 +27,23 @@ output "failure_queue_url" {
   description = "분석 Lambda 실패 큐 주소. failure_queue_enabled가 꺼져 있으면 null"
   value       = var.failure_queue_enabled ? aws_sqs_queue.failure[0].url : null
 }
+
+output "embed_result_queue_url" {
+  description = "임베더 결과 큐 주소. embed_result_queue_enabled 가 꺼져 있으면 null"
+  value       = var.embed_result_queue_enabled ? aws_sqs_queue.result[0].url : null
+}
+
+output "embedwriter_repository_url" {
+  description = "writer(embedwriter) ECR 주소 — AI 저장소 embedwriter/deploy.sh 가 민다. embed_result_queue_enabled 가 꺼져 있으면 null"
+  value       = var.embed_result_queue_enabled ? aws_ecr_repository.embedwriter[0].repository_url : null
+}
+
+output "embedder_admin_function_name" {
+  description = "관리자 사진 교체 함수 이름. embed_result_queue_enabled 가 꺼져 있으면 null"
+  value       = var.embed_result_queue_enabled ? aws_lambda_function.embedder_admin[0].function_name : null
+}
+
+output "embedder_admin_function_arn" {
+  description = "관리자 사진 교체 함수 ARN. embed_result_queue_enabled 가 꺼져 있으면 null"
+  value       = var.embed_result_queue_enabled ? aws_lambda_function.embedder_admin[0].arn : null
+}

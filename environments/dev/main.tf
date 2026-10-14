@@ -219,6 +219,10 @@ module "analysis" {
 
   # 끝내 실패한 비동기 호출을 SQS 실패 큐로 — wes가 바로 다시 보낸다(wes #286 (c), I1). 운영은 I3에서.
   failure_queue_enabled = var.analysis_failure_queue_enabled
+
+  # 임베더 결과 큐(wes #286 (m)) — 1단계(큐·DLQ·ECR·embedder-admin) 뒤 writer 이미지를 밀고 2단계(writer·트리거·임베더 전환)를 켠다.
+  embed_result_queue_enabled = var.embed_result_queue_enabled
+  embedwriter_deployed       = var.embedwriter_deployed
 }
 
 # wes GpuController가 워커를 찾는 태그. 앱 기본값(application-variable.yml)은 운영 태그 wes-score-gpu라, 덮지 않으면 dev 앱
