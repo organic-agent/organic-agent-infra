@@ -216,4 +216,16 @@ rg -Fq 'actions   = ["sqs:SendMessage"]' "$analysis_main"
 rg -Fq '"sqs:ReceiveMessage",' "$analysis_main"
 rg -Fq '"sqs:DeleteMessage",' "$analysis_main"
 
+# 임베더 결과 큐(wes #286 (m)): 두 단계 모두 모듈 기본은 꺼짐 — 운영 루트는 I3 전까지 켜지 않는다.
+rg -U -q 'variable "embed_result_queue_enabled" \{[^}]*default     = false' "$analysis_vars"
+rg -U -q 'variable "embedwriter_deployed" \{[^}]*default     = false' "$analysis_vars"
+if rg -q 'embed_result_queue_enabled|embedwriter_deployed' "$root_main"; then
+  echo "운영 루트는 임베더 결과 큐를 I3(운영 반영) 전까지 켜지 않는다" >&2
+  exit 1
+fi
+rg -Fq 'embed_result_queue_enabled = var.embed_result_queue_enabled' "$dev_main"
+rg -Fq 'RESULT_QUEUE_URL = aws_sqs_queue.result[0].url' "$analysis_main"
+rg -Fq 'function_response_types            = ["ReportBatchItemFailures"]' "$repo_root/modules/analysis/result_queue.tf"
+rg -Fq 'maximum_concurrency = var.embedwriter_max_concurrency' "$repo_root/modules/analysis/result_queue.tf"
+
 echo "analysis lambdas static checks passed"

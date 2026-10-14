@@ -370,3 +370,16 @@ variable "analysis_failure_queue_enabled" {
   type        = bool
   default     = true
 }
+
+variable "embed_result_queue_enabled" {
+  description = "임베더 결과 큐 1단계(wes #286 (m)) — 결과 큐 · DLQ · writer ECR · 관리자 사진 교체 함수(embedder-admin)"
+  type        = bool
+  default     = true
+}
+
+variable "embedwriter_deployed" {
+  description = "임베더 결과 큐 2단계 — writer 함수 · SQS 트리거 · 배치 임베더 전환(결과를 큐로, VPC 밖). writer 이미지를 ECR 에 민 뒤 true"
+  type        = bool
+  default     = false
+}
+

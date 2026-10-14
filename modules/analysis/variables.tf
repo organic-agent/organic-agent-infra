@@ -265,3 +265,45 @@ variable "failure_queue_enabled" {
   type        = bool
   default     = false
 }
+
+variable "embed_result_queue_enabled" {
+  description = <<-EOT
+    임베더 결과 큐(wes #286 (m)) 1단계. 켜면 결과 큐 · DLQ · writer 용 ECR · 관리자 사진 교체 전용 함수(embedder-admin, 같은 임베더 이미지, VPC 안)를
+    만든다. 임베더 자체는 아직 그대로다 — 전환은 embedwriter_deployed. 운영은 #274·#286 반영(I3) 때 켠다.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "embedwriter_deployed" {
+  description = <<-EOT
+    임베더 결과 큐 2단계(embed_result_queue_enabled 가 켜져 있어야 한다). writer 이미지가 ECR 에 올라간 뒤 켠다 — 이미지 없는 ECR 로는 함수가
+    만들어지지 않는다. 켜면 writer 함수 · SQS 트리거를 만들고, 배치 임베더가 결과를 큐로 보내며(RESULT_QUEUE_URL) VPC 밖으로 나간다(DB 연결 0).
+  EOT
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.embedwriter_deployed || var.embed_result_queue_enabled
+    error_message = "embedwriter_deployed 는 embed_result_queue_enabled 가 켜져 있을 때만 켤 수 있습니다."
+  }
+}
+
+variable "embedwriter_image_tag" {
+  description = "writer(embedwriter) ECR 이미지 태그. AI 저장소 embedwriter/deploy.sh 가 민다"
+  type        = string
+  default     = "latest"
+}
+
+variable "embedwriter_max_concurrency" {
+  description = "writer 동시 실행 상한(SQS 트리거 최대 동시성, 최소 2). DB 연결 수가 곧 이 값이다 — 임베더 72개가 각자 쓰던 것을 이만큼으로 모은다"
+  type        = number
+  default     = 2
+}
+
+variable "embedder_admin_reserved_concurrency" {
+  description = "관리자 사진 교체 함수(embedder-admin) 동시 실행 상한. 백오피스에서 가끔 쓰는 경로라 작게 둔다"
+  type        = number
+  default     = 2
+}
+
