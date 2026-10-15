@@ -172,18 +172,6 @@ module "app_release" {
   deploy_role_name   = aws_iam_role.deploy.name
 }
 
-# 앱 서버가 CD 없이도 지금 버전으로 뜨게 하는 것 — ECR 이미지 · 배포 묶음 버킷 · 이미지 태그(서버 저장소 #313 ADR-0001).
-# ASG(다음 단계)의 새 서버가 user_data 로 이것을 읽는다. 지금 앱 서버와 dev CD 역할에 권한만 붙인다.
-module "app_release" {
-  source = "../../modules/app-release"
-
-  name_prefix        = local.name_prefix
-  aws_region         = var.aws_region
-  parameter_prefix   = var.parameter_prefix
-  instance_role_name = module.compute.instance_role_name
-  deploy_role_name   = aws_iam_role.deploy.name
-}
-
 module "ingress" {
   source = "../../modules/ingress"
 
