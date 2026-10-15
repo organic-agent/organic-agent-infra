@@ -30,9 +30,9 @@ variable "ssh_public_key" {
 }
 
 variable "instance_type" {
-  description = "EC2 인스턴스 타입 (arm64)"
+  description = "EC2 인스턴스 타입 (arm64). wes #286: dev에서 검증한 small(2GB) — micro(1GB)는 앱 컨테이너 1g에 여유가 없다(2026-10-14 작성자 결정)"
   type        = string
-  default     = "t4g.micro"
+  default     = "t4g.small"
 }
 
 variable "app_port" {
@@ -394,9 +394,39 @@ variable "categorize_memory_mb" {
 }
 
 variable "categorize_reserved_concurrent_executions" {
-  description = "categorize 함수 동시 실행 상한. score와 같은 값이면 체인이 밀리지 않는다."
+  description = "categorize 함수 동시 실행 상한. wes #274 C-1·F-2: 2 → 5(dev #96과 같은 값 — 갤러리 5개가 자리를 기다리지 않게)"
   type        = number
-  default     = 2
+  default     = 5
+}
+
+variable "categorize_naming_parallel" {
+  description = "categorize 2층 이름 Bedrock 동시 호출. wes #274: 4(코드 기본) → 8(dev #94와 같은 값)"
+  type        = number
+  default     = 8
+}
+
+variable "embedder_reserved_concurrent_executions" {
+  description = "임베더 동시 실행 상한. wes #274 E-1·S-1: 32 → 72(dev #96과 같은 값). wes app.analysis.embed-max-in-flight 와 같은 값"
+  type        = number
+  default     = 72
+}
+
+variable "analysis_failure_queue_enabled" {
+  description = "분석 Lambda의 끝내 실패한 비동기 호출을 SQS 실패 큐로 보낼지(wes #286 (c))"
+  type        = bool
+  default     = true
+}
+
+variable "embed_result_queue_enabled" {
+  description = "임베더 결과 큐 1단계(wes #286 (m)) — 결과 큐 · DLQ · writer ECR · 관리자 사진 교체 함수(embedder-admin)"
+  type        = bool
+  default     = true
+}
+
+variable "embedwriter_deployed" {
+  description = "임베더 결과 큐 2단계 — writer 함수 · SQS 트리거 · 배치 임베더 전환(결과를 큐로, VPC 밖). writer 이미지를 운영 ECR 에 민 뒤 true"
+  type        = bool
+  default     = false
 }
 
 variable "bedrock_model_id" {

@@ -124,20 +124,30 @@ module "analysis" {
 
   image_tag = var.lambda_image_tag
 
-  embedder_memory_mb  = var.embedder_memory_mb
-  embedder_batch_size = var.embedder_batch_size
-  embedding_dimension = var.embedding_dimension
+  embedder_memory_mb                      = var.embedder_memory_mb
+  embedder_batch_size                     = var.embedder_batch_size
+  embedder_reserved_concurrent_executions = var.embedder_reserved_concurrent_executions
+  embedding_dimension                     = var.embedding_dimension
 
   score_memory_mb                           = var.score_memory_mb
   score_ephemeral_storage_mb                = var.score_ephemeral_storage_mb
   score_reserved_concurrent_executions      = var.score_reserved_concurrent_executions
   categorize_memory_mb                      = var.categorize_memory_mb
   categorize_reserved_concurrent_executions = var.categorize_reserved_concurrent_executions
+  categorize_naming_parallel                = var.categorize_naming_parallel
   bedrock_model_id                          = var.bedrock_model_id
   bedrock_region                            = var.bedrock_region
 
   # wes가 읽는 GPU 워커 스위치(SSM app.analysis.gpu.enabled). 워커 풀(PR-3c) 뒤 true로.
   gpu_score_enabled = var.gpu_score_enabled
+
+  # 끝내 실패한 비동기 호출을 SQS 실패 큐로 — wes가 바로 다시 보낸다(wes #286 (c), dev #100).
+  failure_queue_enabled = var.analysis_failure_queue_enabled
+
+  # 임베더 결과 큐(wes #286 (m), dev #104·#105) — 1단계(큐·DLQ·writer ECR·embedder-admin) 뒤 writer 이미지를 밀고
+  # 2단계(writer·트리거·임베더 전환)를 켠다.
+  embed_result_queue_enabled = var.embed_result_queue_enabled
+  embedwriter_deployed       = var.embedwriter_deployed
 }
 
 # score GPU 워커 풀 — AMI 파이프라인(Image Builder, PR-3b) + 워커 인스턴스 2대·롤·유휴 정지 알람(PR-3c).
@@ -265,10 +275,14 @@ module "github_actions" {
   frontend_test_deploy_document_arn = module.frontend_test.deploy_document_arn
 
   # Lambda 셋의 배포 역할. AI 저장소 main의 deploy-lambda.yml이 assume해 바뀐 모듈만 밀고 갱신한다.
-  worker_oidc_subject    = var.ai_github_oidc_subject
-  worker_repository_id   = var.ai_github_repository_id
-  worker_repository_arns = values(module.analysis.repository_arns)
-  worker_function_arns   = values(module.analysis.function_arns)
+  worker_oidc_subject  = var.ai_github_oidc_subject
+  worker_repository_id = var.ai_github_repository_id
+  # 결과 큐(wes #286 (m))가 켜지면 writer ECR·함수와 embedder-admin 도 같은 역할이 민다(AI deploy-lambda.yml).
+  worker_repository_arns = compact(concat(values(module.analysis.repository_arns), [module.analysis.embedwriter_repository_arn]))
+  worker_function_arns = compact(concat(
+    values(module.analysis.function_arns),
+    [module.analysis.embedder_admin_function_arn, module.analysis.embedwriter_function_arn],
+  ))
 }
 
 # deploy.tf에 루트 리소스로 있던 것을 모듈로 옮겼다. 주소만 바뀌고 재생성되지 않는다 —
