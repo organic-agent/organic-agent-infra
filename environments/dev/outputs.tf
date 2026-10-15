@@ -17,6 +17,11 @@ output "parameter_prefix" {
   value       = var.parameter_prefix
 }
 
+output "app_autoscaling_group_name" {
+  description = "앱 서버 ASG — 서버는 Name 태그 wes-dev-app 로 찾는다(여러 대)"
+  value       = module.app_asg.autoscaling_group_name
+}
+
 output "ec2_instance_id" {
   description = "dev 앱 서버 인스턴스 ID (SSM 세션·RDS 포트포워딩의 --target)"
   value       = module.compute.instance_id

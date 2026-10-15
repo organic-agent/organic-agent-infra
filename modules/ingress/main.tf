@@ -48,13 +48,22 @@ resource "aws_lb_target_group" "app" {
   protocol    = "HTTP"
   target_type = "instance"
 
+  slow_start           = var.slow_start_seconds
+  deregistration_delay = var.deregistration_delay_seconds
+
   health_check {
-    path    = var.health_check_path
-    matcher = "200-399" # 앱/actuator 배포 전까지는 느슨하게 잡아둠
+    path                = var.health_check_path
+    matcher             = "200-399" # 앱/actuator 배포 전까지는 느슨하게 잡아둠
+    interval            = var.health_check_interval
+    timeout             = var.health_check_timeout
+    healthy_threshold   = var.healthy_threshold
+    unhealthy_threshold = var.unhealthy_threshold
   }
 }
 
 resource "aws_lb_target_group_attachment" "app" {
+  count = var.instance_id == null ? 0 : 1
+
   target_group_arn = aws_lb_target_group.app.arn
   target_id        = var.instance_id
   port             = var.app_port
@@ -124,4 +133,10 @@ resource "aws_route53_record" "app" {
     zone_id                = aws_lb.this.zone_id
     evaluate_target_health = false
   }
+}
+
+# instance_id 가 선택이 되기 전 상태 주소를 그대로 잇는다 — 운영 plan 에 교체가 나오지 않게.
+moved {
+  from = aws_lb_target_group_attachment.app
+  to   = aws_lb_target_group_attachment.app[0]
 }
