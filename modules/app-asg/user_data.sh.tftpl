@@ -1,0 +1,47 @@
+#!/bin/bash
+# ASG 가 만든 앱 서버의 첫 부팅 — CD 를 거치지 않고 지금 배포된 버전으로 스스로 뜬다(서버 저장소 #313 ADR-0001 Q7).
+# 도커·스왑·aws-cli 는 modules/compute 의 user_data 와 같고, 그 뒤에 CD 가 올려 둔 배포 묶음으로 같은 배포 스크립트를 돌린다.
+# 로그: /var/log/cloud-init-output.log
+set -euxo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y docker.io docker-compose-v2
+usermod -aG docker ubuntu
+
+# t4g.micro(1GiB)는 컨테이너 메모리 한도(1g)와 호스트 몫이 겹친다. 기동/부하 시 OOM 방지용 스왑 2GB.
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+snap install aws-cli --classic
+export PATH="$PATH:/snap/bin"
+
+# 배포 묶음은 CD 가 매 배포 전에 올린다. 아직 한 번도 배포되지 않았으면 기다리다 그만둔다 — 다음 CD 가 이 서버까지 바꾼다.
+WORK=/opt/wes-bootstrap
+BUNDLE="s3://${bundle_bucket}/public"
+mkdir -p "$WORK"
+cd "$WORK"
+for attempt in $(seq 1 30); do
+  aws s3 cp --only-show-errors "$BUNDLE/release.env" release.env && break
+  sleep 10
+done
+[ -s release.env ] || { echo "배포 묶음이 없다 — CD 가 이 서버를 바꿀 때까지 앱 없이 둔다" >&2; exit 0; }
+
+set -a
+. ./release.env
+set +a
+aws s3 cp --only-show-errors "$BUNDLE/deploy-public-ssm.sh" deploy-public-ssm.sh
+aws s3 cp --only-show-errors "$BUNDLE/docker-compose.yml" docker-compose.yml
+aws s3 cp --only-show-errors "$BUNDLE/config.alloy" config.alloy
+
+IMAGE_TAG=$(aws ssm get-parameter --region "$AWS_REGION" --name "${image_tag_parameter}" --query Parameter.Value --output text)
+COMPOSE_B64=$(base64 -w0 docker-compose.yml)
+ALLOY_B64=$(base64 -w0 config.alloy)
+# GHCR 토큰은 없다 — 이미지는 ECR 에서 인스턴스 역할로 받는다(IMAGE_REPOSITORY).
+GITHUB_ACTOR=""
+GITHUB_TOKEN=""
+export IMAGE_TAG COMPOSE_B64 ALLOY_B64 GITHUB_ACTOR GITHUB_TOKEN
+sh ./deploy-public-ssm.sh

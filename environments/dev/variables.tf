@@ -383,3 +383,8 @@ variable "embedwriter_deployed" {
   default     = true
 }
 
+variable "app_instance_type" {
+  description = "ASG 앱 서버 크기 — 서버 저장소 #313 기준안 E(micro 2~3대). 메모리 관문(A-2m)에 막히면 t4g.small"
+  type        = string
+  default     = "t4g.micro"
+}

@@ -42,3 +42,9 @@ variable "score_gpu_tag_name" {
   description = "score GPU 워커 인스턴스의 Name 태그 값. 앱 롤의 ec2:StartInstances·StopInstances는 이 태그를 단 인스턴스로만 허용된다(wes app.analysis.gpu.tag와 같은 값)"
   type        = string
 }
+
+variable "create_instance" {
+  description = "앱 서버 EC2 한 대를 만들지. ASG 가 서버를 맡는 환경은 false — 역할·인스턴스 프로파일·AMI 만 쓴다"
+  type        = bool
+  default     = true
+}

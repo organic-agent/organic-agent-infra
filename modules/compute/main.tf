@@ -103,7 +103,10 @@ resource "aws_iam_instance_profile" "this" {
   role        = aws_iam_role.this.name
 }
 
+# 앱 서버 한 대. ASG 로 서버를 늘리는 환경(dev, 서버 저장소 #313)은 create_instance = false 로 이 서버 없이 역할·AMI 만 쓴다.
 resource "aws_instance" "this" {
+  count = var.create_instance ? 1 : 0
+
   ami                    = data.aws_ami.ubuntu_arm64.id
   instance_type          = var.instance_type
   subnet_id              = var.subnet_id
@@ -171,4 +174,10 @@ resource "aws_iam_role_policy" "control_score_gpu" {
   name   = "control-score-gpu"
   role   = aws_iam_role.this.name
   policy = data.aws_iam_policy_document.control_score_gpu.json
+}
+
+# create_instance 가 생기기 전 상태 주소를 그대로 잇는다 — 운영 plan 에 교체가 나오지 않게.
+moved {
+  from = aws_instance.this
+  to   = aws_instance.this[0]
 }

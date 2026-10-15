@@ -155,6 +155,9 @@ module "compute" {
   bedrock_model_id         = var.bedrock_model_id
   bedrock_region           = var.bedrock_region
   score_gpu_tag_name       = local.score_gpu_tag_name
+
+  # 앱 서버는 아래 ASG 가 맡는다(서버 저장소 #313 ADR-0001). 이 모듈은 역할·인스턴스 프로파일·AMI·키만 준다.
+  create_instance = false
 }
 
 # 앱 서버가 CD 없이도 지금 버전으로 뜨게 하는 것 — ECR 이미지 · 배포 묶음 버킷 · 이미지 태그(서버 저장소 #313 ADR-0001).
@@ -179,9 +182,35 @@ module "ingress" {
   zone_id           = data.aws_route53_zone.this.zone_id
   zone_name         = var.zone_name
   subdomain         = var.subdomain
-  instance_id       = module.compute.instance_id
   app_port          = var.app_port
   health_check_path = var.health_check_path
+
+  # 서버 2~3대(ASG 가 스스로 등록)의 한 대 장애·배포 무중단(서버 저장소 #313 ADR-0001 Q2·Q3).
+  # 감지 90~95초 → 10~13초 · 새 서버 몫을 60초에 걸쳐 0에서 올림(재시작 직후 몰림) · 빼는 서버는 진행 중 요청을 30초까지 기다림.
+  health_check_interval        = 5
+  health_check_timeout         = 3
+  healthy_threshold            = 2
+  unhealthy_threshold          = 2
+  slow_start_seconds           = 60
+  deregistration_delay_seconds = 30
+}
+
+# 공개 API 앱 서버 2~3대 — 서버 저장소 #313 ADR-0001(기준안 E). 옛 고정 서버(wes-dev-app 한 대)는 이 apply 에서 사라진다
+# (IQ3: dev 는 한 번에 갈아 끼움 — 새 서버가 뜨는 몇 분 동안 dev 가 끊긴다).
+module "app_asg" {
+  source = "../../modules/app-asg"
+
+  name_prefix           = local.name_prefix
+  ami_id                = module.compute.ami_id
+  instance_type         = var.app_instance_type
+  key_name              = module.compute.key_name
+  instance_profile_name = module.compute.instance_profile_name
+  security_group_id     = module.security.ec2_security_group_id
+  subnet_ids            = local.public_subnet_ids
+  target_group_arn      = module.ingress.target_group_arn
+  bundle_bucket         = module.app_release.bundle_bucket
+  image_tag_parameter   = module.app_release.image_tag_parameter
+  deploy_role_name      = aws_iam_role.deploy.name
 }
 
 # 운영 루트와 같은 이유로 Terraform이 소유한다 — 앱 기본값은 서울 + `global.`이라 덮지 않으면 IAM과 어긋난다(#71).
