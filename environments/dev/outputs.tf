@@ -96,3 +96,13 @@ output "github_admin_deploy_role_arn" {
   description = "백오피스 저장소 dev CD의 AWS_DEV_DEPLOY_ROLE_ARN 값"
   value       = aws_iam_role.admin_deploy.arn
 }
+
+output "app_image_repository_url" {
+  description = "공개 API 이미지 ECR 주소 — 서버 저장소 dev CD 가 GHCR 과 함께 여기에도 민다"
+  value       = module.app_release.repository_url
+}
+
+output "app_bundle_bucket" {
+  description = "배포 묶음 버킷 — dev CD 가 배포 스크립트·compose·alloy 설정을 올리고 새 서버가 받는다"
+  value       = module.app_release.bundle_bucket
+}
