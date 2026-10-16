@@ -384,7 +384,7 @@ variable "embedwriter_deployed" {
 }
 
 variable "app_instance_type" {
-  description = "ASG 앱 서버 크기 — 서버 저장소 #313 기준안 E(micro 2~3대). 메모리 관문(A-2m)에 막히면 t4g.small"
+  description = "ASG 앱 서버 크기 — 서버 저장소 #313 기준안 E 는 micro 였으나 메모리 관문(H5)에서 막혀 small(10-16: 유휴 GC 멈춤 최대 19.3초 · ALB 이탈로 ASG 교체)"
   type        = string
-  default     = "t4g.micro"
+  default     = "t4g.small"
 }
