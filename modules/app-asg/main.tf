@@ -131,6 +131,9 @@ data "aws_iam_policy_document" "deploy" {
       "autoscaling:EnterStandby",
       "autoscaling:ExitStandby",
       "autoscaling:UpdateAutoScalingGroup",
+      # 배포 동안 CPU 줄이기 알람을 멈춘다 — min 을 1 낮추는 순간 ALARM 인 줄이기가 desired 를 1 로 내려 standby 가 거절된다(wes #313, 10-16).
+      "autoscaling:SuspendProcesses",
+      "autoscaling:ResumeProcesses",
     ]
     resources = [aws_autoscaling_group.app.arn]
   }
