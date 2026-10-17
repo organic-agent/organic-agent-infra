@@ -61,9 +61,11 @@ variable "min_size" {
 }
 
 variable "max_size" {
-  description = "최대 대수 — DB 연결 예산(서버당 사용자 풀 6, 서버 저장소 #313 03 §2)"
+  # 3 → 2(서버 저장소 #313 10-17 A-4a-3a): 자동 늘리기로 3대째가 9분 만에 왔지만 처리량은 +4~11% — 3대째부터 DB(RDS CPU 80%·풀 6)가
+  # 막았다. 늘리기 대신 2대가 받는다. ASG 자체는 고장 서버 교체·spot 회수 뒤 다시 띄우기·롤링 배포 때문에 둔다.
+  description = "최대 대수 — 2면 늘리기 없음(min 과 같음)"
   type        = number
-  default     = 3
+  default     = 2
 }
 
 variable "target_cpu_percent" {
