@@ -13,6 +13,12 @@ variable "app_port" {
   type        = number
 }
 
+variable "health_check_port" {
+  description = "ALB 헬스체크가 앱 서버의 다른 포트(관리 포트)로 갈 때 그 번호. null 이면 규칙 없음 — 헬스가 app_port 로 간다"
+  type        = number
+  default     = null
+}
+
 variable "db_port" {
   description = "데이터베이스가 리슨하는 포트"
   type        = number

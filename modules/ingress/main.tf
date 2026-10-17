@@ -53,6 +53,7 @@ resource "aws_lb_target_group" "app" {
 
   health_check {
     path                = var.health_check_path
+    port                = var.health_check_port
     matcher             = "200-399" # 앱/actuator 배포 전까지는 느슨하게 잡아둠
     interval            = var.health_check_interval
     timeout             = var.health_check_timeout
