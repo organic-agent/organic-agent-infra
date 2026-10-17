@@ -62,9 +62,11 @@ variable "app_port" {
 }
 
 variable "health_check_path" {
+  # 앱이 살아 대답하나(liveness)만 본다 — /actuator/health 는 DB 검사를 품어 DB 가 몰리면 두 서버가 같이 빠지고
+  # ASG 가 멀쩡한 서버를 갈아 치웠다(10-16 dev). 서버 저장소 #313 ADR-0001 §7 안건 1 · wes PR #323 이 연 경로.
   description = "ALB 헬스체크 경로"
   type        = string
-  default     = "/actuator/health"
+  default     = "/livez"
 }
 
 variable "ssh_allowed_cidr" {
