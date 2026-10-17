@@ -135,9 +135,9 @@ variable "embedder_memory_mb" {
 }
 
 variable "embedder_reserved_concurrent_executions" {
-  description = "임베더 동시 실행 상한. wes #274 E-1: 32 → 48, S-1: 48 → 72(R-2-3 업로드 5:22 끝 vs 임베딩 7:51 끝 — 분당 95호출로는 업로드 속도를 못 따라감). 임베더가 적재 때만 DB 연결을 잡아(AI #147) 동시 실행 수가 연결 수가 아니다. wes app.analysis.embed-max-in-flight와 같은 값. 운영은 #274 반영 때"
+  description = "임베더 동시 실행 상한. wes #274 E-1: 32 → 48, S-1: 48 → 72(R-2-3 업로드 5:22 끝 vs 임베딩 7:51 끝 — 분당 95호출로는 업로드 속도를 못 따라감). 임베더가 적재 때만 DB 연결을 잡아(AI #147) 동시 실행 수가 연결 수가 아니다. wes app.analysis.embed-max-in-flight와 같은 값. 운영은 #274 반영 때. 72 → 108(서버 저장소 #313 10-17): A-4b-10(업로드 10개)에서 72에 꽉 붙어 임베딩이 12분. 결과는 SQS → embedwriter 라 DB 연결을 늘리지 않는다. 계정 동시성 400 − 예약 합(운영 + dev) ≥ 100 을 지킨다"
   type        = number
-  default     = 72
+  default     = 108
 }
 
 variable "embedder_async_retry_attempts" {
@@ -225,9 +225,11 @@ variable "gpu_instance_type" {
 }
 
 variable "gpu_worker_azs" {
+  # 2c 추가(서버 저장소 #313 10-17): 동시 업로드가 많으면 wes 가 GPU 를 두 대까지 켠다(app.analysis.gpu.max-workers 2) — 운영과 같은
+  # 두 AZ. 한 AZ 에 GPU 재고가 없을 때 다른 AZ 것을 켜는 경로도 dev 에서 확인한다. 꺼져 있는 동안은 디스크 값만(≈ $2.7/월).
   description = "dev GPU 워커를 둘 AZ. 한 AZ에 한 대. 빈 목록이면 워커를 만들지 않는다(그때 gpu_score_enabled도 false로)"
   type        = list(string)
-  default     = ["ap-northeast-2a"]
+  default     = ["ap-northeast-2a", "ap-northeast-2c"]
 }
 
 variable "score_gpu_image_tag" {
