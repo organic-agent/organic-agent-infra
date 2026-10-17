@@ -72,6 +72,18 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_app" {
   ip_protocol                  = "tcp"
 }
 
+# 헬스를 관리 포트로 볼 때만(서버 저장소 #313 W5b) — 사용자 요청과 다른 Tomcat 스레드라 CPU 가 차도 헬스가 줄 서지 않는다.
+resource "aws_vpc_security_group_egress_rule" "alb_to_app_health" {
+  count = var.health_check_port == null ? 0 : 1
+
+  security_group_id            = aws_security_group.alb.id
+  description                  = "Health check to app management port"
+  referenced_security_group_id = aws_security_group.ec2.id
+  from_port                    = var.health_check_port
+  to_port                      = var.health_check_port
+  ip_protocol                  = "tcp"
+}
+
 # --- EC2 ---
 
 resource "aws_vpc_security_group_ingress_rule" "ec2_app_from_alb" {
@@ -80,6 +92,17 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_app_from_alb" {
   referenced_security_group_id = aws_security_group.alb.id
   from_port                    = var.app_port
   to_port                      = var.app_port
+  ip_protocol                  = "tcp"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ec2_health_from_alb" {
+  count = var.health_check_port == null ? 0 : 1
+
+  security_group_id            = aws_security_group.ec2.id
+  description                  = "Health check from ALB (management port)"
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = var.health_check_port
+  to_port                      = var.health_check_port
   ip_protocol                  = "tcp"
 }
 

@@ -51,6 +51,13 @@ variable "health_check_path" {
 
 # 헬스체크·대상 그룹 손잡이. 기본값은 지금 대상 그룹에 걸린 값(2026-10-15 조회: 30초 · 5초 · 3/3 · slow start 0 · 해제 300초)과 같다 —
 # 넘기지 않는 스택(운영)은 바뀌지 않는다.
+# 헬스를 본 포트와 다른 관리 포트에서 보려면 그 번호. 기본 traffic-port(본 포트) — 넘기지 않는 스택(운영)은 바뀌지 않는다.
+variable "health_check_port" {
+  description = "헬스체크 포트. traffic-port 면 대상 포트(app_port)"
+  type        = string
+  default     = "traffic-port"
+}
+
 variable "health_check_interval" {
   description = "헬스체크 간격(초)"
   type        = number

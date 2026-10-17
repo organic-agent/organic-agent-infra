@@ -63,10 +63,18 @@ variable "app_port" {
 
 variable "health_check_path" {
   # 앱이 살아 대답하나(liveness)만 본다 — /actuator/health 는 DB 검사를 품어 DB 가 몰리면 두 서버가 같이 빠지고
-  # ASG 가 멀쩡한 서버를 갈아 치웠다(10-16 dev). 서버 저장소 #313 ADR-0001 §7 안건 1 · wes PR #323 이 연 경로.
+  # ASG 가 멀쩡한 서버를 갈아 치웠다(10-16 dev). 서버 저장소 #313 ADR-0001 §7 안건 1.
   description = "ALB 헬스체크 경로"
   type        = string
-  default     = "/livez"
+  default     = "/actuator/health/liveness"
+}
+
+variable "health_check_port" {
+  # 헬스를 관리 포트(별도 Tomcat 스레드)에서 본다 — 본 포트 /livez 는 사용자 요청과 같은 줄에 서서, CPU 가 차자 3초를 넘겨
+  # ASG 가 멀쩡한 서버를 3번 갈았다(10-17 A-4a). 서버 저장소 #313 W5b(wes PR #324)의 MANAGEMENT_SERVER_PORT 와 같아야 한다.
+  description = "ALB 헬스체크 포트(앱 관리 포트)"
+  type        = number
+  default     = 8090
 }
 
 variable "ssh_allowed_cidr" {

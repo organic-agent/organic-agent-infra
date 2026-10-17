@@ -83,10 +83,11 @@ data "aws_ssm_parameter" "cors_allowed_origins" {
 module "security" {
   source = "../../modules/security"
 
-  name_prefix      = local.name_prefix
-  vpc_id           = data.aws_vpc.shared.id
-  app_port         = var.app_port
-  ssh_allowed_cidr = var.ssh_allowed_cidr
+  name_prefix       = local.name_prefix
+  vpc_id            = data.aws_vpc.shared.id
+  app_port          = var.app_port
+  health_check_port = var.health_check_port
+  ssh_allowed_cidr  = var.ssh_allowed_cidr
 }
 
 resource "aws_vpc_security_group_ingress_rule" "loki_from_dev_app" {
@@ -184,6 +185,7 @@ module "ingress" {
   subdomain         = var.subdomain
   app_port          = var.app_port
   health_check_path = var.health_check_path
+  health_check_port = tostring(var.health_check_port)
 
   # 서버 2~3대(ASG 가 스스로 등록)의 한 대 장애·배포 무중단(서버 저장소 #313 ADR-0001 Q2·Q3).
   # 감지 90~95초 → 10~13초 · 새 서버 몫을 60초에 걸쳐 0에서 올림(재시작 직후 몰림) · 빼는 서버는 진행 중 요청을 30초까지 기다림.
