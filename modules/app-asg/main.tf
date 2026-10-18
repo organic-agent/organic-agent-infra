@@ -1,6 +1,6 @@
 # 공개 API 앱 서버 묶음 — ASG(서버 저장소 #313 ADR-0001). 고정 서버 한 대(modules/compute 의 aws_instance) 대신 쓴다.
 #
-#   대수      min 2(배포·한 대 장애에도 다른 서버가 받음) · max 3(DB 연결 예산) · CPU 목표 추적으로 늘리고 줄인다
+#   대수      min 2(배포·한 대 장애에도 다른 서버가 받음) · max 2(늘리기 끔, #313 10-17) · spot 을 섞으면 on-demand 바닥 + spot
 #   새 서버    user_data 가 CD 가 올려 둔 배포 묶음(S3)·이미지 태그(SSM)로 지금 버전을 띄운다 — CD 를 기다리지 않는다
 #   배포      CD(rolling-deploy.sh)가 서버마다 standby → 교체 → 복귀. 그 권한을 여기서 CD 역할에 붙인다
 #   크레딧    t4g 는 버스트형이다. 표준 모드는 크레딧이 떨어지면 CPU 를 기본선(10%)에 묶어 늘리기 판단이 멈춘다 → 무제한
@@ -82,10 +82,44 @@ resource "aws_autoscaling_group" "app" {
   # 막 뜬 서버의 높은 CPU 를 늘리기 판단에 넣지 않는다.
   default_instance_warmup = var.instance_warmup_seconds
 
-  launch_template {
-    id      = aws_launch_template.app.id
-    version = "$Latest"
+  # spot 을 섞지 않으면 시작 템플릿 하나로 띄운다.
+  dynamic "launch_template" {
+    for_each = var.spot_enabled ? [] : [1]
+    content {
+      id      = aws_launch_template.app.id
+      version = "$Latest"
+    }
   }
+
+  # on-demand 바닥 N대 + 나머지는 spot(서버 저장소 #313 10-17 결정: small OD 1 + spot 1). spot 회수 = 한 대 장애(QA-2)라
+  # 남은 on-demand 가 받는다. 둘 다 spot 이면 같은 시각에 함께 회수될 수 있어 바닥 하나는 on-demand 로 둔다.
+  dynamic "mixed_instances_policy" {
+    for_each = var.spot_enabled ? [1] : []
+    content {
+      instances_distribution {
+        on_demand_base_capacity                  = var.on_demand_base_capacity
+        on_demand_percentage_above_base_capacity = 0
+        spot_allocation_strategy                 = "price-capacity-optimized"
+      }
+
+      launch_template {
+        launch_template_specification {
+          launch_template_id = aws_launch_template.app.id
+          version            = "$Latest"
+        }
+
+        dynamic "override" {
+          for_each = length(var.spot_instance_types) > 0 ? var.spot_instance_types : [var.instance_type]
+          content {
+            instance_type = override.value
+          }
+        }
+      }
+    }
+  }
+
+  # 회수 2분 예고를 기다리지 않고, 재조정 권고가 오면 새 서버를 먼저 띄운 뒤 옛 서버를 뺀다(ALB 등록 해제 대기를 거쳐).
+  capacity_rebalance = var.spot_enabled
 
   tag {
     key                 = "Name"
