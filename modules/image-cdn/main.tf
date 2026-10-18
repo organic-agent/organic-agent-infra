@@ -64,6 +64,21 @@ resource "aws_cloudfront_function" "cache_header" {
   EOT
 }
 
+# 옛 응답 헤더 정책 — 배포에서 떼어 낸 뒤 다음 PR에서 지운다. 한 apply 에서 떼기와 지우기를 함께 하면, 배포가 바뀌기 전에 지우기가
+# 먼저 나가 409(ResponseHeadersPolicyInUse)로 apply 가 멈춘다(10-19 #129).
+resource "aws_cloudfront_response_headers_policy" "preview" {
+  name    = local.name
+  comment = "미리보기 1년 immutable(#336) — 떼어 냄, 다음 PR에서 삭제"
+
+  custom_headers_config {
+    items {
+      header   = "Cache-Control"
+      override = true
+      value    = "public, max-age=${var.cache_max_age_seconds}, immutable"
+    }
+  }
+}
+
 # dev 는 주소에 환경 접두(/d/…)가 붙는다 — 원점 키에는 없으므로 보내기 전에 뗀다.
 resource "aws_cloudfront_function" "strip_prefix" {
   count = var.path_prefix == "" ? 0 : 1
