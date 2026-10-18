@@ -12,19 +12,9 @@ output "oauth_redirect_uris" {
   }
 }
 
-output "ec2_public_ip" {
-  description = "앱 서버 퍼블릭 IP (stop/start 하면 바뀜)"
-  value       = module.compute.public_ip
-}
-
-output "ec2_instance_id" {
-  description = "SSM 세션·포트포워딩의 --target 값 (임베더 로컬 실행 시 RDS 터널을 이 인스턴스로 뚫는다)"
-  value       = module.compute.instance_id
-}
-
-output "ssh_command" {
-  description = "비상용 직접 SSH (ssh_allowed_cidr 지정 후에만 동작). 평소엔 SSM 경유 — docs/runbooks/runbook.md '서버 접속' 참조"
-  value       = "ssh -i ~/.ssh/wes-aws-key ubuntu@${module.compute.public_ip}"
+output "app_asg_name" {
+  description = "앱 서버 ASG — 서버는 Name 태그 wes-app 으로 찾는다(SSM 세션·포트포워딩은 scripts/db-tunnel.sh 처럼 태그로 조회)"
+  value       = module.app_asg.autoscaling_group_name
 }
 
 output "github_deploy_role_arn" {

@@ -202,6 +202,9 @@ module "compute" {
   bedrock_region           = var.bedrock_region
   # score_gpu 모듈의 worker_tag_name과 같은 값. 모듈 출력을 참조하면 storage → compute → score_gpu 순환이라 문자열로 맞춘다.
   score_gpu_tag_name = local.score_gpu_tag_name
+
+  # 앱 서버는 module.app_asg 가 맡는다(서버 저장소 #313 P1c). 이 모듈은 역할·인스턴스 프로파일·AMI·키만 준다.
+  create_instance = false
 }
 
 # 공유 캐시(Valkey 1노드) — 서버 2대의 서명 URL 캐시 공유와 리더 임대(서버 저장소 #313 ADR-0002). dev(environments/dev)에서 검증한 모듈 그대로.
@@ -253,8 +256,7 @@ module "ingress" {
   zone_id           = data.aws_route53_zone.this.zone_id
   zone_name         = var.zone_name
   subdomain         = var.subdomain
-  # 옛 서버 한 대를 그대로 붙여 둔다 — ASG 두 대가 healthy 가 되면 P1c 에서 뗀다(서버 저장소 #313 넘김 = 나란히 붙였다 떼기).
-  instance_id       = module.compute.instance_id
+  # 서버는 ASG 가 스스로 등록한다(서버 저장소 #313 P1c — 옛 서버 한 대를 뗐다).
   app_port          = var.app_port
   health_check_path = var.health_check_path
 

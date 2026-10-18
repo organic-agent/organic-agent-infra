@@ -274,7 +274,8 @@ SSM 장애 등으로 직접 접속이 필요할 때만:
 
 ```bash
 terraform apply -var="ssh_allowed_cidr=$(curl -s ifconfig.me)/32"   # 내 IP만 22번 오픈
-ssh -i ~/.ssh/wes-aws-key ubuntu@$(terraform output -raw ec2_public_ip)
+# 앱 서버는 ASG 두 대다(서버 저장소 #313) — 공인 IP 는 태그로 찾는다
+ssh -i ~/.ssh/wes-aws-key ubuntu@$(aws ec2 describe-instances --filters Name=tag:Name,Values=wes-app Name=instance-state-name,Values=running --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
 terraform apply                                                     # 작업 후 규칙 제거
 ```
 
