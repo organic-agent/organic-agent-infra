@@ -85,3 +85,22 @@ variable "instance_warmup_seconds" {
   type        = number
   default     = 300
 }
+
+variable "spot_enabled" {
+  description = "on-demand 바닥 + 나머지 spot 으로 섞을지(서버 저장소 #313 10-17: OD 1 + spot 1). false 면 시작 템플릿 하나(전부 on-demand)"
+  type        = bool
+  default     = false
+}
+
+variable "on_demand_base_capacity" {
+  description = "spot 을 섞을 때 늘 on-demand 로 둘 대수 — spot 이 한꺼번에 회수돼도 이만큼은 남는다"
+  type        = number
+  default     = 1
+}
+
+variable "spot_instance_types" {
+  # 메모리 2GB 이상인 t4g 만 — 시작 템플릿이 무제한 크레딧(t 계열 전용)이고, micro 는 메모리 관문(H5)에서 막혔다.
+  description = "spot 후보 크기 — 비우면 instance_type 하나"
+  type        = list(string)
+  default     = []
+}

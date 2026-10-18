@@ -213,6 +213,9 @@ module "app_asg" {
   bundle_bucket         = module.app_release.bundle_bucket
   image_tag_parameter   = module.app_release.image_tag_parameter
   deploy_role_name      = aws_iam_role.deploy.name
+
+  # 운영과 같은 구성으로 먼저 검증한다(서버 저장소 #313 10-17: small on-demand 1 + spot 1). 회수 재현은 fis.tf.
+  spot_enabled = true
 }
 
 # 운영 루트와 같은 이유로 Terraform이 소유한다 — 앱 기본값은 서울 + `global.`이라 덮지 않으면 IAM과 어긋난다(#71).
