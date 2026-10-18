@@ -118,6 +118,29 @@ module "storage" {
   web_origins = distinct(concat(local.public_web_origins, [local.admin_web_origin]))
 }
 
+# 사진 미리보기 CDN(서버 #336 ADR-0001) — 고정 주소 + 서명 쿠키. dev 를 먼저 켜서 실제 웹·휴대폰·카카오톡으로 확인한 뒤 운영에 같은 모듈.
+# 주소는 /d/… 접두가 붙는다: 쿠키 Domain 이 운영과 같은 easyselect.kr 이라, 경로가 겹치면 개발자 브라우저에서 두 환경 쿠키가 섞인다.
+# 개인키는 Terraform 밖 — SSM SecureString /wes/dev/app.storage.preview-cdn.private-key(CLI). 앱이 쓰는 것은
+# app.storage.preview-cdn.enabled=true(CLI, 웹 배포 뒤)일 때뿐이다.
+module "image_cdn" {
+  source = "../../modules/image-cdn"
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
+
+  name_prefix                 = local.name_prefix
+  domain_name                 = "img-dev.${var.zone_name}"
+  zone_id                     = data.aws_route53_zone.this.zone_id
+  cookie_domain               = var.zone_name
+  bucket_id                   = module.storage.bucket_name
+  bucket_arn                  = module.storage.bucket_arn
+  bucket_regional_domain_name = module.storage.bucket_regional_domain_name
+  path_prefix                 = "d"
+  public_key_pem              = file("${path.module}/preview-cdn-public.pem")
+  parameter_prefix            = var.parameter_prefix
+}
+
 module "database" {
   source = "../../modules/database"
 
