@@ -2,7 +2,7 @@
 #
 #   대수      min 2(배포·한 대 장애에도 다른 서버가 받음) · max 2(늘리기 끔, #313 10-17) · spot 을 섞으면 on-demand 바닥 + spot
 #   새 서버    user_data 가 CD 가 올려 둔 배포 묶음(S3)·이미지 태그(SSM)로 지금 버전을 띄운다 — CD 를 기다리지 않는다
-#   배포      CD(rolling-deploy.sh)가 서버마다 standby → 교체 → 복귀. 그 권한을 여기서 CD 역할에 붙인다
+#   배포      CD(rolling-deploy.sh)가 서버마다 대상에서 빼기 → 교체 → 다시 넣기. 그 권한을 여기서 CD 역할에 붙인다
 #   크레딧    t4g 는 버스트형이다. 표준 모드는 크레딧이 떨어지면 CPU 를 기본선(10%)에 묶어 늘리기 판단이 멈춘다 → 무제한
 #
 # Name 태그는 고정 서버와 같은 `<prefix>-app` 이다 — CD·측정 도구·SSM 권한 조건이 이 이름으로 서버를 찾는다.
@@ -170,6 +170,14 @@ data "aws_iam_policy_document" "deploy" {
       "autoscaling:ResumeProcesses",
     ]
     resources = [aws_autoscaling_group.app.arn]
+  }
+
+  # 배포는 standby 대신 서버를 대상에서만 빼고 다시 넣는다(서버 저장소 #313 10-18) — on-demand 바닥 + spot 에서 standby 가 ASG 의
+  # 갈아 끼우기를 불러 받을 서버가 0대가 됐다.
+  statement {
+    sid       = "TakeOutOfTargetGroup"
+    actions   = ["elasticloadbalancing:DeregisterTargets", "elasticloadbalancing:RegisterTargets"]
+    resources = [var.target_group_arn]
   }
 }
 
