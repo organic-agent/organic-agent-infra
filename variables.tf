@@ -42,9 +42,11 @@ variable "app_port" {
 }
 
 variable "health_check_path" {
+  # /actuator/health → /livez(서버 저장소 #313 P1b): DB 를 보지 않는 liveness. DB 가 흔들려도 서버가 함께 빠지지 않는다(dev infra #116 과 같음).
+  # 옛 서버·ASG 서버 둘 다 있는 경로다(wes #323, 운영 P2b 로 배포됨). 관리 포트 8090 으로 옮기는 것은 P2c 뒤 P1d.
   description = "ALB 헬스체크 경로"
   type        = string
-  default     = "/actuator/health"
+  default     = "/livez"
 }
 
 variable "health_check_port" {
