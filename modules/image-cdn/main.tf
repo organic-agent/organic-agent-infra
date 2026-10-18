@@ -3,7 +3,7 @@
 # 지금 미리보기 주소는 S3 서명 URL이라 10분마다 바뀌고, 브라우저는 주소가 다르면 이미 본 사진도 다시 받는다(실제 웹 측정: 갱신 한 번에
 # 499장 · 43.7MB). 이 배포는 주소를 사진 키 그대로 고정하고, 열 수 있는지는 앱이 주는 서명 쿠키(갤러리 미리보기 경로만, 20분)가 정한다.
 #
-#   주소      https://{domain}/{path_prefix}/previews/galleries/{id}/…   — 만료 없음 · 1년 immutable 헤더
+#   주소      https://{domain}/{path_prefix}/previews/galleries/{id}/…   — 만료 없음 · 성공 응답에 1년 immutable 헤더(오류는 no-store)
 #   권한      모든 경로에 키 그룹 서명 필수. 쿠키는 미리보기 경로만 열므로 원본(galleries/…)은 이 배포로 열리지 않는다
 #   원점      사진 버킷(OAC). 버킷 정책은 이 배포만, 미리보기 접두만 GetObject
 #
@@ -45,17 +45,23 @@ resource "aws_cloudfront_key_group" "preview" {
 }
 
 # 미리보기는 키가 UUID라 한 번 만들면 바뀌지 않는다 — 원점 객체에 헤더가 없어도(기존 2.7만 장) 여기서 붙인다.
-resource "aws_cloudfront_response_headers_policy" "preview" {
-  name    = local.name
-  comment = "미리보기 1년 immutable(#336)"
-
-  custom_headers_config {
-    items {
-      header   = "Cache-Control"
-      override = true
-      value    = "public, max-age=${var.cache_max_age_seconds}, immutable"
+# 응답 헤더 정책이 아니라 함수로 붙이는 까닭: 정책은 쿠키가 없어 난 403에도 1년 immutable 을 붙인다(10-19 apply 뒤 확인). 쿠키가 늦게 실리거나
+# 만료된 순간의 403 을 브라우저가 1년 캐시하면 그 기기에서 사진이 계속 깨진다 → 성공 응답에만 붙이고 나머지는 no-store.
+resource "aws_cloudfront_function" "cache_header" {
+  name    = "${local.name}-cache-header"
+  runtime = "cloudfront-js-2.0"
+  comment = "미리보기 성공 응답만 1년 immutable(#336)"
+  publish = true
+  code    = <<-EOT
+    function handler(event) {
+      var response = event.response;
+      var ok = response.statusCode === 200 || response.statusCode === 304;
+      response.headers['cache-control'] = {
+        value: ok ? 'public, max-age=${var.cache_max_age_seconds}, immutable' : 'no-store'
+      };
+      return response;
     }
-  }
+  EOT
 }
 
 # dev 는 주소에 환경 접두(/d/…)가 붙는다 — 원점 키에는 없으므로 보내기 전에 뗀다.
@@ -104,16 +110,20 @@ resource "aws_cloudfront_distribution" "preview" {
   }
 
   ordered_cache_behavior {
-    path_pattern               = local.behavior_path
-    target_origin_id           = "photos"
-    viewer_protocol_policy     = "redirect-to-https"
-    allowed_methods            = ["GET", "HEAD"]
-    cached_methods             = ["GET", "HEAD"]
-    cache_policy_id            = local.caching_optimized_policy_id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.preview.id
+    path_pattern           = local.behavior_path
+    target_origin_id       = "photos"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    cache_policy_id        = local.caching_optimized_policy_id
     # JPEG 는 이미 압축돼 있어 다시 압축해도 이득이 없다.
     compress           = false
     trusted_key_groups = [aws_cloudfront_key_group.preview.id]
+
+    function_association {
+      event_type   = "viewer-response"
+      function_arn = aws_cloudfront_function.cache_header.arn
+    }
 
     dynamic "function_association" {
       for_each = aws_cloudfront_function.strip_prefix
