@@ -259,6 +259,7 @@ module "ingress" {
   # 서버는 ASG 가 스스로 등록한다(서버 저장소 #313 P1c — 옛 서버 한 대를 뗐다).
   app_port          = var.app_port
   health_check_path = var.health_check_path
+  health_check_port = tostring(var.health_check_port)
 
   # 서버 2대(ASG 가 스스로 등록)의 한 대 장애·배포 무중단 — dev(environments/dev)와 같은 값(서버 저장소 #313 ADR-0001 Q2·Q3).
   # 감지 90~95초 → 10~13초 · 새 서버 몫을 60초에 걸쳐 0에서 올림 · 빼는 서버는 진행 중 요청을 30초까지 기다림.

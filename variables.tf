@@ -42,11 +42,11 @@ variable "app_port" {
 }
 
 variable "health_check_path" {
-  # /actuator/health → /livez(서버 저장소 #313 P1b): DB 를 보지 않는 liveness. DB 가 흔들려도 서버가 함께 빠지지 않는다(dev infra #116 과 같음).
-  # 옛 서버·ASG 서버 둘 다 있는 경로다(wes #323, 운영 P2b 로 배포됨). 관리 포트 8090 으로 옮기는 것은 P2c 뒤 P1d.
+  # 관리 포트(health_check_port)의 liveness — DB 를 보지 않고, 사용자 요청과 다른 Tomcat 스레드라 CPU 가 차도 줄 서지 않는다
+  # (서버 저장소 #313 P1d, dev infra #117 과 같음). 그 전 다리: /actuator/health → 8080 /livez(P1b).
   description = "ALB 헬스체크 경로"
   type        = string
-  default     = "/livez"
+  default     = "/actuator/health/liveness"
 }
 
 variable "health_check_port" {
