@@ -55,6 +55,9 @@ module "security" {
   vpc_id           = module.network.vpc_id
   app_port         = var.app_port
   ssh_allowed_cidr = var.ssh_allowed_cidr
+
+  # ALB → 앱 관리 포트(헬스). 지금은 규칙만 더한다 — 대상 그룹 헬스를 8090 으로 바꾸는 것은 서버가 8090 을 연 뒤(서버 저장소 #313 P1b).
+  health_check_port = var.health_check_port
 }
 
 module "storage" {
@@ -199,6 +202,30 @@ module "compute" {
   bedrock_region           = var.bedrock_region
   # score_gpu 모듈의 worker_tag_name과 같은 값. 모듈 출력을 참조하면 storage → compute → score_gpu 순환이라 문자열로 맞춘다.
   score_gpu_tag_name = local.score_gpu_tag_name
+}
+
+# 공유 캐시(Valkey 1노드) — 서버 2대의 서명 URL 캐시 공유와 리더 임대(서버 저장소 #313 ADR-0002). dev(environments/dev)에서 검증한 모듈 그대로.
+# 앱은 SSM spring.data.redis.* 를 읽고, 리더·공유 캐시 플래그(app.cluster.leader.enabled · app.cache.shared.enabled)를 켜야 쓴다.
+module "cache" {
+  source = "./modules/cache"
+
+  name_prefix               = local.name_prefix
+  vpc_id                    = module.network.vpc_id
+  subnet_ids                = module.network.db_subnet_ids
+  client_security_group_ids = [module.security.ec2_security_group_id]
+  parameter_prefix          = var.parameter_prefix
+}
+
+# ASG 새 서버가 CD 없이 스스로 뜨는 데 필요한 것 — ECR wes-api · 배포 묶음 버킷 · 이미지 태그 파라미터와 그 권한(서버 저장소 #313 ADR-0001 Q7).
+# 서버 저장소 cd-prod 가 이미지를 ECR 로 복사하고 묶음·태그를 올린 뒤 서버를 바꾼다. 옛 서버도 같은 역할이라 ECR 에서 받는다.
+module "app_release" {
+  source = "./modules/app-release"
+
+  name_prefix        = local.name_prefix
+  aws_region         = var.aws_region
+  parameter_prefix   = var.parameter_prefix
+  instance_role_name = module.compute.instance_role_name
+  deploy_role_name   = module.github_actions.deploy_role_name
 }
 
 # 앱이 Bedrock을 부를 리전과 모델. 앱 기본값(application-variable.yml)은 서울 + `global.`이라, 여기서 덮지

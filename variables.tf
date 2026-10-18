@@ -47,6 +47,13 @@ variable "health_check_path" {
   default     = "/actuator/health"
 }
 
+variable "health_check_port" {
+  # 서버 저장소 #313 W5b(MANAGEMENT_SERVER_PORT)와 같아야 한다. 관리 포트는 사용자 요청과 다른 Tomcat 스레드라 CPU 가 차도 헬스가 줄 서지 않는다.
+  description = "앱 관리 포트(헬스)"
+  type        = number
+  default     = 8090
+}
+
 # --- 백오피스 내부 접근 (WES-253) ---
 
 variable "admin_subdomain" {
@@ -406,9 +413,10 @@ variable "categorize_naming_parallel" {
 }
 
 variable "embedder_reserved_concurrent_executions" {
-  description = "임베더 동시 실행 상한. wes #274 E-1·S-1: 32 → 72(dev #96과 같은 값). wes app.analysis.embed-max-in-flight 와 같은 값"
+  # 72 → 108(서버 저장소 #313 10-18 A-4b-10g2: 업로드 10개 임베딩 끝 12:12 → 8:4x, dev #118 과 같은 값). 계정 예약 합계 294 · 남는 몫 106(하한 100).
+  description = "임베더 동시 실행 상한. wes app.analysis.embed-max-in-flight 와 같은 값"
   type        = number
-  default     = 72
+  default     = 108
 }
 
 variable "analysis_failure_queue_enabled" {

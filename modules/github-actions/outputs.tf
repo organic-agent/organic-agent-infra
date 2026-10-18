@@ -3,6 +3,11 @@ output "deploy_role_arn" {
   value       = aws_iam_role.deploy.arn
 }
 
+output "deploy_role_name" {
+  description = "서버 저장소 CD 역할 이름 — 배포 묶음·ECR·ASG 권한을 붙인다(app-release · app-asg)"
+  value       = aws_iam_role.deploy.name
+}
+
 output "admin_deploy_role_arn" {
   description = "백오피스 저장소의 AWS_DEPLOY_ROLE_ARN 시크릿 값"
   value       = aws_iam_role.admin_deploy.arn
