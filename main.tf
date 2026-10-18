@@ -253,9 +253,40 @@ module "ingress" {
   zone_id           = data.aws_route53_zone.this.zone_id
   zone_name         = var.zone_name
   subdomain         = var.subdomain
+  # 옛 서버 한 대를 그대로 붙여 둔다 — ASG 두 대가 healthy 가 되면 P1c 에서 뗀다(서버 저장소 #313 넘김 = 나란히 붙였다 떼기).
   instance_id       = module.compute.instance_id
   app_port          = var.app_port
   health_check_path = var.health_check_path
+
+  # 서버 2대(ASG 가 스스로 등록)의 한 대 장애·배포 무중단 — dev(environments/dev)와 같은 값(서버 저장소 #313 ADR-0001 Q2·Q3).
+  # 감지 90~95초 → 10~13초 · 새 서버 몫을 60초에 걸쳐 0에서 올림 · 빼는 서버는 진행 중 요청을 30초까지 기다림.
+  health_check_interval        = 5
+  health_check_timeout         = 3
+  healthy_threshold            = 2
+  unhealthy_threshold          = 2
+  slow_start_seconds           = 60
+  deregistration_delay_seconds = 30
+}
+
+# 공개 API 앱 서버 2대 — 서버 저장소 #313 ADR-0001 · 10-17 결정(small on-demand 1 + spot 1, 늘리기 끔 max 2). dev 에서 검증한 모듈 그대로.
+# 처음부터 혼합으로 만든다 — 이미 있는 ASG 를 혼합으로 바꾸면 on-demand 한 대가 새 서버 준비 전에 빠진다(dev 10-18).
+# 새 서버는 user_data 가 서버 저장소 cd-prod 가 올린 배포 묶음·이미지 태그로 스스로 뜬다(wes #328). Name 태그는 옛 서버와 같은 wes-app.
+module "app_asg" {
+  source = "./modules/app-asg"
+
+  name_prefix           = local.name_prefix
+  ami_id                = module.compute.ami_id
+  instance_type         = var.instance_type
+  key_name              = module.compute.key_name
+  instance_profile_name = module.compute.instance_profile_name
+  security_group_id     = module.security.ec2_security_group_id
+  subnet_ids            = module.network.public_subnet_ids
+  target_group_arn      = module.ingress.target_group_arn
+  bundle_bucket         = module.app_release.bundle_bucket
+  image_tag_parameter   = module.app_release.image_tag_parameter
+  deploy_role_name      = module.github_actions.deploy_role_name
+
+  spot_enabled = true
 }
 
 module "monitoring" {
