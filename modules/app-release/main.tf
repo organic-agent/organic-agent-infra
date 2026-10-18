@@ -118,9 +118,11 @@ data "aws_iam_policy_document" "deploy" {
     resources = [aws_ecr_repository.api.arn]
   }
 
+  # 읽기는 직전 묶음을 백업했다가 교체가 실패하면 되돌리는 데 쓴다 — 실패한 버전이 묶음에 남으면 ASG 새 서버가 그 버전으로 뜬다
+  # (서버 저장소 #313 P2a 리뷰).
   statement {
     sid       = "WriteBundle"
-    actions   = ["s3:PutObject"]
+    actions   = ["s3:PutObject", "s3:GetObject"]
     resources = ["${aws_s3_bucket.bundle.arn}/*"]
   }
 
