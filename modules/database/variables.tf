@@ -35,6 +35,12 @@ variable "instance_class" {
   default     = "db.t4g.micro"
 }
 
+variable "shared_buffers" {
+  description = "shared_buffers(8KB 페이지 수). null이면 기본 파라미터 그룹 그대로 — 주면 전용 그룹을 만들어 고정한다(#136)"
+  type        = number
+  default     = null
+}
+
 variable "engine_version" {
   description = "PostgreSQL 엔진 버전"
   type        = string
