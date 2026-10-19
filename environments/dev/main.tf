@@ -152,6 +152,7 @@ module "database" {
   parameter_prefix           = var.parameter_prefix
   password_ssm_parameter_arn = local.db_password_parameter_arn
   password_wo_version        = var.db_password_version
+  shared_buffers             = var.db_shared_buffers
 }
 
 module "compute" {

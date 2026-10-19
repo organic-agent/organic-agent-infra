@@ -108,6 +108,12 @@ variable "db_password_version" {
   default     = 1
 }
 
+variable "db_shared_buffers" {
+  description = "dev RDS shared_buffers(8KB 페이지). 5893 = 46MB — 10-18 업로드 기준선 회차와 같은 값으로 고정해 회차끼리 비교한다(#136)"
+  type        = number
+  default     = 5893
+}
+
 # --- AI 분석 (Lambda 셋 + GPU 워커) ---
 
 variable "embedder_db_username" {

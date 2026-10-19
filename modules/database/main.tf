@@ -17,6 +17,21 @@ resource "aws_db_subnet_group" "this" {
   }
 }
 
+# shared_buffers 를 줄 때만 전용 그룹을 만든다. 기본 그룹(default.postgres16)은 메모리가 바닥나면 RDS가 값을 스스로 줄이고
+# 재부팅하면 25%(micro 180MB)로 되돌려, 같은 부하 회차를 비교할 수 없었다(#136). 값은 8KB 페이지 수이고 바꾸면 재부팅해야 먹는다.
+resource "aws_db_parameter_group" "this" {
+  count = var.shared_buffers == null ? 0 : 1
+
+  name   = "${var.name_prefix}-pg16"
+  family = "postgres16"
+
+  parameter {
+    name         = "shared_buffers"
+    value        = tostring(var.shared_buffers)
+    apply_method = "pending-reboot"
+  }
+}
+
 resource "aws_db_instance" "this" {
   identifier = "${var.name_prefix}-db"
 
@@ -44,6 +59,7 @@ resource "aws_db_instance" "this" {
   # docs/runbooks/runbook.md의 "임베딩 파이프라인" 절 참고.
   iam_database_authentication_enabled = true
 
+  parameter_group_name   = var.shared_buffers == null ? null : aws_db_parameter_group.this[0].name
   db_subnet_group_name   = aws_db_subnet_group.this.name
   vpc_security_group_ids = [var.security_group_id]
   publicly_accessible    = false
