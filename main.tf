@@ -69,6 +69,28 @@ module "storage" {
   web_origins      = local.web_origins
 }
 
+# 사진 미리보기 CDN(서버 저장소 #336 ADR-0001) — 고정 주소 + 서명 쿠키. dev(img-dev, /d/ 접두)에서 실제 웹으로 검증한 뒤 같은 모듈.
+# 운영은 접두 없음: 주소 https://img.easyselect.kr/previews/galleries/{id}/…, 쿠키 경로 /previews/galleries/{id}/.
+# 개인키는 Terraform 밖 — SSM SecureString /wes/prod/app.storage.preview-cdn.private-key(CLI). 앱이 쓰는 것은
+# app.storage.preview-cdn.enabled=true(CLI, 서버 배포 뒤)일 때뿐이다.
+module "image_cdn" {
+  source = "./modules/image-cdn"
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
+
+  name_prefix                 = local.name_prefix
+  domain_name                 = "img.${var.zone_name}"
+  zone_id                     = data.aws_route53_zone.this.zone_id
+  cookie_domain               = var.zone_name
+  bucket_id                   = module.storage.bucket_name
+  bucket_arn                  = module.storage.bucket_arn
+  bucket_regional_domain_name = module.storage.bucket_regional_domain_name
+  public_key_pem              = file("${path.module}/preview-cdn-public.pem")
+  parameter_prefix            = var.parameter_prefix
+}
+
 # 로컬 개발용 사진 버킷. 앱은 이미지 바이트를 만지지 않고 브라우저가 S3에 직접 PUT/GET 하므로
 # S3만은 로컬 대체물(MinIO 등)이 없다 — 앱의 S3 클라이언트에 엔드포인트 오버라이드가 없기도 하다.
 # 운영 버킷을 같이 쓰면 로컬 pg의 갤러리 id가 운영과 겹칠 때 `galleries/{id}/…` 키 공간이 섞이므로
