@@ -154,19 +154,6 @@ module "database" {
   password_wo_version        = var.db_password_version
 }
 
-# 앱 서버들이 함께 쓰는 캐시(Valkey 1노드) — 서버 저장소 #313 ADR-0002. 서명 URL·권한 캐시의 공유 층과 주기 작업 리더 잠금.
-# 앱은 spring.data.redis.* 를 읽고, 플래그(app.cache.shared.enabled · app.cluster.leader.enabled)를 켜야 실제로 쓴다.
-module "cache" {
-  source = "../../modules/cache"
-
-  name_prefix               = local.name_prefix
-  vpc_id                    = data.aws_vpc.shared.id
-  subnet_ids                = local.db_subnet_ids
-  client_security_group_ids = [module.security.ec2_security_group_id]
-  parameter_prefix          = var.parameter_prefix
-  apply_immediately         = true
-}
-
 module "compute" {
   source = "../../modules/compute"
 
