@@ -16,7 +16,6 @@
 | Spring 프로필 | `prod` | `dev` (서버 저장소가 추가) |
 | Lambda | `wes-embedder`·`wes-score`·`wes-categorize` | `wes-dev-embedder`·`wes-dev-score`·`wes-dev-categorize` |
 | ECR | `wes-embedder`·`wes-score`·`wes-categorize` | `wes-dev-embedder`·`wes-dev-score`·`wes-dev-categorize` |
-| 공유 캐시 | (아직 없음 — dev 검증 뒤) | `wes-dev-cache` (ElastiCache Valkey cache.t4g.micro 1노드, 서버 저장소 #313 ADR-0002) |
 | GPU 워커 | `wes-score-gpu` × 2 (2a·2c) | `wes-dev-score-gpu` × 1 (2a) |
 | 관리자 호스트 | `wes-admin` (t4g.small), `admin.easyselect.kr` | `wes-dev-admin` (t4g.small), `dev.admin.easyselect.kr` |
 | 관리자 SSM | `/wes/admin-api/prod/`, 키 `/wes/admin/tailscale-auth-key` | `/wes/admin-api/dev/`, 키 `/wes/dev-admin/tailscale-auth-key` |
@@ -55,7 +54,6 @@ dev 워커가 꺼져 있을 때 돌리고, 길게 겹쳐 쓸 거면 쿼터 증�
 | 앱 EC2 `wes-dev-app` (t4g.micro + gp3 20GB + 퍼블릭 IP) | $13.1 |
 | 관리자 EC2 `wes-dev-admin` (t4g.small + gp3 20GB + 퍼블릭 IP) | 약 $20 |
 | GPU 워커 1대 (정지 상태 gp3 30GB) | $2.8 |
-| 공유 캐시 `wes-dev-cache` (Valkey cache.t4g.micro, 시간당 $0.0192) | $14.0 |
 | ECR dev 리포지토리 (score GPU 이미지 포함 약 15~20GB) | $1.5~2 |
 | S3·SSM·CloudWatch | $1 미만 |
 
@@ -72,15 +70,6 @@ Lambda·GPU는 쓴 만큼(운영과 같은 단가). 안 쓰는 기간이 길면 
 dev 버킷 이름(`wes-dev-photos-<계정>`)은 예전 로컬 버킷 이름이다. 로컬 버킷 이름 변경(infra #75)이 운영에 apply 되어 옛 버킷이
 지워진 뒤에야 dev 스택이 그 이름으로 버킷을 만들 수 있다. 삭제 직후 같은 이름 생성이 잠시 `OperationAborted`로 실패할 수 있다 —
 몇 분 뒤 dev apply를 다시 돌린다.
-
-### # [0-1] ElastiCache 서비스 연결 역할 (계정에 한 번)
-
-`tf_apply` 롤은 정해 둔 서비스 연결 역할만 만들 수 있다(`modules/github-actions` — Image Builder·CloudWatch Events). ElastiCache는 첫
-클러스터를 만들 때 `AWSServiceRoleForElastiCache`가 필요하므로, 처음 한 번만 관리자 자격으로 만든다(운영 캐시를 만들 때도 같은 역할을 쓴다).
-
-```sh
-aws iam create-service-linked-role --aws-service-name elasticache.amazonaws.com
-```
 
 ### # [1] SSM 수동 파라미터 (`/wes/dev/` 아래)
 
