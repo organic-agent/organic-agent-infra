@@ -229,18 +229,6 @@ module "compute" {
   create_instance = false
 }
 
-# 공유 캐시(Valkey 1노드) — 서버 2대의 서명 URL 캐시 공유와 리더 임대(서버 저장소 #313 ADR-0002). dev(environments/dev)에서 검증한 모듈 그대로.
-# 앱은 SSM spring.data.redis.* 를 읽고, 리더·공유 캐시 플래그(app.cluster.leader.enabled · app.cache.shared.enabled)를 켜야 쓴다.
-module "cache" {
-  source = "./modules/cache"
-
-  name_prefix               = local.name_prefix
-  vpc_id                    = module.network.vpc_id
-  subnet_ids                = module.network.db_subnet_ids
-  client_security_group_ids = [module.security.ec2_security_group_id]
-  parameter_prefix          = var.parameter_prefix
-}
-
 # ASG 새 서버가 CD 없이 스스로 뜨는 데 필요한 것 — ECR wes-api · 배포 묶음 버킷 · 이미지 태그 파라미터와 그 권한(서버 저장소 #313 ADR-0001 Q7).
 # 서버 저장소 cd-prod 가 이미지를 ECR 로 복사하고 묶음·태그를 올린 뒤 서버를 바꾼다. 옛 서버도 같은 역할이라 ECR 에서 받는다.
 module "app_release" {
