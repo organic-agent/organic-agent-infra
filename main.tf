@@ -209,6 +209,15 @@ module "database" {
   parameter_prefix           = var.parameter_prefix
   password_ssm_parameter_arn = local.db_password_parameter_arn
   password_wo_version        = var.db_password_version
+
+  # #136 dev 실측: micro(1GB)는 업로드 10 + 사용자 200명에서 여유 83MB · 스왑 증가 · 사용자 p95 141ms → small(2GB) 스왑 0 · 47ms.
+  instance_class = var.db_instance_class
+  # 메모리의 6.25%(small ≈ 120MB). 기본 그룹(25%)은 1GB 에서 DB 를 죽였고 RDS 가 값을 스스로 바꿨다(#136).
+  shared_buffers = var.db_shared_buffers
+  # #139: 운영은 자동 백업 7일 · 삭제 보호 · 지울 때 마지막 스냅샷.
+  backup_retention_period = 7
+  deletion_protection     = true
+  skip_final_snapshot     = false
 }
 
 module "compute" {
