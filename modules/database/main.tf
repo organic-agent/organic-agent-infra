@@ -65,10 +65,12 @@ resource "aws_db_instance" "this" {
   publicly_accessible    = false
   multi_az               = false # 운영용 아님
 
-  backup_retention_period = 0     # 운영용 아님 — 날려도 되는 테스트 데이터
-  skip_final_snapshot     = true  # 운영용 아님
-  deletion_protection     = false # 운영용 아님
-  apply_immediately       = true  # 운영용 아님 — 점검 시간대 안 기다림
+  # 기본값은 dev(날려도 되는 테스트 데이터). 운영은 루트 스택이 켠다(#139).
+  backup_retention_period   = var.backup_retention_period
+  skip_final_snapshot       = var.skip_final_snapshot
+  final_snapshot_identifier = var.skip_final_snapshot ? null : "${var.name_prefix}-db-final"
+  deletion_protection       = var.deletion_protection
+  apply_immediately         = true # 점검 시간대를 안 기다린다 — 운영도 반영 시각을 머지로 정한다
 }
 
 # 앱이 SSM에서 직접 읽는 접속 정보 — 비밀 아님, RDS 생성 후 값이 확정되므로

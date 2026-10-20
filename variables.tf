@@ -193,6 +193,18 @@ variable "local_web_origins" {
   default     = ["http://localhost:3000", "http://localhost:5173"]
 }
 
+variable "db_instance_class" {
+  description = "운영 RDS 인스턴스 클래스(#136 dev 실측으로 micro → small)"
+  type        = string
+  default     = "db.t4g.small"
+}
+
+variable "db_shared_buffers" {
+  description = "운영 RDS shared_buffers — 메모리 비례식(6.25%)으로 클래스를 바꿔도 따라간다(#136)"
+  type        = string
+  default     = "{DBInstanceClassMemory/131072}"
+}
+
 variable "db_password_version" {
   description = "SSM 비밀번호 변경 후 RDS에 반영하려면 이 값을 올릴 것"
   type        = number
