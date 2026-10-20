@@ -115,9 +115,9 @@ variable "db_instance_class" {
 }
 
 variable "db_shared_buffers" {
-  description = "dev RDS shared_buffers(8KB 페이지). 5893 = 46MB — 10-18 업로드 기준선 회차와 같은 값으로 고정해 회차끼리 비교한다(#136)"
+  description = "dev RDS shared_buffers(8KB 페이지). 5893 = 46MB — 10-18 업로드 기준선 회차와 같은 값으로 고정해 회차끼리 비교한다(#136). 16384 = 128MB(small 2GB, #136 3단계): 46MB 버퍼가 빈 페이지 0 · 사용 횟수 0.2~1.6 으로 계속 교체돼, 자주 쓰는 사진·점수 페이지가 덜 밀려나는지 잰다"
   type        = number
-  default     = 5893
+  default     = 16384
 }
 
 # --- AI 분석 (Lambda 셋 + GPU 워커) ---
