@@ -108,6 +108,12 @@ variable "db_password_version" {
   default     = 1
 }
 
+variable "db_instance_class" {
+  description = "dev RDS 인스턴스 클래스. micro(1GB)는 업로드 10 + 사용자 200명 회차에서 메모리 바닥 — small(2GB)과 같은 회차로 비교한다(#136)"
+  type        = string
+  default     = "db.t4g.small"
+}
+
 variable "db_shared_buffers" {
   description = "dev RDS shared_buffers(8KB 페이지). 5893 = 46MB — 10-18 업로드 기준선 회차와 같은 값으로 고정해 회차끼리 비교한다(#136)"
   type        = number
