@@ -331,6 +331,50 @@ module "monitoring" {
   loki_retention              = var.loki_retention
 }
 
+# Grafana CloudWatch 데이터소스 — RDS·EC2·Lambda 지표를 Grafana에서 본다(서버 저장소 부하 측정 A-1102, 2026-11-02).
+# 읽기 전용 지표 권한만. 모듈이 아니라 여기 두는 까닭: modules/** 를 바꾸면 apply 워크플로가 dev 스택도 함께 apply 한다 —
+# 측정 중인 dev 구조(-var 로 바꾼 값)를 되돌리지 않게. 모듈이 역할 이름을 내보내지 않아 인스턴스에서 거꾸로 찾는다.
+data "aws_instance" "monitoring" {
+  instance_id = module.monitoring.instance_id
+}
+
+data "aws_iam_instance_profile" "monitoring" {
+  name = data.aws_instance.monitoring.iam_instance_profile
+}
+
+data "aws_iam_policy_document" "monitoring_read_cloudwatch" {
+  statement {
+    sid = "ReadMetrics"
+    actions = [
+      "cloudwatch:GetMetricData",
+      "cloudwatch:ListMetrics",
+      "cloudwatch:DescribeAlarms",
+      "cloudwatch:DescribeAlarmsForMetric",
+      "cloudwatch:DescribeAlarmHistory",
+      "cloudwatch:GetInsightRuleReport",
+    ]
+    resources = ["*"]
+  }
+
+  # 차원 값(인스턴스·함수 이름) 드롭다운용.
+  statement {
+    sid = "ReadDimensionNames"
+    actions = [
+      "ec2:DescribeInstances",
+      "ec2:DescribeTags",
+      "ec2:DescribeRegions",
+      "tag:GetResources",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "monitoring_read_cloudwatch" {
+  name   = "read-cloudwatch-metrics"
+  role   = data.aws_iam_instance_profile.monitoring.role_name
+  policy = data.aws_iam_policy_document.monitoring_read_cloudwatch.json
+}
+
 # GitHub Actions용 OIDC 롤 (서버/백오피스/AI CD + 이 저장소의 plan/apply). 장기 키 없음.
 module "github_actions" {
   source = "./modules/github-actions"
