@@ -33,3 +33,12 @@ variable "web_origins" {
     error_message = "각 오리진은 wildcard, 경로, 끝 슬래시 없는 scheme://host[:port] 형태여야 합니다."
   }
 }
+
+variable "protect_from_destroy" {
+  description = <<-EOT
+    true면 버킷을 Terraform 삭제에서 보호한다(force_destroy 끔 + prevent_destroy). 고객 사진을 담는 버킷은 true로 둔다.
+    false는 언제든 폐기하는 테스트 데이터 버킷(로컬·dev)뿐이다. 기본값이 true라 새 환경은 보호된 채로 시작한다.
+  EOT
+  type        = bool
+  default     = true
+}
