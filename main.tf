@@ -107,6 +107,9 @@ module "storage_local" {
   web_origins      = var.local_web_origins
 
   attach_app_role_policy = false
+
+  # 로컬 테스트 데이터라 지금처럼 비어 있지 않아도 지운다.
+  protect_from_destroy = false
 }
 
 # 로컬 버킷 이름 변경(wes-dev-photos → wes-local-photos). `wes-dev-photos-<계정>`은 dev 서버 환경에 넘긴다.
@@ -116,6 +119,18 @@ module "storage_local" {
 moved {
   from = module.storage_dev
   to   = module.storage_local
+}
+
+# 사진 버킷을 보호용·테스트용 두 리소스로 나누면서(#144) 주소가 바뀌었다. 버킷은 교체되지 않고 주소만 옮긴다.
+# 운영 apply가 한 번 지나가면 지워도 된다.
+moved {
+  from = module.storage.aws_s3_bucket.photos
+  to   = module.storage.aws_s3_bucket.photos_protected[0]
+}
+
+moved {
+  from = module.storage_local.aws_s3_bucket.photos
+  to   = module.storage_local.aws_s3_bucket.photos[0]
 }
 
 # AI 분석 Lambda 셋(embedder → score → categorize). 서버의 analysis 도메인이 단계마다 부른다.

@@ -5,21 +5,44 @@
 
 data "aws_caller_identity" "current" {}
 
-resource "aws_s3_bucket" "photos" {
-  # 버킷 이름은 AWS 전체에서 유일해야 한다. 계정 번호를 붙여 다른 계정과 겹치지 않게 한다.
-  bucket = "${var.name_prefix}-photos-${data.aws_caller_identity.current.account_id}"
+locals {
+  bucket_name = "${var.name_prefix}-photos-${data.aws_caller_identity.current.account_id}"
 
-  # 비어 있지 않은 버킷은 삭제를 거부한다. 이게 없으면 사진을 한 장이라도 올린 순간부터
-  # destroy가 BucketNotEmpty로 실패하고, 손으로 비우기 전에는 스택을 접을 수 없다.
-  # RDS의 skip_final_snapshot과 같은 판단이다 — 이 스택은 언제든 폐기하는 테스트 환경이다.
-  # **실제 고객 사진을 담는 순간 이 줄과 RDS 설정을 함께 뒤집어야 한다.**
+  # 아래 두 버킷 중 하나만 만들어진다. 나머지 리소스는 이 값 하나만 본다.
+  photos = one(concat(aws_s3_bucket.photos[*], aws_s3_bucket.photos_protected[*]))
+}
+
+# 테스트 데이터 버킷(로컬·dev). 언제든 폐기하는 스택이라 비어 있지 않아도 지운다.
+# 이게 없으면 사진을 한 장이라도 올린 순간부터 destroy가 BucketNotEmpty로 실패하고,
+# 손으로 비우기 전에는 스택을 접을 수 없다. RDS의 skip_final_snapshot과 같은 판단이다.
+resource "aws_s3_bucket" "photos" {
+  count = var.protect_from_destroy ? 0 : 1
+
+  # 버킷 이름은 AWS 전체에서 유일해야 한다. 계정 번호를 붙여 다른 계정과 겹치지 않게 한다.
+  bucket        = local.bucket_name
   force_destroy = true
+}
+
+# 고객 원본 버킷(운영). 결혼식 원본은 다시 받을 수 없다.
+# - force_destroy = false: 비어 있지 않으면 Terraform이 지우지 못한다.
+# - prevent_destroy: destroy나 교체가 plan에 잡히면 plan부터 실패한다.
+# lifecycle 안은 변수를 쓸 수 없어(Terraform 제약) 버킷을 두 리소스로 나눴다.
+# 객체 삭제(계정 삭제 · 휴지통 비우기의 DeleteObject)는 이 설정과 상관없이 그대로 된다.
+resource "aws_s3_bucket" "photos_protected" {
+  count = var.protect_from_destroy ? 1 : 0
+
+  bucket        = local.bucket_name
+  force_destroy = false
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # 서명 URL 말고 다른 통로를 남기지 않는다. 갤러리 사진은 결혼식 원본이라,
 # 키를 아는 사람이 URL을 조립해 받아갈 수 있으면 안 된다.
 resource "aws_s3_bucket_public_access_block" "photos" {
-  bucket                  = aws_s3_bucket.photos.id
+  bucket                  = local.photos.id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
@@ -27,7 +50,7 @@ resource "aws_s3_bucket_public_access_block" "photos" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "photos" {
-  bucket = aws_s3_bucket.photos.id
+  bucket = local.photos.id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -40,7 +63,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "photos" {
 # 업로드가 OPTIONS 요청에서 죽고, 앱 쪽 CORS 설정을 아무리 만져도 소용이 없다 —
 # 그 요청 경로에 앱이 아예 없다.
 resource "aws_s3_bucket_cors_configuration" "photos" {
-  bucket = aws_s3_bucket.photos.id
+  bucket = local.photos.id
 
   cors_rule {
     allowed_origins = var.web_origins
@@ -63,7 +86,7 @@ resource "aws_s3_bucket_cors_configuration" "photos" {
 # 업로드 URL만 받고 실제로 올리지 않은 사진은 S3에 객체가 없다. 반대로 올리다 끊긴
 # 멀티파트 조각은 보이지 않는 채로 과금된다. 7일이면 어떤 업로드 세션보다 길다.
 resource "aws_s3_bucket_lifecycle_configuration" "photos" {
-  bucket = aws_s3_bucket.photos.id
+  bucket = local.photos.id
 
   rule {
     id     = "abort-incomplete-multipart-uploads"
@@ -92,13 +115,13 @@ data "aws_iam_policy_document" "app_photos" {
       "s3:PutObject",
       "s3:DeleteObject",
     ]
-    resources = ["${aws_s3_bucket.photos.arn}/*"]
+    resources = ["${local.photos.arn}/*"]
   }
 
   statement {
     sid       = "PhotoBucket"
     actions   = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.photos.arn]
+    resources = [local.photos.arn]
   }
 }
 
@@ -118,5 +141,5 @@ resource "aws_iam_role_policy" "app_photos" {
 resource "aws_ssm_parameter" "photo_bucket" {
   name  = "${var.parameter_prefix}/app.storage.bucket"
   type  = "String"
-  value = aws_s3_bucket.photos.bucket
+  value = local.photos.bucket
 }

@@ -116,6 +116,15 @@ module "storage" {
   app_role_name    = module.compute.instance_role_name
   # 백오피스도 브라우저에서 버킷에 직접 올린다(운영 루트의 web_origins와 같은 이유).
   web_origins = distinct(concat(local.public_web_origins, [local.admin_web_origin]))
+
+  # dev는 테스트 데이터라 지금처럼 비어 있지 않아도 지운다.
+  protect_from_destroy = false
+}
+
+# 사진 버킷을 두 리소스로 나누면서(#144) 주소가 바뀌었다. 버킷은 교체되지 않는다. dev apply가 한 번 지나가면 지워도 된다.
+moved {
+  from = module.storage.aws_s3_bucket.photos
+  to   = module.storage.aws_s3_bucket.photos[0]
 }
 
 # 사진 미리보기 CDN(서버 #336 ADR-0001) — 고정 주소 + 서명 쿠키. dev 를 먼저 켜서 실제 웹·휴대폰·카카오톡으로 확인한 뒤 운영에 같은 모듈.
